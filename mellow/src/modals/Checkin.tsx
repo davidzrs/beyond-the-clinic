@@ -138,7 +138,7 @@ export function PlanCalendar() {
             <View key={j} style={st.row}>
               <View style={st.ico}><Icon name="clipboard" size={22} /></View>
               <View style={{ flex: 1 }}><Text style={st.rowT}>Your 2-week check-in</Text><T muted style={{ fontSize: 13 }}>9 questions · builds your next plan</T></View>
-              {sel <= today ? <Btn label="Start" sm onPress={() => S.setModal({ type: 'phq' })} /> : null}
+              {S.checkinDue ? <Btn label="Start" sm onPress={() => S.setModal({ type: 'phq' })} /> : <Text style={st.soon}>{'Opens in ' + S.checkinIn + (S.checkinIn === 1 ? ' day' : ' days')}</Text>}
             </View>
           ) : (
             <View key={j} style={[st.row, done && { backgroundColor: C.greenSoft }]}>
@@ -164,6 +164,7 @@ export function PlanCalendar() {
 }
 
 const st = themed(() => StyleSheet.create({
+  soon: { fontFamily: F.label, fontSize: 12.5, color: C.muted },
   track: { height: 6, borderRadius: 3, backgroundColor: C.night4, marginBottom: 14, overflow: 'hidden' },
   fill: { height: '100%', borderRadius: 3, backgroundColor: C.ember },
   opt: { padding: 14, borderRadius: 14, borderWidth: 1, borderColor: C.line, backgroundColor: C.night3, minHeight: 52, justifyContent: 'center' },

@@ -39,7 +39,7 @@ export default function Home() {
         <Text style={[st.title, { color: ui.color }]} numberOfLines={1}>{lvl === 'high' ? 'Early signs showing' : 'Worth watching'}</Text>
         <Text style={st.sub2} numberOfLines={2}>{moved ? 'Changed: ' + moved : 'A few things shifted from your usual.'}</Text>
       </View>
-      {lvl === 'high' ? <Btn label="Check in" sm onPress={() => S.setModal({ type: 'phq' })} /> : <Icon name="chevron" size={18} />}
+      <Icon name="chevron" size={18} />
     </Pressable>
   ) : null;
 

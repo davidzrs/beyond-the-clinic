@@ -105,7 +105,18 @@ export function ModalHost() {
   switch (m.type) {
     case 'sync': return <Sheet title="MindSync" eyebrow="With Pinehollow" onClose={close}><SyncGame members={S.members} onShare={(t) => { S.finishAct('sync', 'MindSync', 'sync'); close(); S.openChat(t); }} /></Sheet>;
     case 'breathe': return <BreatheScreen onClose={(breaths) => { if (breaths > 0) { if (m.quest) S.doQuest(m.quest); else S.finishAct('breathe', 'Breathe with the Flame', 'flame'); } close(); }} />;
-    case 'phq': return <Sheet title="Your 2-week check-in" eyebrow="PHQ-9" onClose={close}><CheckinFlow /></Sheet>;
+    case 'phq': return (
+      <Sheet title="Your 2-week check-in" eyebrow="PHQ-9" onClose={close}>
+        {S.checkinDue ? <CheckinFlow /> : (
+          // The questions ask about the last 2 weeks, so the check-in only opens once 2 weeks have passed.
+          <View style={{ gap: 12 }}>
+            <T>{'Your next check-in opens on ' + niceDate(S.nextCheckin) + ', in ' + S.checkinIn + (S.checkinIn === 1 ? ' day' : ' days') + '.'}</T>
+            <T muted style={{ fontSize: 14 }}>The questions are about the last two weeks, so they only make sense once two weeks have passed. Your plan keeps you going until then.</T>
+            <Btn label="See my 2 weeks" kind="ghost" sm icon="calendar" onPress={() => S.setModal({ type: 'plan' })} />
+          </View>
+        )}
+      </Sheet>
+    );
     case 'report': return <Sheet title="Your check-in" eyebrow={'PHQ-9 · ' + niceDate(fromYmd(m.c.date))} onClose={close}><Report c={m.c} /></Sheet>;
     case 'plan': return <Sheet title="Your next 2 weeks" eyebrow="Your plan" onClose={close}><PlanCalendar /></Sheet>;
     case 'invite': return <Sheet title="Invite or meet others" eyebrow="Pinehollow" onClose={close}><InviteBody /></Sheet>;
