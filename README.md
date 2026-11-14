@@ -86,3 +86,35 @@ Try the prompt locally first (no deploy needed): copy `supabase/functions/.env.e
 ```bash
 node --env-file=supabase/functions/.env supabase/functions/send-message/check.ts
 ```
+
+## Crisis support and Ember's sparks
+
+Built on the moderation above.
+
+- **Crisis:** when a chat message sounds like the writer may be in danger, it is held (friends never see it, no strike)
+  and the app opens crisis resources: 112, the MIELI crisis line, the care team and a breathing exercise.
+  If the person said yes to the question shown after sign-up, the care team gets an alert in the portal
+  ("Reach out today"). The alert says only *that* it happened and when, never what was written.
+  The answer can be changed anytime under Support.
+- **Sparks:** when a campfire has been quiet for 2 days, Ember (the campfire's AI) posts a "this or that" poll
+  to get people talking. At most one a day. Ember is always labelled as an AI and only asks light questions:
+  never health, never advice, never a diagnosis.
+
+Setup, after the moderation steps above:
+
+1. Supabase SQL Editor: run `supabase/chat-care.sql`.
+2. Deploy the updated send-message and the new spark function (same `GEMINI_API_KEY` secret):
+
+```bash
+npx supabase functions deploy send-message
+```
+
+```bash
+npx supabase functions deploy campfire-spark
+```
+
+Try Ember's polls locally:
+
+```bash
+node --env-file=supabase/functions/.env supabase/functions/campfire-spark/check.ts
+```

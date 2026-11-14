@@ -94,12 +94,26 @@ function useAppState() {
       if (p) {
         setAvatarS({ ...ME_DEFAULT, ...(p.avatar || {}), name: p.name });
         setStreak({ count: p.streak_count || 0, last: p.streak_last || '' });
+        // Never answered the crisis-alert question (new account, or one made before it existed): ask now.
+        setConsent(p.crisis_consent ?? null);
+        if (p.crisis_consent == null) setModal({ type: 'consent' });
       }
       if (m) setMood(m);
       if (fire) { setCampfireId(fire.id); setCampfireName(fire.name); setMates(fire.mates); }
       setMoodLoaded(true);
     })();
   }, [uid]);
+
+  // Ember's polls: votes[messageId][userId] = 'a' | 'b' (mine is under 'me').
+  const [votes, setVotes] = useState<Record<number, Record<string, 'a' | 'b'>>>({});
+  const addVote = (v: sync.Vote) => setVotes((all) => ({ ...all, [v.message_id]: { ...all[v.message_id], [v.user_id === uid ? 'me' : v.user_id]: v.choice } }));
+  const castVote = (messageId: number, choice: 'a' | 'b') => {
+    setVotes((all) => ({ ...all, [messageId]: { ...all[messageId], me: choice } }));
+    if (uid) sync.vote(messageId, choice);
+  };
+  // Crisis alerts to the care team: null = not asked yet, then the person's answer.
+  const [consent, setConsent] = useState<boolean | null>(null);
+  const answerConsent = (yes: boolean) => { setConsent(yes); if (uid) sync.saveCrisisConsent(uid, yes); };
 
   // Signed in: the campfire chat is the real one, read from Supabase and kept live.
   const [chatPeople, setChatPeople] = useState<Record<string, { name: string; a: Avatar }>>({});
@@ -108,22 +122,30 @@ function useAppState() {
     let alive = true;
     const toMsg = (r: sync.ChatRow): Msg => {
       const d = new Date(r.created_at);
-      return { id: r.id, from: r.user_id === uid ? 'me' : r.user_id, text: r.text, time: String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') };
+      // No author = Ember, the campfire's AI.
+      return {
+        id: r.id, from: r.user_id === null ? 'ember' : r.user_id === uid ? 'me' : r.user_id, text: r.text,
+        time: String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'),
+        kind: r.kind || 'text', poll: r.poll || undefined,
+      };
     };
-    const learn = async (ids: string[]) => {
-      const people = await sync.peopleById([...new Set(ids)].filter((x) => x !== uid));
+    const learn = async (ids: (string | null)[]) => {
+      const people = await sync.peopleById([...new Set(ids)].filter((x): x is string => !!x && x !== uid));
       if (alive && people.length) setChatPeople((p) => ({ ...p, ...Object.fromEntries(people.map((m) => [m.id, { name: m.name, a: { ...ME_DEFAULT, ...(m.avatar || {}), name: m.name } as Avatar }])) }));
     };
     sync.loadMessages(campfireId).then((rows) => {
       if (!alive) return;
       setChat(rows.map(toMsg)); // an empty campfire starts empty: no made-up messages for real people
       learn(rows.map((r) => r.user_id));
+      sync.loadVotes(rows.filter((r) => r.kind === 'spark').map((r) => r.id)).then((vs) => { if (alive) vs.forEach(addVote); });
+      sync.requestSpark(campfireId); // quiet for 2 days? Ember drops a poll (it arrives below, live)
     });
     const off = sync.onMessages(campfireId, (r) => {
       setChat((c) => (c.some((x) => x.id === r.id) ? c : [...c, toMsg(r)]));
-      if (r.user_id !== uid) { learn([r.user_id]); bubble(r.user_id, r.text); }
+      if (r.user_id && r.user_id !== uid) { learn([r.user_id]); bubble(r.user_id, r.text); }
     });
-    return () => { alive = false; off(); };
+    const offVotes = sync.onVotes(addVote);
+    return () => { alive = false; off(); offVotes(); };
   }, [uid, campfireId]);
 
   useEffect(() => {
@@ -195,6 +217,8 @@ function useAppState() {
         return false;
       }
       if (r.status === 'banned') { setChatWarning(null); return false; }
+      // Sounds like a crisis: the message is held (friends don't see it) and support opens instead.
+      if (r.status === 'crisis') { setChatWarning(null); setChatDraft(''); setModal({ type: 'crisis', alerted: r.alerted }); return false; }
       setChatWarning(null);
       // Real chat: show it now under its database id; the live update for the same message is then skipped.
       const id = (r.status === 'sent' && r.id) || Date.now() + Math.random();
@@ -282,7 +306,7 @@ function useAppState() {
   const planDay = Math.max(0, dayIndex(plan));
   const checkinDue = planDay >= PLAN_DAYS - 1;
 
-  return { uid, email: session?.user.email || null, signOut, campfireId, campfireName, resetN, resetDemo, skyOverride, streak, streakCount, answerMood, showDaily, dismissDaily: () => setDailyDismissed(true), lastTab, back, backTo, checkins, saveCheckin, plan, adoptPlan, planDone, doTask, undoTask, planDay, checkinDue, route, go, avatar, setAvatar, mood, setMood, embers, coop, quests, questState, doQuest, swapQuest, actDone, finishAct, puzzleSolvedToday, puzzleCount, solvePuzzle, tutorials, tutorialsLoaded, markTutorialSeen, actLog, chat, chatPeople, sendChat, sending, strikes, chatBanned: strikes >= sync.MAX_STRIKES, chatWarning, bubbles, members, modal, setModal, toastMsg, toast, hopId, wave, talkReminder, setTalkReminder, chatDraft, setChatDraft, demoDay, setDemoDay };
+  return { uid, email: session?.user.email || null, signOut, campfireId, campfireName, resetN, resetDemo, skyOverride, streak, streakCount, answerMood, showDaily, dismissDaily: () => setDailyDismissed(true), lastTab, back, backTo, checkins, saveCheckin, plan, adoptPlan, planDone, doTask, undoTask, planDay, checkinDue, route, go, avatar, setAvatar, mood, setMood, embers, coop, quests, questState, doQuest, swapQuest, actDone, finishAct, puzzleSolvedToday, puzzleCount, solvePuzzle, tutorials, tutorialsLoaded, markTutorialSeen, actLog, chat, chatPeople, votes, castVote, consent, answerConsent, sendChat, sending, strikes, chatBanned: strikes >= sync.MAX_STRIKES, chatWarning, bubbles, members, modal, setModal, toastMsg, toast, hopId, wave, talkReminder, setTalkReminder, chatDraft, setChatDraft, demoDay, setDemoDay };
 }
 
 export type AppState = ReturnType<typeof useAppState>;

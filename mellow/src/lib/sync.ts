@@ -6,7 +6,7 @@ import type { MoodKey } from '../data';
 
 const warn = (what: string, e: unknown) => { if (e) console.warn('[supabase] ' + what, (e as any)?.message || e); };
 
-export type Profile = { id: string; name: string; avatar: Partial<Avatar> | null; streak_count: number; streak_last: string | null };
+export type Profile = { id: string; name: string; avatar: Partial<Avatar> | null; streak_count: number; streak_last: string | null; crisis_consent?: boolean | null };
 export type Mate = { id: string; name: string; avatar: Partial<Avatar> | null };
 
 // My profile; created if the sign-up trigger didn't (e.g. the account existed before the tables).
@@ -81,6 +81,7 @@ export async function myCampfire(uid: string): Promise<{ id: string; name: strin
 export type SendResult =
   | { status: 'sent'; strikes: number; id?: number }
   | { status: 'blocked' | 'banned'; strikes: number; maxStrikes?: number; reason?: string }
+  | { status: 'crisis'; strikes: number; alerted: boolean }
   | { status: 'error'; message: string };
 
 export async function sendMessage(campfireId: string, text: string): Promise<SendResult> {
@@ -96,10 +97,10 @@ export async function sendMessage(campfireId: string, text: string): Promise<Sen
 }
 
 // The campfire's real chat: the last 60 messages, oldest first.
-export type ChatRow = { id: number; user_id: string; text: string; created_at: string };
+export type ChatRow = { id: number; user_id: string | null; text: string; created_at: string; kind?: 'text' | 'spark'; poll?: { a: string; b: string } | null };
 export async function loadMessages(campfireId: string): Promise<ChatRow[]> {
   if (!supabase) return [];
-  const { data, error } = await supabase.from('messages').select('id, user_id, text, created_at').eq('campfire_id', campfireId).order('created_at', { ascending: false }).limit(60);
+  const { data, error } = await supabase.from('messages').select('id, user_id, text, created_at, kind, poll').eq('campfire_id', campfireId).order('created_at', { ascending: false }).limit(60);
   warn('load chat', error);
   return ((data || []) as ChatRow[]).reverse();
 }
@@ -127,4 +128,44 @@ export async function myStrikes(uid: string): Promise<number> {
   const { count, error } = await supabase.from('chat_strikes').select('id', { count: 'exact', head: true }).eq('user_id', uid);
   warn('load strikes', error);
   return count || 0;
+}
+
+// ---------- crisis consent ----------
+
+// "If you write something that sounds like a crisis, may we tell your care team?" (asked after sign-up)
+export async function saveCrisisConsent(uid: string, yes: boolean) {
+  if (!supabase) return;
+  const { error } = await supabase.from('profiles').update({ crisis_consent: yes }).eq('id', uid);
+  warn('save crisis consent', error);
+}
+
+// ---------- Ember's sparks (polls when the fire has been quiet) ----------
+
+// Ask for a spark. The function only adds one if the campfire really has been quiet for 2 days;
+// the new poll then arrives through onMessages like any other message.
+export async function requestSpark(campfireId: string) {
+  if (!supabase) return;
+  const { error } = await supabase.functions.invoke('campfire-spark', { body: { campfireId } });
+  warn('spark', error);
+}
+
+export type Vote = { message_id: number; user_id: string; choice: 'a' | 'b' };
+export async function loadVotes(messageIds: number[]): Promise<Vote[]> {
+  if (!supabase || !messageIds.length) return [];
+  const { data, error } = await supabase.from('spark_votes').select('message_id, user_id, choice').in('message_id', messageIds);
+  warn('load votes', error);
+  return (data || []) as Vote[];
+}
+export async function vote(messageId: number, choice: 'a' | 'b') {
+  if (!supabase) return;
+  const { error } = await supabase.from('spark_votes').upsert({ message_id: messageId, choice }, { onConflict: 'message_id,user_id' });
+  warn('vote', error);
+}
+// Live votes (RLS only lets through votes from my campfire).
+export function onVotes(onVote: (v: Vote) => void) {
+  if (!supabase) return () => {};
+  const ch = supabase.channel('spark-votes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'spark_votes' }, (p: any) => { if (p.new?.message_id) onVote(p.new as Vote); })
+    .subscribe();
+  return () => { supabase?.removeChannel(ch); };
 }
