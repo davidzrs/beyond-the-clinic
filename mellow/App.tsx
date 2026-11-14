@@ -14,6 +14,7 @@ import Campfire from './src/screens/Campfire';
 import Activities from './src/screens/Activities';
 import Journey from './src/screens/Journey';
 import Wardrobe from './src/screens/Wardrobe';
+import Clinic from './src/screens/Clinic';
 
 const NAV: [Route, string, string][] = [['home', 'Home', 'home'], ['campfire', 'Campfire', 'flame'], ['activities', 'Activities', 'play'], ['journey', 'My Journey', 'leaf']];
 const LOGO = { name: '', color: 'vanilla', face: 'happy', hat: 'none', glasses: 'none', acc: 'none', item: 'none' };
@@ -24,7 +25,7 @@ function Shell() {
   const insets = useSafeAreaInsets();
   const scroll = useRef<any>(null);
   useEffect(() => { scroll.current?.scrollTo({ y: 0, animated: false }); }, [S.route]);
-  const Screen = { home: Home, campfire: Campfire, activities: Activities, journey: Journey, wardrobe: Wardrobe }[S.route];
+  const Screen = { home: Home, campfire: Campfire, activities: Activities, journey: Journey, wardrobe: Wardrobe, clinic: Clinic }[S.route];
 
   return (
     <View style={[st.root, { paddingTop: insets.top }]}>
@@ -48,6 +49,7 @@ function Shell() {
                 <Mallow a={S.avatar} size={44} anim={false} />
                 <View style={{ flex: 1 }}><Text style={st.meN}>{S.avatar.name}</Text><Text style={st.meS}>Customize your marshmallow</Text></View>
               </Pressable>
+              <Pressable onPress={() => S.go('clinic')}><Text style={[st.help, S.route === 'clinic' && { color: C.cream }]}>Care team view (demo)</Text></Pressable>
               <Pressable onPress={() => S.setModal({ type: 'support' })}><Text style={st.help}>Need to talk to someone now?</Text></Pressable>
             </View>
           </View>

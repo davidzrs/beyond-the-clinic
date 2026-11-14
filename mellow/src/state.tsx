@@ -4,9 +4,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Avatar } from './pixel/sprites';
 import { ACTS, CHAT0, COOP_GOAL, ME_DEFAULT, Member, MEMBERS, MoodKey, Msg, QUEST_POOL, Quest, REPLIES } from './data';
 
-export type Route = 'home' | 'campfire' | 'activities' | 'journey' | 'wardrobe';
+export type Route = 'home' | 'campfire' | 'activities' | 'journey' | 'wardrobe' | 'clinic';
 export type ModalState = null | { type: string; [k: string]: any };
-const ROUTES: Route[] = ['home', 'campfire', 'activities', 'journey', 'wardrobe'];
+const ROUTES: Route[] = ['home', 'campfire', 'activities', 'journey', 'wardrobe', 'clinic'];
 
 function nowTime() { const d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
 function readHash(): Route { if (Platform.OS !== 'web') return 'home'; const h = (window.location.hash || '').replace('#', '') as Route; return ROUTES.includes(h) ? h : 'home'; }
@@ -28,6 +28,7 @@ function useAppState() {
   const [hopId, setHop] = useState<string | null>(null);
   const [talkReminder, setTalkReminder] = useState(false);
   const [chatDraft, setChatDraft] = useState('');
+  const [demoDay, setDemoDay] = useState(90); // which of Sam's 90 synthetic days My Journey shows
   const toastT = useRef<any>(null);
 
   useEffect(() => {
@@ -80,7 +81,7 @@ function useAppState() {
   const finishAct = (id: string, title: string, icon: string) => { if (!actDone[id]) { setActDone((s) => ({ ...s, [id]: true })); gainEmbers(2, title, icon); } };
   const wave = (m: Member) => { setHop(m.id); setTimeout(() => setHop(null), 800); toast('You waved at ' + m.name + '.'); setTimeout(() => bubble(m.id, '*waves back*'), 900); };
 
-  return { route, go, avatar, setAvatar, mood, setMood, embers, coop, quests, questState, doQuest, swapQuest, actDone, doActivity, finishAct, actLog, chat, sendChat, bubbles, members, modal, setModal, toastMsg, toast, hopId, wave, talkReminder, setTalkReminder, chatDraft, setChatDraft };
+  return { route, go, avatar, setAvatar, mood, setMood, embers, coop, quests, questState, doQuest, swapQuest, actDone, doActivity, finishAct, actLog, chat, sendChat, bubbles, members, modal, setModal, toastMsg, toast, hopId, wave, talkReminder, setTalkReminder, chatDraft, setChatDraft, demoDay, setDemoDay };
 }
 
 export type AppState = ReturnType<typeof useAppState>;
