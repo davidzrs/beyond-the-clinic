@@ -26,7 +26,8 @@ export function severity(score: number) {
 }
 export function needsSupport(a: number[]) { return (a[8] || 0) >= 1; }
 
-export type PlanTask = { t: string; icon: string; dur: string; area: string; act?: string; retake?: boolean };
+// alt: a gentler way to do the same step on days when going out is hard.
+export type PlanTask = { t: string; icon: string; dur: string; area: string; act?: string; retake?: boolean; alt?: string };
 type Area = { item: number; area: string; icon: string; basis: string; tasks: PlanTask[] };
 
 // One area per PHQ-9 question (except question 9, which always goes to real support, never self-help).
@@ -41,7 +42,7 @@ export const AREAS: Area[] = [
     { t: 'Get up at the same time as yesterday', icon: 'sky', dur: 'Morning', area: 'Sleep' },
     { t: 'Phone away after 23:00', icon: 'moon', dur: 'Tonight', area: 'Sleep' }] },
   { item: 3, area: 'Energy', icon: 'walk', basis: 'Exercise for depression', tasks: [
-    { t: 'Take a 10-minute walk outside', icon: 'walk', dur: '10 min', area: 'Energy' },
+    { t: 'Take a walk somewhere green, or by the water', icon: 'forest', dur: '15 min', area: 'Energy', alt: 'Hard to go out? A forest or sea video, or VR, counts too.' },
     { t: 'Five minutes of gentle stretching', icon: 'leaf', dur: '5 min', area: 'Energy' }] },
   { item: 4, area: 'Appetite', icon: 'drink', basis: 'Regular, balanced meals', tasks: [
     { t: 'Eat lunch at a set time', icon: 'drink', dur: 'Midday', area: 'Appetite' },
@@ -84,7 +85,7 @@ const KEEP_UP: PlanTask[] = [
   { t: 'Write down 3 good things from today', icon: 'note', dur: '3 min', area: KEEP_UP_AREA },
   { t: 'Stretch for 5 minutes', icon: 'leaf', dur: '5 min', area: KEEP_UP_AREA },
   { t: 'Get 5 minutes of sunlight', icon: 'sun', dur: '5 min', area: KEEP_UP_AREA },
-  { t: 'Step outside for a short walk', icon: 'walk', dur: '10 min', area: KEEP_UP_AREA },
+  { t: 'Spend time in a forest or by the sea', icon: 'forest', dur: '20 min', area: KEEP_UP_AREA, alt: 'Hard to go out? A forest or sea video, or VR, counts too.' },
   { t: 'Breathe with the flame', icon: 'flame', dur: '3 min', area: KEEP_UP_AREA, act: 'breathe' },
 ];
 // The n-th anchor, skipping any whose text is already on that day.
