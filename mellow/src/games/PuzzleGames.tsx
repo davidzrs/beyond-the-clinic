@@ -6,7 +6,9 @@ import { Icon } from '../components/Pixel';
 import { lockPageScroll } from '../scrollLock';
 import { useLayout } from '../layout';
 import { HOTEL, PICS, SIGHT } from './puzzles';
-import { blocked, clueText, FURN, GUESTS, Hint, hotelNext, lineClue, nonoHint, ROOMS, sightHint, sightSeen, thief } from './engines';
+import { ClueLine, TermPopup } from './ClueTerms';
+import type { Term } from './engines';
+import { blocked, clueParts, FURN, GUESTS, Hint, hotelNext, lineClue, nonoHint, ROOMS, sightHint, sightSeen, thief } from './engines';
 
 // One puzzle a day: everyone gets the same one, and it grows a little through the week (Monday small, weekend big).
 // Once solved, the puzzle stays solved for the rest of the day; a new one arrives tomorrow.
@@ -254,7 +256,7 @@ export function LineOfSight({ onDone, solved }: { onDone: () => void; solved?: b
 
 // ---------- Hotel Mystery ----------
 // Same flow as Murdoku-style puzzles: pick a guest; a quick tap jots their initial as a small note,
-// press and hold places them (big letter), which crosses out their row and column and locks the square.
+// press and hold places them (a solid token with their initial), which crosses out their row and column and locks the square.
 // Drag paints notes. Tools: ✕ (mark impossible), eraser (tap a square to clear it, hold the button to clear all), undo.
 type HState = { pos: number[]; notes: number[][]; xm: boolean[]; xa: number[] };
 type Tool = 'note' | 'x' | 'erase';
@@ -274,6 +276,7 @@ export function HotelMystery({ onDone, solved }: { onDone: () => void; solved?: 
   const [sel, setSel] = useState(0);
   const selRef = useRef(0); selRef.current = sel;
   const [why, setWhy] = useState<{ text: string; cell: number; clues: number[] } | null>(null);
+  const [term, setTerm] = useState<Term | null>(null);
   const [won, setWon] = useState(false);
   const wonRef = useRef(false);
   const press = useRef<null | { c: number; alt: boolean; moved: boolean; done: boolean; timer: any; paint?: (k: number) => void }>(null);
@@ -393,6 +396,8 @@ export function HotelMystery({ onDone, solved }: { onDone: () => void; solved?: 
         const g = who >= 0 ? GUESTS[P.people[who]] : null;
         const showX = !g && !blocked(P, c) && isX(S, c) && !won;
         const notes = !g && !showX && !won ? S.notes[c] : [];
+        // On a square with furniture, the letters get an outline in the room's colour so they read over the emoji.
+        const halo = o ? { textShadowColor: night ? r.colorN : r.color, textShadowRadius: Math.max(3, u * 0.07), textShadowOffset: { width: 0, height: 0 } } : null;
         // Notes sit in the middle like a placed letter, just smaller; several notes share the space.
         const noteSize = u * (notes.length <= 1 ? 0.38 : notes.length === 2 ? 0.3 : notes.length <= 4 ? 0.24 : 0.19);
         return (
@@ -400,14 +405,24 @@ export function HotelMystery({ onDone, solved }: { onDone: () => void; solved?: 
             style={[gs.room, { left: x * u, top: y * u, width: u, height: u, backgroundColor: night ? r.colorN : r.color,
               borderRightWidth: x < n - 1 && P.area[c + 1] !== P.area[c] ? 2.5 : 0.5, borderBottomWidth: y < n - 1 && P.area[c + n] !== P.area[c] ? 2.5 : 0.5 }]}>
             {first ? <Text style={[gs.roomT, { fontSize: Math.max(9, u * 0.15) }]} numberOfLines={1}>{r.label}</Text> : null}
-            {o ? <Text style={g || showX || notes.length ? [gs.furnSmall, { fontSize: u * 0.24 }] : { fontSize: u * 0.42 }}>{FURN[o].e}</Text> : null}
-            {g ? <Animated.Text style={[gs.big, { fontSize: u * 0.56, color: g.color }, bad && { color: C.rose }, won && who === t && { textDecorationLine: 'underline' }, who === sel && !won && { transform: [{ scale: pulseScale }] }]}>{g.ini}</Animated.Text>
-              : showX ? <Text style={[gs.x, { fontSize: u * 0.36 }]}>✕</Text>
+            {/* The furniture keeps its size. A guest's token sits on top of it; small notes or ✕ fade it so they stay readable. */}
+            {o ? <View style={[gs.furn, (showX || notes.length > 0) && { opacity: 0.4 }]}><Text style={{ fontSize: u * 0.52 }}>{FURN[o].e}</Text></View> : null}
+            {g ? (
+              // A placed guest is a pawn in their colour (round head, bell-shaped body with the initial),
+              // standing on the furniture like a game piece.
+              <Animated.View style={[gs.pawn, who === sel && !won && { transform: [{ scale: pulseScale }] }]}>
+                <View style={[gs.pawnHead, { width: u * 0.22, height: u * 0.22, marginBottom: -u * 0.04, backgroundColor: bad ? C.rose : g.color }]} />
+                <View style={[gs.pawnBody, { width: u * 0.44, height: u * 0.36, borderTopLeftRadius: u * 0.2, borderTopRightRadius: u * 0.2, borderBottomLeftRadius: u * 0.06, borderBottomRightRadius: u * 0.06, backgroundColor: bad ? C.rose : g.color }]}>
+                  <Text style={[gs.guestT, { fontSize: u * 0.23, lineHeight: u * 0.3 }, won && who === t && { textDecorationLine: 'underline' }]}>{g.ini}</Text>
+                </View>
+              </Animated.View>
+            )
+              : showX ? <Text style={[gs.x, { fontSize: u * 0.36 }, halo]}>✕</Text>
               : notes.length ? (
                 <View style={[gs.notes, { width: u * 0.86 }]}>
                   {notes.map((v) => {
                     const q = GUESTS[P.people[v]];
-                    return <Animated.Text key={v} style={[gs.note, { fontSize: noteSize, lineHeight: noteSize * 1.15, color: q.color }, v === sel && { transform: [{ scale: pulseScale }] }]}>{q.ini}</Animated.Text>;
+                    return <Animated.Text key={v} style={[gs.note, { fontSize: noteSize, lineHeight: noteSize * 1.15, color: q.color }, halo, v === sel && { transform: [{ scale: pulseScale }] }]}>{q.ini}</Animated.Text>;
                   })}
                 </View>
               ) : null}
@@ -435,7 +450,7 @@ export function HotelMystery({ onDone, solved }: { onDone: () => void; solved?: 
               {placed ? <Icon name="check" size={18} /> : null}
             </View>
             {mine.length ? mine.map(([c, i]) => (
-              <T key={i} style={[{ fontSize: 13.5, lineHeight: 19 }, why?.clues.includes(i) && { fontFamily: F.bodyBold, color: C.emberHi }]}>{clueText(P, c)}</T>
+              <ClueLine key={i} parts={clueParts(P, c)} onTerm={setTerm} style={[{ fontSize: 13.5, lineHeight: 19 }, why?.clues.includes(i) && { fontFamily: F.bodyBold, color: C.emberHi }]} />
             )) : <T muted style={{ fontSize: 13 }}>No clue about {g.name}. Work it out from the others.</T>}
           </Pressable>
         );
@@ -471,6 +486,7 @@ export function HotelMystery({ onDone, solved }: { onDone: () => void; solved?: 
           {cards}
         </View>
       )}
+      {term ? <TermPopup P={P} term={term} onClose={() => setTerm(null)} /> : null}
     </View>
   );
 }
@@ -488,14 +504,16 @@ const gs = themed(() => StyleSheet.create({
   numT: { fontFamily: F.displayBold, color: C.white },
   room: { position: 'absolute', alignItems: 'center', justifyContent: 'center', borderColor: C.lineHi },
   roomT: { position: 'absolute', left: 4, top: 2, fontFamily: F.label, color: C.creamDim },
-  furnSmall: { position: 'absolute', right: 3, bottom: 1 },
+  furn: { position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
   guest: { alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: C.white },
   guestT: { fontFamily: F.displayBold, color: C.white },
+  pawn: { alignItems: 'center' },
+  pawnHead: { borderRadius: 999, borderWidth: 1.5, borderColor: C.white, zIndex: 1 },
+  pawnBody: { alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: C.white },
   guests: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 14 },
   gchip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, borderWidth: 1, borderColor: C.line, backgroundColor: C.night2, paddingLeft: 10, paddingRight: 12, paddingVertical: 6 },
   gchipOn: { borderColor: C.ember, backgroundColor: C.night4 },
   gletter: { fontFamily: F.displayBold, fontSize: 17, color: C.cream, minWidth: 14, textAlign: 'center' },
-  big: { fontFamily: F.displayBold, color: C.cream },
   notes: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', columnGap: 4 },
   note: { fontFamily: F.displayBold, textAlign: 'center' },
   toolWide: { alignSelf: 'stretch' },

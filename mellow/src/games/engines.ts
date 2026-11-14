@@ -1,6 +1,6 @@
 // Deduction engines for the three daily puzzles. Each hint is a step that follows from the rules,
 // with a plain-language reason, so a hint teaches the move instead of just revealing it.
-import { HotelPuzzle } from './puzzles';
+import type { HotelClue, HotelPuzzle } from './puzzles';
 
 export type Hint = { cell: number; value: number; why: string; line?: { axis: 'row' | 'col'; i: number }; clues?: number[] };
 const D4 = [[0, -1], [1, 0], [0, 1], [-1, 0]];
@@ -144,31 +144,57 @@ export const ROOMS = [
   { name: 'study', label: 'Study', color: '#FBF2C9', colorN: '#3A3622' },
 ];
 // b: furniture that fills the square (nobody stands there). Keys match the generated data.
-export const FURN: Record<string, { e: string; b: boolean; next?: string; on?: string }> = {
-  cofre: { e: '🔐', b: true, next: 'the safe' },
-  planta: { e: '🪴', b: true, next: 'a plant' },
-  estante: { e: '📚', b: true, next: 'a bookcase' },
-  lareira: { e: '🔥', b: true, next: 'a fireplace' },
-  poltrona: { e: '🛋️', b: false, on: 'sitting in an armchair' },
-  cadeira: { e: '🪑', b: false, on: 'sitting on a chair' },
-  piano: { e: '🎹', b: false, on: 'sitting at the piano' },
+export const FURN: Record<string, { e: string; name: string; b: boolean; next?: string; on?: string }> = {
+  cofre: { e: '🔐', name: 'Safe', b: true, next: 'the safe' },
+  planta: { e: '🪴', name: 'Plant', b: true, next: 'a plant' },
+  estante: { e: '📚', name: 'Bookcase', b: true, next: 'a bookcase' },
+  lareira: { e: '🔥', name: 'Fireplace', b: true, next: 'a fireplace' },
+  poltrona: { e: '🛋️', name: 'Armchair', b: false, on: 'sitting in an armchair' },
+  cadeira: { e: '🪑', name: 'Chair', b: false, on: 'sitting on a chair' },
+  piano: { e: '🎹', name: 'Piano', b: false, on: 'sitting at the piano' },
 };
 const guest = (P: HotelPuzzle, x: number) => GUESTS[P.people[x]].name;
 export const blocked = (P: HotelPuzzle, c: number) => !!(P.obj[c] && FURN[P.obj[c]].b);
-export function clueText(P: HotelPuzzle, c: HotelPuzzle['clues'][number]) {
-  const p = guest(P, c.p);
-  switch (c.t) {
-    case 'in': return `${p} is in the ${ROOMS[c.a!].name}.`;
-    case 'notin': return `${p} is not in the ${ROOMS[c.a!].name}.`;
-    case 'on': return `${p} is ${FURN[c.o!].on}.`;
-    case 'next': return `${p} is next to ${FURN[c.o!].next}.`;
-    case 'row': return `${p} is in the ${ORD[c.r!]} row.`;
-    case 'left': return `${p} is further left than ${guest(P, c.q!)}.`;
-    case 'above': return `${p} is higher up than ${guest(P, c.q!)}.`;
-  }
-  return '';
+
+// Compass directions between two guests. "Leo is northeast of Nora": Leo is in a row above Nora's
+// AND a column to the right of hers, at any distance. North alone says nothing about the column.
+// dr/dc: sign the row/column difference (Leo minus Nora) must have; 0 = no condition.
+export const DIRS: Record<string, { word: string; dr: number; dc: number }> = {
+  N: { word: 'north', dr: -1, dc: 0 }, S: { word: 'south', dr: 1, dc: 0 },
+  E: { word: 'east', dr: 0, dc: 1 }, W: { word: 'west', dr: 0, dc: -1 },
+  NE: { word: 'northeast', dr: -1, dc: 1 }, NW: { word: 'northwest', dr: -1, dc: -1 },
+  SE: { word: 'southeast', dr: 1, dc: 1 }, SW: { word: 'southwest', dr: 1, dc: -1 },
+};
+// Is square a in direction d from square b?
+export function dirOK(n: number, d: string, a: number, b: number) {
+  const { dr, dc } = DIRS[d], r = Math.sign(Math.floor(a / n) - Math.floor(b / n)), c = Math.sign((a % n) - (b % n));
+  return (!dr || r === dr) && (!dc || c === dc);
 }
-function unaryOK(P: HotelPuzzle, c: HotelPuzzle['clues'][number], x: number, cell: number) {
+
+// A clue as pieces of text; `term` pieces are words a player might not be sure about, shown
+// underlined and explained in a pop-up when tapped (see ClueTerms.tsx).
+export type Term =
+  | { k: 'dir'; d: string; p: number; q: number }
+  | { k: 'next'; o: string }
+  | { k: 'furn'; o: string }
+  | { k: 'room'; a: number }
+  | { k: 'row'; r: number };
+export type CluePart = string | { text: string; term: Term };
+export function clueParts(P: HotelPuzzle, c: HotelClue): CluePart[] {
+  const p = guest(P, c.p);
+  const room = (a: number): CluePart => ({ text: `the ${ROOMS[a].name}`, term: { k: 'room', a } });
+  switch (c.t) {
+    case 'in': return [`${p} is in `, room(c.a!), '.'];
+    case 'notin': return [`${p} is not in `, room(c.a!), '.'];
+    case 'on': return [`${p} is `, { text: FURN[c.o!].on!, term: { k: 'furn', o: c.o! } }, '.'];
+    case 'next': return [`${p} is `, { text: 'next to', term: { k: 'next', o: c.o! } }, ' ', { text: FURN[c.o!].next!, term: { k: 'furn', o: c.o! } }, '.'];
+    case 'row': return [`${p} is in `, { text: `the ${ORD[c.r!]} row`, term: { k: 'row', r: c.r! } }, '.'];
+    case 'dir': return [`${p} is `, { text: DIRS[c.d!].word, term: { k: 'dir', d: c.d!, p: c.p, q: c.q! } }, ` of ${guest(P, c.q!)}.`];
+  }
+  return [];
+}
+export const clueText = (P: HotelPuzzle, c: HotelClue) => clueParts(P, c).map((x) => (typeof x === 'string' ? x : x.text)).join('');
+function unaryOK(P: HotelPuzzle, c: HotelClue, x: number, cell: number) {
   if (c.p !== x) return true;
   switch (c.t) {
     case 'in': return P.area[cell] === c.a;
@@ -182,11 +208,9 @@ function unaryOK(P: HotelPuzzle, c: HotelPuzzle['clues'][number], x: number, cel
 const cellOK = (P: HotelPuzzle, x: number, cell: number) => !blocked(P, cell) && P.clues.every((c) => unaryOK(P, c, x, cell));
 function pairsOK(P: HotelPuzzle, pos: number[]) {
   for (const c of P.clues) {
-    if (c.t !== 'left' && c.t !== 'above') continue;
+    if (c.t !== 'dir') continue;
     const a = pos[c.p], b = pos[c.q!];
-    if (a < 0 || b < 0) continue;
-    if (c.t === 'left' && !(a % P.n < b % P.n)) return false;
-    if (c.t === 'above' && !(Math.floor(a / P.n) < Math.floor(b / P.n))) return false;
+    if (a >= 0 && b >= 0 && !dirOK(P.n, c.d!, a, b)) return false;
   }
   return true;
 }
@@ -206,11 +230,13 @@ export function hotelNext(P: HotelPuzzle, pos: number[]): { x: number; cell: num
   for (let changed = true, guard = 0; changed && guard < 50; guard++) {
     changed = false;
     const keep = (x: number, f: (k: number) => boolean) => { const b = cand[x].length; cand[x] = cand[x].filter(f); if (cand[x].length !== b) changed = true; };
-    for (const c of P.clues) if ((c.t === 'left' || c.t === 'above') && pos[c.p] < 0 && pos[c.q!] < 0) {
-      const f = c.t === 'left' ? Cc : R;
-      if (!cand[c.p].length || !cand[c.q!].length) break;
-      const maxQ = Math.max(...cand[c.q!].map(f)), minP = Math.min(...cand[c.p].map(f));
-      keep(c.p, (k) => f(k) < maxQ); keep(c.q!, (k) => f(k) > minP);
+    // A direction clue between two unplaced guests: keep a square only if the other guest still has
+    // a square that fits it (in the right direction, and not in the same row or column).
+    for (const c of P.clues) if (c.t === 'dir' && pos[c.p] < 0 && pos[c.q!] < 0) {
+      const p = c.p, q = c.q!, d = c.d!;
+      const fits = (a: number, b: number) => dirOK(n, d, a, b) && R(a) !== R(b) && Cc(a) !== Cc(b);
+      keep(p, (k) => cand[q].some((j) => fits(k, j)));
+      keep(q, (j) => cand[p].some((k) => fits(k, j)));
     }
     for (const [f, used] of [[R, rowUsed], [Cc, colUsed]] as const) for (let line = 0; line < n; line++) {
       if (used.has(line)) continue;
@@ -237,6 +263,7 @@ export function hotelNext(P: HotelPuzzle, pos: number[]): { x: number; cell: num
   }
   return null;
 }
+export const ORDINAL = ORD;
 export const thief = (P: HotelPuzzle) => P.sol.findIndex((c) => P.area[c] === P.area[P.cake]);
 
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1);

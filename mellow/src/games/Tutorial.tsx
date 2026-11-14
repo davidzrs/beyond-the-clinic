@@ -10,7 +10,7 @@ import { GUESTS, ROOMS } from './engines';
 // Each step has a tiny example board drawn with the same colours as the real game.
 
 // ---------- tiny example boards ----------
-type Cell = { k?: 'fill' | 'x' | 'ray' | 'num' | 'big' | 'note' | 'emoji'; t?: string; c?: string; bg?: string };
+export type Cell = { k?: 'fill' | 'x' | 'ray' | 'num' | 'big' | 'note' | 'emoji'; t?: string; c?: string; bg?: string; bd?: string };
 const E: Cell = {}, Fi: Cell = { k: 'fill' }, X: Cell = { k: 'x' }, R: Cell = { k: 'ray' };
 const num = (t: string): Cell => ({ k: 'num', t });
 const guest = (i: number, big = true, bg?: string): Cell => ({ k: big ? 'big' : 'note', t: GUESTS[i].ini, c: GUESTS[i].color, bg });
@@ -19,7 +19,7 @@ const room = (i: number) => (themeMode() === 'night' ? ROOMS[i].colorN : ROOMS[i
 function MiniCell({ c, size }: { c: Cell; size: number }) {
   const bg = c.bg ?? (c.k === 'fill' ? C.forest : c.k === 'ray' ? C.night4 : C.night3);
   return (
-    <View style={{ width: size, height: size, borderRadius: size * 0.18, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ width: size, height: size, borderRadius: size * 0.18, backgroundColor: bg, borderWidth: c.bd ? 2 : 0, borderColor: c.bd, alignItems: 'center', justifyContent: 'center' }}>
       {c.k === 'x' ? <Text style={{ color: C.muted, fontFamily: F.bodyBold, fontSize: size * 0.5 }}>✕</Text>
         : c.k === 'num' ? (
           <View style={{ width: size * 0.78, height: size * 0.78, borderRadius: size, backgroundColor: C.plum, alignItems: 'center', justifyContent: 'center' }}>
@@ -32,7 +32,7 @@ function MiniCell({ c, size }: { c: Cell; size: number }) {
     </View>
   );
 }
-function Mini({ cols, cells, size = 24, clues }: { cols: number; cells: Cell[]; size?: number; clues?: string[] }) {
+export function Mini({ cols, cells, size = 24, clues }: { cols: number; cells: Cell[]; size?: number; clues?: string[] }) {
   const rows = Math.ceil(cells.length / cols);
   return (
     <View style={{ gap: 3 }}>
