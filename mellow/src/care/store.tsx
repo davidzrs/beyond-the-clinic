@@ -3,18 +3,34 @@ import { DEMO_PATIENTS, patientFromRows, setPatients, TODAY_DAY, type MetricRow,
 import { supabase } from './supabase';
 import { exitPortal } from './exit';
 
-// ---------- tiny hash router: #/login, #/patients, #/patients/:id, #/calls ----------
+// ---------- tiny router on real paths: /care/login, /care/patients, /care/patients/:id, /care/calls, /care/report ----------
+// The care side lives under /care on the same website as the app. Pages inside it use short paths
+// ('/patients'); these helpers add and strip the /care prefix.
+export const CARE_BASE = '/care';
+export const careUrl = (path: string) => CARE_BASE + path;
+const readPath = () => {
+  const p = window.location.pathname.startsWith(CARE_BASE) ? window.location.pathname.slice(CARE_BASE.length) : '';
+  return (p && p !== '/' ? p : '/patients') + window.location.search;
+};
 export function useHashRoute() {
-  const read = () => (window.location.hash.replace(/^#/, '') || '/patients');
-  const [path, setPath] = useState(read);
+  const [path, setPath] = useState(readPath);
   useEffect(() => {
-    const on = () => setPath(read());
-    window.addEventListener('hashchange', on);
-    return () => window.removeEventListener('hashchange', on);
+    const on = () => setPath(readPath());
+    window.addEventListener('popstate', on);
+    return () => window.removeEventListener('popstate', on);
   }, []);
   return path;
 }
-export const go = (path: string) => { window.location.hash = path; window.scrollTo({ top: 0 }); };
+export const go = (path: string) => {
+  window.history.pushState(null, '', careUrl(path));
+  window.dispatchEvent(new PopStateEvent('popstate'));
+  document.querySelector('.care-root')?.scrollTo({ top: 0 });
+};
+// For <a> links: a real href (so "open in new tab" works) that navigates in place on a normal click.
+export const nav = (path: string) => ({
+  href: careUrl(path),
+  onClick: (e: { preventDefault: () => void; metaKey?: boolean; ctrlKey?: boolean }) => { if (e.metaKey || e.ctrlKey) return; e.preventDefault(); go(path); },
+});
 
 // ---------- persistence (per browser; demo only) ----------
 const load = <T,>(k: string, fallback: T): T => { try { const v = localStorage.getItem(k); return v ? (JSON.parse(v) as T) : fallback; } catch { return fallback; } };

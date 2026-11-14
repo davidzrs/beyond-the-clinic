@@ -17,7 +17,12 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null | undefined>(hasBackend ? undefined : null);
   const [guest, setGuest] = useState(!hasBackend);
   // One website, two ways in: patients get the Mellow app, care team accounts get the clinician portal.
-  const [doctor, setDoctor] = useState(() => typeof window !== 'undefined' && !!window.location?.hash?.startsWith('#/'));
+  // The care team side lives under /care (e.g. /care/login, /care/patients) on the same website.
+  const [careTeam, setCareTeam] = useState(() => Platform.OS === 'web' && typeof window !== 'undefined' && !!window.location?.pathname?.startsWith('/care'));
+  const openCareTeam = () => {
+    if (Platform.OS === 'web') window.history.pushState(null, '', '/care/login');
+    setCareTeam(true);
+  };
   const [role, setRole] = useState<string | null>(null);
   useEffect(() => {
     if (!supabase) return;
@@ -32,16 +37,16 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   }, [session?.user.id]);
   const signOut = async () => { if (supabase) await supabase.auth.signOut(); setGuest(!hasBackend); };
 
-  if (doctor) return <CarePortal />; // the portal handles its own sign-in and checks the account is care team
+  if (careTeam) return <CarePortal />; // the portal handles its own sign-in and checks the account is care team
   if (session === undefined || (session && !role)) return <View style={{ flex: 1, backgroundColor: C.night, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={C.ember} /></View>;
   if (role === 'clinician') return <CarePortal />; // a clinician who signed in on the patient form
-  if (!session && !guest) return <AuthScreen onGuest={() => setGuest(true)} onDoctor={() => setDoctor(true)} />;
+  if (!session && !guest) return <AuthScreen onGuest={() => setGuest(true)} onCareTeam={openCareTeam} />;
   return <Ctx.Provider value={{ session: session || null, guest: !session, signOut }}>{children}</Ctx.Provider>;
 }
 
 const LOGO = { name: '', color: 'vanilla', face: 'happy', hat: 'beanie', glasses: 'none', acc: 'scarf', item: 'mug' };
 
-function AuthScreen({ onGuest, onDoctor }: { onGuest: () => void; onDoctor: () => void }) {
+function AuthScreen({ onGuest, onCareTeam }: { onGuest: () => void; onCareTeam: () => void }) {
   const insets = useSafeAreaInsets();
   const [mode, setMode] = useState<'up' | 'in'>('up');
   const [name, setName] = useState('');
@@ -95,9 +100,9 @@ function AuthScreen({ onGuest, onDoctor }: { onGuest: () => void; onDoctor: () =
         </View>
 
         <Pressable onPress={onGuest} style={{ alignSelf: 'center', padding: 10 }}><Text style={st.guest}>Just looking? Try the demo</Text></Pressable>
-        <Pressable onPress={onDoctor} accessibilityRole="button" style={(p: any) => [st.doctor, (p.hovered || p.pressed) && { borderColor: C.lineHi }]}>
-          <Text style={st.doctorT}>Are you a doctor?</Text>
-          <Text style={st.doctorS}>Care team sign-in</Text>
+        <Pressable onPress={onCareTeam} accessibilityRole="button" style={(p: any) => [st.careTeam, (p.hovered || p.pressed) && { borderColor: C.lineHi }]}>
+          <Text style={st.careTeamT}>Part of a care team?</Text>
+          <Text style={st.careTeamS}>Sign in as a clinician or therapist</Text>
         </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -138,7 +143,7 @@ const st = themed(() => StyleSheet.create({
   go: { backgroundColor: C.ember, borderRadius: 999, minHeight: 50, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   goT: { fontFamily: F.bodyBold, fontSize: 16, color: C.emberInk },
   guest: { fontFamily: F.bodyBold, fontSize: 14.5, color: C.creamDim, textDecorationLine: 'underline' },
-  doctor: { alignSelf: 'center', alignItems: 'center', gap: 2, paddingVertical: 10, paddingHorizontal: 22, minHeight: 44, borderRadius: 16, borderWidth: 1, borderColor: C.line },
-  doctorT: { fontFamily: F.display, fontSize: 15, color: C.cream },
-  doctorS: { fontFamily: F.body, fontSize: 12.5, color: C.muted },
+  careTeam: { alignSelf: 'center', alignItems: 'center', gap: 2, paddingVertical: 10, paddingHorizontal: 22, minHeight: 44, borderRadius: 16, borderWidth: 1, borderColor: C.line },
+  careTeamT: { fontFamily: F.display, fontSize: 15, color: C.cream },
+  careTeamS: { fontFamily: F.body, fontSize: 12.5, color: C.muted },
 }));

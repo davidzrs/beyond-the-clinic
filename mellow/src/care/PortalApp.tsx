@@ -16,7 +16,7 @@ export default function PortalApp() {
     }
     const prevTitle = document.title;
     document.title = 'Mellow Care · Clinician portal';
-    if (!window.location.hash.startsWith('#/')) window.location.hash = '/patients';
+    if (!window.location.pathname.startsWith('/care')) window.history.replaceState(null, '', '/care/login');
     return () => { document.title = prevTitle; };
   }, []);
   // The app's root doesn't scroll on the web; the portal is a normal scrolling page, so give it its own scroller.

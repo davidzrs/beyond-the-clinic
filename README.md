@@ -3,7 +3,7 @@
 Mobile companion for staying well after depression treatment (Junction 2026 · Beyond the Clinic).
 
 - `mellow/` — the app (Expo / React Native) and the website. Patients sign in to the app; on the web,
-  "Are you a doctor?" on the sign-in page opens the clinician portal (`mellow/src/care/`)
+  "Part of a care team?" on the sign-in page (or `/care/login`) opens the clinician portal (`mellow/src/care/`)
 - `data-analysis/` — PHQ-9 dataset analysis
 - `RESEARCH.md` — the research behind our suggestions and the signals we track
 
@@ -46,7 +46,7 @@ One website for everyone. Inside `mellow/`:
 npx expo start --web
 ```
 
-Open http://localhost:8081. Patients sign in (or "Try the demo"); doctors click **"Are you a doctor?"**.
+Open http://localhost:8081. Patients sign in (or "Try the demo"); clinicians and therapists click **"Part of a care team?"** or open http://localhost:8081/care/login.
 Demo accounts (password `123123123`): `laura.aalto@pinehollow.fi` for the care team, `aino.virtanen@mellow.test`
 and the other patients for the app. More in `mellow/src/care/README.md`.
 

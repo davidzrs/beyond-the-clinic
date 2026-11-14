@@ -8,7 +8,7 @@ export function CarePortal() {
   return (
     <View style={st.wrap}>
       <Text style={st.h}>Care team portal</Text>
-      <Text style={st.p}>The clinician dashboard is made for a bigger screen. Open the Mellow website on a computer and choose “Are you a doctor?” on the sign-in page.</Text>
+      <Text style={st.p}>The clinician dashboard is made for a bigger screen. Open the Mellow website on a computer and choose “Part of a care team?” on the sign-in page.</Text>
       <Pressable onPress={exitPortal} accessibilityRole="button" style={st.btn}><Text style={st.btnT}>Back to Mellow</Text></Pressable>
     </View>
   );

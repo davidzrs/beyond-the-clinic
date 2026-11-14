@@ -3,14 +3,14 @@
 The care team's side of the Mellow website. A psychiatrist or nurse sees which post-TMS patients may need
 a call, why, and how each person's score, signals and questionnaires have moved.
 
-It is part of the Mellow app (one website): on the sign-in page, **"Are you a doctor?"** opens the care
+It is part of the Mellow app (one website): on the sign-in page, **"Part of a care team?"** (or going straight to `/care/login`) opens the care
 team sign-in, and any care team account that signs in on the normal form is sent here too. It runs on the
 web only (phones show a short note pointing to the website), and it's loaded on demand, so patients never
 download it. Signing out of the portal goes back to the Mellow sign-in.
 
 ## Run it
 
-Start the Mellow app on the web (`npx expo start --web` in `mellow/`), open it and choose "Are you a doctor?".
+Start the Mellow app on the web (`npx expo start --web` in `mellow/`), open it and choose "Part of a care team?", or go to http://localhost:8081/care/login.
 
 ## Accounts (Supabase)
 

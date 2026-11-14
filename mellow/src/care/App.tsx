@@ -1,6 +1,6 @@
 import { useEffect, type ReactNode } from 'react';
 import { byId, DAYS, fmtLong, levelOf, PATIENTS, riskAt, TODAY_DAY } from './data';
-import { go, StoreProvider, useHashRoute, useStore } from './store';
+import { go, nav, StoreProvider, useHashRoute, useStore } from './store';
 import { Icon, Logo } from './components/ui';
 import Login from './pages/Login';
 import Patients from './pages/Patients';
@@ -35,9 +35,9 @@ function Shell({ active, children }: { active: 'patients' | 'calls' | 'report'; 
     <div className="shell">
       <nav className="side">
         <Logo />
-        <a className={active === 'patients' ? 'on' : ''} href="#/patients"><Icon name="users" /> Patients {flagged > 0 && <span className="count">{flagged}</span>}</a>
-        <a className={active === 'calls' ? 'on' : ''} href="#/calls"><Icon name="phone" /> Calls {S.calls.length > 0 && <span className="count soft">{S.calls.length}</span>}</a>
-        <a className={active === 'report' ? 'on' : ''} href="#/report"><Icon name="report" /> Biweekly report</a>
+        <a className={active === 'patients' ? 'on' : ''} {...nav('/patients')}><Icon name="users" /> Patients {flagged > 0 && <span className="count">{flagged}</span>}</a>
+        <a className={active === 'calls' ? 'on' : ''} {...nav('/calls')}><Icon name="phone" /> Calls {S.calls.length > 0 && <span className="count soft">{S.calls.length}</span>}</a>
+        <a className={active === 'report' ? 'on' : ''} {...nav('/report')}><Icon name="report" /> Biweekly report</a>
         <div className="side-foot">
           <div className="me"><span className="avatar me-av">{S.user!.name.split(' ').filter((w) => !w.endsWith('.')).map((w) => w[0]).join('')}</span><div><b>{S.user!.name}</b><span>{S.user!.role}</span></div></div>
           <button className="side-btn" onClick={S.signOut}><Icon name="logout" size={16} /> Sign out</button>
