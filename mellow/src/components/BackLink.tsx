@@ -11,7 +11,7 @@ export function BackLink() {
   const S = useApp();
   return (
     <Pressable onPress={S.back} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start' }}>
-      <Icon name="back" size={18} /><Text style={{ fontFamily: F.displayMed, fontSize: 14, color: C.creamDim }}>{NAMES[S.lastTab] || 'Back'}</Text>
+      <Icon name="back" size={18} /><Text style={{ fontFamily: F.displayMed, fontSize: 14, color: C.creamDim }}>{NAMES[S.backTo] || 'Back'}</Text>
     </Pressable>
   );
 }

@@ -10,7 +10,6 @@ import { startSoundscape, Scape } from '../audio/soundscape';
 import { useLayout } from '../layout';
 import { CheckinFlow, PlanCalendar, Report } from './Checkin';
 import { fromYmd, niceDate } from '../checkin';
-import { HiddenPicture, HotelMystery, LineOfSight } from '../games/PuzzleGames';
 
 function Sheet({ title, eyebrow, onClose, children }: { title: string; eyebrow?: string; onClose: () => void; children: React.ReactNode }) {
   const { width, height } = useLayout();
@@ -273,9 +272,6 @@ export function ModalHost() {
   switch (m.type) {
     case 'words': return <Sheet title="Ember Words" eyebrow="Daily game" onClose={close}><WordsGame onDone={() => S.finishAct('words', 'Ember Words', 'words')} /></Sheet>;
     case 'light': return <Sheet title="Find the Light" eyebrow="Daily game" onClose={close}><LightGame onDone={() => S.finishAct('light', 'Find the Light', 'sun')} /></Sheet>;
-    case 'nono': return <Sheet title="Hidden Picture" eyebrow="Daily puzzle" onClose={close}><HiddenPicture onDone={() => S.finishAct('nono', 'Hidden Picture', 'picture')} /></Sheet>;
-    case 'sight': return <Sheet title="Line of Sight" eyebrow="Daily puzzle" onClose={close}><LineOfSight onDone={() => S.finishAct('sight', 'Line of Sight', 'eye')} /></Sheet>;
-    case 'hotel': return <Sheet title="Hotel Mystery" eyebrow="Daily puzzle" onClose={close}><HotelMystery onDone={() => S.finishAct('hotel', 'Hotel Mystery', 'key')} /></Sheet>;
     case 'sync': return <Sheet title="MindSync" eyebrow="With Pinehollow" onClose={close}><SyncGame members={S.members} onShare={(t) => { S.sendChat(t); S.finishAct('sync', 'MindSync', 'sync'); close(); S.go('campfire'); }} /></Sheet>;
     case 'breathe': return <Sheet title="Breathe with the Flame" eyebrow="Relax" onClose={close}><Breathe onDone={() => { if (m.quest) S.doQuest(m.quest); else S.finishAct('breathe', 'Breathe with the Flame', 'flame'); close(); }} /></Sheet>;
     case 'sound': return <Sheet title={m.kind === 'sea' ? 'Sea Breeze' : 'Forest at Dusk'} eyebrow="Soundscape" onClose={close}><Soundscape kind={m.kind} /></Sheet>;

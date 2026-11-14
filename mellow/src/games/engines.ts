@@ -113,7 +113,7 @@ function sightStep(st: number[], n: number, cl: number[]): Hint | null {
 }
 export function sightHint(n: number, cl: number[], sol: number[], st0: number[]): Hint | null {
   for (let i = 0; i < n * n; i++) if (st0[i] >= 0 && !cl[i] && st0[i] !== sol[i])
-    return { cell: i, value: -1, why: `${cap(where(n, i))}: this square was ${sol[i] ? 'marked open, but it is shaded' : 'shaded, but it stays open'}. Cleared it.` };
+    return { cell: i, value: -1, why: `${cap(where(n, i))}: this square was ${sol[i] ? 'marked ✕, but it is shaded' : 'shaded, but it stays open'}. Cleared it.` };
   const st = st0.slice();
   const s = sightStep(st, n, cl); if (s) return s;
   const name = (v: number) => (v ? 'shaded' : 'open');

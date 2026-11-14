@@ -6,9 +6,9 @@ import { ACTS, CHAT0, COOP_GOAL, ME_DEFAULT, Member, MEMBERS, MoodKey, Msg, QUES
 import { addDays, buildPlan, Checkin, dayIndex, fromYmd, Plan, PlanTask, PLAN_DAYS, phqScore, ymd } from './checkin';
 import { SAM } from './demo';
 
-export type Route = 'home' | 'campfire' | 'activities' | 'journey' | 'games' | 'wardrobe' | 'clinic' | 'insights';
+export type Route = 'home' | 'campfire' | 'activities' | 'journey' | 'games' | 'nono' | 'sight' | 'hotel' | 'wardrobe' | 'clinic' | 'insights';
 export type ModalState = null | { type: string; [k: string]: any };
-const ROUTES: Route[] = ['home', 'campfire', 'activities', 'journey', 'games', 'wardrobe', 'clinic', 'insights'];
+const ROUTES: Route[] = ['home', 'campfire', 'activities', 'journey', 'games', 'nono', 'sight', 'hotel', 'wardrobe', 'clinic', 'insights'];
 export const TABS: Route[] = ['home', 'campfire', 'journey', 'games'];
 
 // Check-in history = Sam's fortnightly PHQ-9 totals from the demo data, spread over the items
@@ -144,7 +144,9 @@ function useAppState() {
   };
   const doTask = (key: string, task: PlanTask) => { saveDone({ ...planDone, [key]: true }); gainEmbers(2, task.t, task.icon); toast('Nice. +2 embers for the fire.'); };
   const undoTask = (key: string) => { const d = { ...planDone }; delete d[key]; saveDone(d); };
-  const back = () => go(lastTab);
+  // A game page always goes back to Games, even when it was opened straight from a link.
+  const backTo: Route = route === 'nono' || route === 'sight' || route === 'hotel' ? 'games' : lastTab;
+  const back = () => go(backTo);
   const answerMood = (k: MoodKey) => {
     const today = ymd(new Date());
     setMood(k); AsyncStorage.setItem('mellow.v2.mood', JSON.stringify({ date: today, key: k })).catch(() => {});
@@ -160,7 +162,7 @@ function useAppState() {
   const planDay = Math.max(0, dayIndex(plan));
   const checkinDue = planDay >= PLAN_DAYS - 1;
 
-  return { streak, streakCount, answerMood, showDaily, dismissDaily: () => setDailyDismissed(true), lastTab, back, checkins, saveCheckin, plan, adoptPlan, planDone, doTask, undoTask, planDay, checkinDue, route, go, avatar, setAvatar, mood, setMood, embers, coop, quests, questState, doQuest, swapQuest, actDone, doActivity, finishAct, actLog, chat, sendChat, bubbles, members, modal, setModal, toastMsg, toast, hopId, wave, talkReminder, setTalkReminder, chatDraft, setChatDraft, demoDay, setDemoDay };
+  return { streak, streakCount, answerMood, showDaily, dismissDaily: () => setDailyDismissed(true), lastTab, back, backTo, checkins, saveCheckin, plan, adoptPlan, planDone, doTask, undoTask, planDay, checkinDue, route, go, avatar, setAvatar, mood, setMood, embers, coop, quests, questState, doQuest, swapQuest, actDone, doActivity, finishAct, actLog, chat, sendChat, bubbles, members, modal, setModal, toastMsg, toast, hopId, wave, talkReminder, setTalkReminder, chatDraft, setChatDraft, demoDay, setDemoDay };
 }
 
 export type AppState = ReturnType<typeof useAppState>;

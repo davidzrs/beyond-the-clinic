@@ -49,7 +49,7 @@ export default function Games() {
                 <T style={{ color: C.creamDim, fontSize: 14 }}>{g.desc}</T>
                 <View style={st.foot}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><Icon name="clock" size={14} /><T muted style={{ fontSize: 13 }}>{`${n}×${n} today`}</T></View>
-                  {done ? <Text style={st.done}>Solved today</Text> : <Btn sm label="Play" onPress={() => S.setModal({ type: g.id })} />}
+                  {done ? <Text style={st.done}>Solved today</Text> : <Btn sm label="Play" onPress={() => S.go(g.id)} />}
                 </View>
               </View>
             </Panel>

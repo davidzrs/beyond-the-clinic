@@ -19,6 +19,7 @@ import Wardrobe from './src/screens/Wardrobe';
 import Clinic from './src/screens/Clinic';
 import Insights from './src/screens/Insights';
 import Games from './src/screens/Games';
+import GameScreen from './src/screens/GameScreen';
 
 // Four tabs. Activities, the wardrobe, insights and the care-team view are sub-pages with a back link.
 const NAV: [Route, string, string][] = [['home', 'Today', 'home'], ['campfire', 'Campfire', 'flame'], ['journey', 'Journey', 'leaf'], ['games', 'Games', 'play']];
@@ -39,7 +40,7 @@ function Shell() {
     return () => sub.remove();
   }, [S.route, S.lastTab]);
   const full = S.route === 'campfire'; // the campfire scene fills the screen
-  const Screen = { home: Home, campfire: Campfire, activities: Activities, journey: Journey, games: Games, wardrobe: Wardrobe, clinic: Clinic, insights: Insights }[S.route];
+  const Screen = { home: Home, campfire: Campfire, activities: Activities, journey: Journey, games: Games, nono: GameScreen, sight: GameScreen, hotel: GameScreen, wardrobe: Wardrobe, clinic: Clinic, insights: Insights }[S.route];
 
   return (
     <View style={[st.root, { paddingTop: full && !wide ? 0 : insets.top }, !wide && !full && { backgroundColor: C.navyDeep }]}>
@@ -50,7 +51,7 @@ function Shell() {
             <View style={st.brand}><Mallow a={LOGO} size={40} anim={false} /><View><Text style={st.brandT}>Mellow</Text><Text style={st.brandS}>A cozy fire for hard days</Text></View></View>
             <View style={{ gap: 6 }}>
               {NAV.map(([k, l, ic]) => {
-                const on = S.route === k || (S.lastTab === k && !NAV.some(([n]) => n === S.route));
+                const on = S.route === k || (S.backTo === k && !NAV.some(([n]) => n === S.route));
                 return (
                   <Pressable key={k} onPress={() => S.go(k)} style={(p: any) => [st.nav, on && { backgroundColor: C.night4 }, p.hovered && !on && { backgroundColor: C.night3 }]}>
                     <Icon name={ic} size={20} color={on ? C.emberHi : C.muted} /><Text style={[st.navT, on && { color: C.cream }]}>{l}</Text>
@@ -89,7 +90,7 @@ function Shell() {
           {/* Soft fade so content melts into the bar instead of stopping at a hard line */}
           {!full ? <View pointerEvents="none" style={st.fade}>{[0.15, 0.35, 0.55, 0.75, 0.9].map((o) => <View key={o} style={{ flex: 1, backgroundColor: C.night, opacity: o }} />)}</View> : null}
           {NAV.map(([k, l, ic]) => {
-            const on = S.route === k || (S.lastTab === k && !NAV.some(([n]) => n === S.route));
+            const on = S.route === k || (S.backTo === k && !NAV.some(([n]) => n === S.route));
             const fg = full ? (on ? '#FFFFFF' : 'rgba(255,255,255,.75)') : on ? C.emberHi : C.muted;
             return (
               <Pressable key={k} onPress={() => S.go(k)} style={[st.bbtn, on && (full ? st.bbtnOnOver : st.bbtnOn)]} accessibilityRole="tab" accessibilityState={{ selected: on }}>
