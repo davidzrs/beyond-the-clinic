@@ -1,2 +1,5 @@
 data/raw/
 node_modules/
+
+# Supabase function secrets (Gemini key)
+supabase/functions/.env
