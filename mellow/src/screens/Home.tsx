@@ -136,6 +136,12 @@ export default function Home() {
   // Testing only: replay the first-open streak screen and start the demo fresh.
   const reset = (
     <View style={{ gap: 6, alignItems: 'center', marginTop: 6 }}>
+      {S.email ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+          <Text style={st.resetT}>{'Signed in as ' + S.email + ' · ' + S.campfireName}</Text>
+          <LinkBtn label="Sign out" onPress={() => S.signOut()} />
+        </View>
+      ) : null}
       <Text style={st.resetT}>Testing: reset the demo and replay the streak screen</Text>
       <View style={{ flexDirection: 'row', gap: 8 }}>
         {([['day', 'Day'], ['night', 'Night']] as const).map(([k, l]) => (

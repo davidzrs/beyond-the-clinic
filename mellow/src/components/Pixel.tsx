@@ -134,10 +134,13 @@ export function CampFull({ members, bubbles, onPick, hopId }: { members: SceneMe
   const win = useWindowDimensions();
   const [box, setBox] = useState({ w: Math.round(win.width), h: Math.round(win.height) });
   // Portrait (phones): the tall scene covers the screen. Landscape (desktop web): the wide scene sits on top, ground below for the buttons.
-  const landscape = box.w > box.h * 1.05;
+  // Anything from roughly square upwards uses the wide scene (cropping its sides); only phone-like
+  // portrait areas use the tall one. Otherwise a square window would zoom the tall scene way in.
+  const landscape = box.w > box.h * 0.85;
   const L = landscape ? LAYOUTS.wide : LAYOUTS.full;
-  const k = !box.w ? 0 : landscape ? Math.min(box.w / L.W, (box.h - 140) / L.H) : Math.max(box.w / L.W, box.h / L.H);
-  const sw = L.W * k, sh = L.H * k, ox = (box.w - sw) / 2, oy = landscape ? 0 : box.h - sh;
+  // Always cover the whole area (no empty bands); keep the ground in view and crop sky or sides instead.
+  const k = !box.w ? 0 : Math.max(box.w / L.W, box.h / L.H);
+  const sw = L.W * k, sh = L.H * k, ox = (box.w - sw) / 2, oy = box.h - sh;
   return (
     <View onLayout={(e) => setBox({ w: Math.round(e.nativeEvent.layout.width), h: Math.round(e.nativeEvent.layout.height) })} style={[StyleSheet.absoluteFill, { backgroundColor: themeMode() === 'day' ? (landscape ? '#69B04E' : '#3E8EDA') : (landscape ? '#101b16' : '#0a0e22'), overflow: 'hidden' }]}>
       {k > 0 && (

@@ -5,6 +5,8 @@ import { Avatar } from './pixel/sprites';
 import { ACTS, CHAT0, COOP_GOAL, ME_DEFAULT, Member, MEMBERS, MoodKey, Msg, QUEST_POOL, Quest, REPLIES } from './data';
 import { addDays, buildPlan, Checkin, dayIndex, fromYmd, Plan, PlanTask, PLAN_DAYS, phqScore, ymd } from './checkin';
 import { SAM } from './demo';
+import { useAuth } from './auth';
+import * as sync from './lib/sync';
 
 export type Route = 'home' | 'campfire' | 'activities' | 'journey' | 'games' | 'nono' | 'sight' | 'hotel' | 'wardrobe' | 'clinic' | 'insights';
 export type ModalState = null | { type: string; [k: string]: any };
@@ -36,6 +38,11 @@ function nowTime() { const d = new Date(); return String(d.getHours()).padStart(
 function readHash(): Route { if (Platform.OS !== 'web') return 'home'; const h = (window.location.hash || '').replace('#', '') as Route; return ROUTES.includes(h) ? h : 'home'; }
 
 function useAppState() {
+  const { session, signOut } = useAuth();
+  const uid = session?.user.id || null;
+  const [campfireId, setCampfireId] = useState<string | null>(null);
+  const [campfireName, setCampfireName] = useState('Pinehollow');
+  const [mates, setMates] = useState<sync.Mate[]>([]);
   const [route, setRoute] = useState<Route>(readHash);
   const [avatar, setAvatarS] = useState<Avatar>(ME_DEFAULT);
   const [mood, setMood] = useState<MoodKey | null>(null);
@@ -68,7 +75,28 @@ function useAppState() {
   const [tutorialsLoaded, setTutorialsLoaded] = useState(false);
   const toastT = useRef<any>(null);
 
+  // Signed in: profile, streak, today's mood and campfire come from Supabase.
   useEffect(() => {
+    if (!uid) return;
+    (async () => {
+      const today = ymd(new Date());
+      const [p, m, fire] = await Promise.all([
+        sync.loadProfile(uid, (session?.user.user_metadata as any)?.name || 'Friend'),
+        sync.todaysMood(uid, today),
+        sync.myCampfire(uid),
+      ]);
+      if (p) {
+        setAvatarS({ ...ME_DEFAULT, ...(p.avatar || {}), name: p.name });
+        setStreak({ count: p.streak_count || 0, last: p.streak_last || '' });
+      }
+      if (m) setMood(m);
+      if (fire) { setCampfireId(fire.id); setCampfireName(fire.name); setMates(fire.mates); }
+      setMoodLoaded(true);
+    })();
+  }, [uid]);
+
+  useEffect(() => {
+    if (uid) return; // demo mode below keeps everything on this device
     AsyncStorage.getItem('mellow.avatar').then((v) => { if (v) { try { setAvatarS({ ...ME_DEFAULT, ...JSON.parse(v) }); } catch {} } }).catch(() => {});
     AsyncStorage.multiGet(['mellow.v2.streak', 'mellow.v2.mood']).then((r) => {
       try {
@@ -100,9 +128,18 @@ function useAppState() {
     if (TABS.includes(r)) setLastTab(r);
     if (Platform.OS === 'web' && window.location.hash !== '#' + r) window.location.hash = r;
   };
-  const setAvatar = (a: Avatar) => { setAvatarS(a); AsyncStorage.setItem('mellow.avatar', JSON.stringify(a)).catch(() => {}); };
+  const setAvatar = (a: Avatar) => {
+    setAvatarS(a); AsyncStorage.setItem('mellow.avatar', JSON.stringify(a)).catch(() => {});
+    if (uid) { const { name, ...look } = a; sync.saveProfile(uid, { name: name || 'Friend', avatar: look }); }
+  };
   const toast = (m: string) => { setToastMsg(m); clearTimeout(toastT.current); toastT.current = setTimeout(() => setToastMsg(null), 2800); };
-  const members: Member[] = MEMBERS.map((m) => (m.id === 'me' ? { id: 'me', name: avatar.name || 'You', a: avatar } : m));
+  // Seats: real campfire friends first, demo friends fill any empty seats; you always sit front-left.
+  const others: Member[] = [
+    ...mates.map((m) => ({ id: m.id, name: m.name, a: { ...ME_DEFAULT, ...(m.avatar || {}), name: m.name } as Avatar })),
+    ...MEMBERS.filter((m) => m.id !== 'me'),
+  ].slice(0, 3);
+  const me: Member = { id: 'me', name: avatar.name || 'You', a: avatar };
+  const members: Member[] = [others[0], others[1], me, others[2]];
   const bubble = (id: string, text: string) => {
     const t = text.length > 70 ? text.slice(0, 68) + '…' : text;
     setBubbles((b) => ({ ...b, [id]: t }));
@@ -114,6 +151,7 @@ function useAppState() {
   };
   const sendChat = (text: string, from = 'me') => {
     setChat((c) => [...c, { id: Date.now() + Math.random(), from, text, time: nowTime() }]);
+    if (from === 'me' && uid && campfireId) sync.sendMessage(campfireId, uid, text);
     bubble(from, text);
     if (from === 'me') {
       const who = ['juno', 'teo', 'ama'][Math.floor(Math.random() * 3)];
@@ -153,6 +191,7 @@ function useAppState() {
   const saveDone = (d: Record<string, boolean>) => { setPlanDone(d); AsyncStorage.setItem('mellow.v2.planDone', JSON.stringify(d)).catch(() => {}); };
   const saveCheckin = (answers: number[]) => {
     const c: Checkin = { date: ymd(new Date()), answers, score: phqScore(answers) };
+    if (uid) sync.savePhq9(uid, answers, c.score);
     const next = [...checkins.filter((x) => x.date !== c.date), c];
     setCheckins(next); AsyncStorage.setItem('mellow.v2.checkins', JSON.stringify(next)).catch(() => {});
     return c;
@@ -171,9 +210,11 @@ function useAppState() {
   const answerMood = (k: MoodKey) => {
     const today = ymd(new Date());
     setMood(k); AsyncStorage.setItem('mellow.v2.mood', JSON.stringify({ date: today, key: k })).catch(() => {});
+    if (uid) sync.saveMood(uid, today, k);
     if (streak.last === today) return streak.count;
     const next = { count: streak.last === ymd(addDays(new Date(), -1)) ? streak.count + 1 : 1, last: today };
     setStreak(next); AsyncStorage.setItem('mellow.v2.streak', JSON.stringify(next)).catch(() => {});
+    if (uid) sync.saveProfile(uid, { streak_count: next.count, streak_last: next.last });
     return next.count;
   };
   // Streak still counts today if you answered yesterday; it only shows as broken after a missed day.
@@ -195,7 +236,7 @@ function useAppState() {
   const planDay = Math.max(0, dayIndex(plan));
   const checkinDue = planDay >= PLAN_DAYS - 1;
 
-  return { resetN, resetDemo, skyOverride, streak, streakCount, answerMood, showDaily, dismissDaily: () => setDailyDismissed(true), lastTab, back, backTo, checkins, saveCheckin, plan, adoptPlan, planDone, doTask, undoTask, planDay, checkinDue, route, go, avatar, setAvatar, mood, setMood, embers, coop, quests, questState, doQuest, swapQuest, actDone, doActivity, finishAct, puzzleSolvedToday, puzzleCount, solvePuzzle, tutorials, tutorialsLoaded, markTutorialSeen, actLog, chat, sendChat, bubbles, members, modal, setModal, toastMsg, toast, hopId, wave, talkReminder, setTalkReminder, chatDraft, setChatDraft, demoDay, setDemoDay };
+  return { uid, email: session?.user.email || null, signOut, campfireId, campfireName, resetN, resetDemo, skyOverride, streak, streakCount, answerMood, showDaily, dismissDaily: () => setDailyDismissed(true), lastTab, back, backTo, checkins, saveCheckin, plan, adoptPlan, planDone, doTask, undoTask, planDay, checkinDue, route, go, avatar, setAvatar, mood, setMood, embers, coop, quests, questState, doQuest, swapQuest, actDone, doActivity, finishAct, puzzleSolvedToday, puzzleCount, solvePuzzle, tutorials, tutorialsLoaded, markTutorialSeen, actLog, chat, sendChat, bubbles, members, modal, setModal, toastMsg, toast, hopId, wave, talkReminder, setTalkReminder, chatDraft, setChatDraft, demoDay, setDemoDay };
 }
 
 export type AppState = ReturnType<typeof useAppState>;
