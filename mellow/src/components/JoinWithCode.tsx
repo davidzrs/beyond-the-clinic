@@ -1,7 +1,6 @@
 // Join a friend's campfire with their invite code (supabase/campfire-invites.sql).
 // Two steps: look the code up first (name and free seats, nobody's names), then join.
-// `askToLeave`: show what you'd leave behind before switching (the invite sheet). In onboarding the
-// person was only just seated at an automatic fire, so there is nothing to warn about.
+// Joining adds a fire: you keep the ones you already sit at.
 import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { useApp } from '../state';
@@ -11,7 +10,7 @@ import { Btn, T } from './ui';
 
 const SEATS = 4;
 
-export function JoinWithCode({ askToLeave, onJoined }: { askToLeave?: boolean; onJoined?: (name: string) => void }) {
+export function JoinWithCode({ onJoined }: { onJoined?: (name: string) => void }) {
   const S = useApp();
   const [code, setCode] = useState('');
   const [found, setFound] = useState<{ name: string; members: number } | null>(null);
@@ -44,6 +43,7 @@ export function JoinWithCode({ askToLeave, onJoined }: { askToLeave?: boolean; o
       onJoined?.(r.name);
     } else if (r.status === 'full') { setFound(null); setNote(r.name + ' filled up a moment ago.'); }
     else if (r.status === 'not_found') { setFound(null); setNote('No campfire has that code. Check it with your friend.'); }
+    else if (r.status === 'too_many') { setFound(null); setNote('You’re at 6 campfires already. Leave one to join another.'); }
     else setNote('Couldn’t join. Check your connection and try again.');
   };
 
@@ -60,9 +60,7 @@ export function JoinWithCode({ askToLeave, onJoined }: { askToLeave?: boolean; o
         <View style={st.card}>
           <Text style={st.name}>{found.name}</Text>
           <T muted style={{ fontSize: 14 }}>{found.members + ' of ' + SEATS + ' seats taken'}</T>
-          {askToLeave && S.campfireId ? (
-            <T style={{ fontSize: 14, color: C.creamDim }}>{'You’ll leave ' + S.campfireName + ' and its chat. Your marshmallow, streak and check-ins come with you.'}</T>
-          ) : null}
+          <T style={{ fontSize: 14, color: C.creamDim }}>You keep your other campfires.</T>
           <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
             <Btn label={busy ? 'Joining…' : 'Join ' + found.name} onPress={join} disabled={busy} />
             <Btn label="Cancel" kind="ghost" onPress={() => setFound(null)} disabled={busy} />

@@ -119,11 +119,16 @@ Try Ember's polls locally:
 node --env-file=supabase/functions/.env supabase/functions/campfire-spark/check.ts
 ```
 
-## Campfire invite codes
+## Campfires: several per person, invite codes
+
+A person can sit at up to 6 campfires of 4 people each. New accounts are still seated at one
+automatically, so nobody starts alone. Tap the campfire's sign (top left of the Campfire screen) for
+**Your campfires**: switch between them, **Start a new campfire**, **Join with a code**, or leave one
+(never your last). The fire on screen is remembered on the device.
 
 Every campfire has its own invite code (like `PINE-7K2Q`), shown under the campfire's Invite button.
-A friend types it under **Join with a code**, in the same sheet, to sit at that fire. Each person sits at one fire: joining moves you, after the app shows
-what you'd leave. A fire holds 4 people. Codes ignore case, spaces and dashes.
+A friend types it under **Join with a code** to take a seat there too. Codes ignore case, spaces and dashes.
 
 Setup: Supabase SQL Editor, run `supabase/campfire-invites.sql` (after `schema.sql`). Existing fires get
-a code straight away. Until it runs, the app still works but shows no code.
+a code straight away. Until it runs, the app still works with the fires people already sit at, but
+shows no code and can't create, join or leave fires.

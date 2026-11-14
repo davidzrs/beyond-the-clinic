@@ -179,10 +179,15 @@ export default function Campfire() {
       <CampFull members={S.members} bubbles={S.bubbles} hopId={S.hopId} onPick={(m) => (m.id === 'me' ? S.go('wardrobe') : S.setModal({ type: 'member', m }))} />
 
       <View style={[st.top, { paddingTop: insets.top + (wide ? 18 : 10) }]} pointerEvents="box-none">
-        <View style={st.sign}>
-          <Text style={st.signT}>{S.campfireName}</Text>
-          <Text style={st.signS}>{S.fireCount + ' at the fire'}</Text>
-        </View>
+        {/* Tap the sign for your other campfires, or to start or join one. */}
+        <Pressable onPress={() => S.setModal({ type: 'fires' })} accessibilityRole="button" accessibilityLabel={S.campfireName + ', ' + S.fireCount + ' at the fire. Your campfires'}
+          style={(p: any) => [st.sign, { flexDirection: 'row', alignItems: 'center', gap: 8 }, (p.hovered || p.pressed) && { opacity: 0.9 }]}>
+          <View>
+            <Text style={st.signT}>{S.campfireName}</Text>
+            <Text style={st.signS}>{S.fireCount + ' at the fire' + (S.fires.length > 1 ? ' · ' + S.fires.length + ' fires' : '')}</Text>
+          </View>
+          <Icon name="down" size={16} />
+        </Pressable>
         <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
         <ThemeToggle bg={C.glass} color={C.emberHi} />
         <Pressable onPress={() => setSheet('spark')} style={st.spark} accessibilityLabel={'Tonight’s spark: ' + coop + ' of ' + COOP_GOAL + ' embers'}>
