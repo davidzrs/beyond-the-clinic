@@ -1,0 +1,13 @@
+patient,weeksSinceTms,risk,level,drivers,lastCheckIn
+A. Virtanen,5,81,high,"Sleep +1.4 h vs usual; Morning activity −48%",0d ago
+L. Korhonen,7,66,high,"Resting HR +6 bpm; HRV −22%",2d ago
+M. Nieminen,16,61,high,"Screen time +2.1 h; Messages −70%",2d ago
+S. (you),4,,calibrating,"See Sam’s live timeline",today
+J. Mäkinen,20,39,watch,"Mood check-ins lower 5 days running",1d ago
+E. Hämäläinen,20,14,steady,"",2d ago
+K. Laine,4,30,watch,"",1d ago
+P. Heikkinen,17,13,steady,"",1d ago
+R. Koskinen,16,23,steady,"",0d ago
+T. Järvinen,2,22,steady,"",0d ago
+N. Lehtonen,11,24,steady,"",0d ago
+O. Salminen,15,13,steady,"",1d ago
