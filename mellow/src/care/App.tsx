@@ -2,6 +2,7 @@ import { useEffect, type ReactNode } from 'react';
 import { byId, DAYS, fmtLong, levelOf, PATIENTS, riskAt, TODAY_DAY } from './data';
 import { go, nav, StoreProvider, useHashRoute, useStore } from './store';
 import { Icon, Logo } from './components/ui';
+import { DateButton } from './components/DateButton';
 import Login from './pages/Login';
 import Patients from './pages/Patients';
 import Patient from './pages/Patient';
@@ -45,10 +46,14 @@ function Shell({ active, children }: { active: 'patients' | 'calls' | 'report'; 
       </nav>
       <div className="main">
         <div className="topbar">
-          <span className="muted small asof">Data as of <b>{fmtLong(S.day)}</b>{S.day !== TODAY_DAY && <span className="past-tag">Looking back {TODAY_DAY - S.day} {TODAY_DAY - S.day === 1 ? 'day' : 'days'}</span>}</span>
+          <div className="asof">
+            <span className="muted small">Data as of</span>
+            <DateButton day={S.day} min={14} max={TODAY_DAY} today={TODAY_DAY} onChange={S.setDay} />
+            {S.day !== TODAY_DAY && <span className="past-tag">Looking back {TODAY_DAY - S.day} {TODAY_DAY - S.day === 1 ? 'day' : 'days'}</span>}
+          </div>
           <label className="replay" title="Drag to see the clinic as it was on any earlier day">
             <span className="small">View as of</span>
-            <input type="range" min={14} max={DAYS} value={S.day} onChange={(e) => S.setDay(+e.target.value)} aria-label="View data as of date" />
+            <input type="range" min={14} max={TODAY_DAY} value={S.day} onChange={(e) => S.setDay(+e.target.value)} aria-label="View data as of date" />
             <button className="link small" onClick={() => S.setDay(TODAY_DAY)} disabled={S.day === TODAY_DAY}>Back to today</button>
           </label>
         </div>

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, type Ref } from 'react';
 import { DAYS, fmtDate, LEVEL, phqBand, TODAY_DAY, type Level } from '../data';
 import { buildReport, PERIOD, type ReportRow } from '../report';
 import { go, useStore } from '../store';
@@ -11,11 +11,9 @@ const TINT: Record<Level, string> = { high: '#fdeceb', watch: '#fdf4de', steady:
 export default function Report() {
   const S = useStore();
   const end = S.day;
-  const R = useMemo(() => buildReport(end), [end]);
+  const { range, fileName } = useMemo(() => reportMeta(end), [end]);
   const paper = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
-  const range = `${fmtDate(R.start)} – ${fmtDate(R.end, { day: 'numeric', month: 'short', year: 'numeric' })}`;
-  const fileName = `mellow-care-report-${fmtDate(R.end, { year: 'numeric', month: '2-digit', day: '2-digit' }).split('/').reverse().join('-')}.pdf`;
 
   const download = async () => {
     if (!paper.current) return;
@@ -44,106 +42,122 @@ export default function Report() {
       </header>
 
       <div className="paper-wrap">
-        <div className="paper" ref={paper}>
-          <div className="rp-head">
-            <div className="rp-logo"><Logo /></div>
-            <div className="rp-title">
-              <span>Biweekly report</span>
-              <b>{range}</b>
-            </div>
-          </div>
-          <div className="rp-meta">
-            <span>{S.user?.clinic}</span>
-            <span>Prepared for {S.user?.name} · {R.total} patients sharing</span>
-          </div>
-
-          <section className="rp-summary">
-            <h4>In short</h4>
-            <ul>{R.summary.map((s) => <li key={s}>{s}</li>)}</ul>
-          </section>
-
-          <div className="rp-kpis">
-            {R.counts.map((c) => (
-              <div key={c.level} className="rp-kpi" style={{ borderTopColor: HUE[c.level] }}>
-                <div className="rp-kpi-n"><b>{c.now}</b><Change level={c.level} n={c.now - c.prev} /></div>
-                <span><Dot level={c.level} /> {LEVEL[c.level].label}</span>
-              </div>
-            ))}
-          </div>
-
-          <section>
-            <h4>Needs attention</h4>
-            {R.attention.length ? (
-              <table className="rp-table">
-                <thead><tr><th>Patient</th><th>Status</th><th className="num">Score</th><th>Last 14 days</th><th>Main reasons</th></tr></thead>
-                <tbody>
-                  {R.attention.slice(0, 6).map((r) => (
-                    <tr key={r.p.id} onClick={() => go('/patients/' + r.p.id)}>
-                      <td><b>{r.p.name}</b></td>
-                      <td><Pill level={r.level} /></td>
-                      <td className="num"><b>{r.now}</b>{r.prev != null && <small> from {r.prev}</small>}</td>
-                      <td><MiniStrip r={r} start={R.start} end={R.end} /></td>
-                      <td className="rp-reasons">{r.reasons.length ? r.reasons.slice(0, 2).map((x) => x.label + ' ' + x.change.replace(' vs usual', '')).join(' · ') : '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : <p className="rp-empty">Nobody is above their usual range right now.</p>}
-          </section>
-
-          <div className="rp-cols">
-            <section>
-              <h4>Changes since last report</h4>
-              <ul className="rp-list">
-                {R.worse.map((r) => <li key={'w' + r.p.id}><Arrow up /> <b>{r.p.name}</b> {label(r.prevLevel)} → {LEVEL[r.level].label}</li>)}
-                {R.better.map((r) => <li key={'b' + r.p.id}><Arrow /> <b>{r.p.name}</b> {label(r.prevLevel)} → {LEVEL[r.level].label}{r.peak != null && r.peak >= 55 ? ` (peaked at ${r.peak})` : ''}</li>)}
-                {R.newcomers.map((r) => <li key={'n' + r.p.id}><span className="rp-new">New</span> <b>{r.p.name}</b> started sharing on {fmtDate(r.p.firstDay)}</li>)}
-                {!R.worse.length && !R.better.length && !R.newcomers.length && <li className="rp-empty">No level changes.</li>}
-              </ul>
-            </section>
-            <section>
-              <h4>PHQ-9 this period</h4>
-              {R.phq.length ? (
-                <table className="rp-table compact">
-                  <tbody>
-                    {R.phq.slice(0, 6).map((q) => {
-                      const up = q.prevScore != null ? q.score - q.prevScore : null;
-                      const flag = q.score >= 10 || (up != null && up >= 5);
-                      return (
-                        <tr key={q.p.id + q.day}>
-                          <td><b>{q.p.name}</b><small> · {fmtDate(q.day)}</small></td>
-                          <td className="num"><b style={flag ? { color: HUE.high } : undefined}>{q.score}</b></td>
-                          <td>{phqBand(q.score)}</td>
-                          <td className="num"><small>{up == null ? 'first' : delta(up)}</small></td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              ) : <p className="rp-empty">No PHQ-9 taken in this period.</p>}
-            </section>
-          </div>
-
-          <section>
-            <h4>Check-in gaps</h4>
-            <p className="rp-text">
-              {R.lowEngagement.length
-                ? R.lowEngagement.slice(0, 5).map((r) => `${r.p.name} (${r.missed} of ${r.days} days missed)`).join(' · ')
-                : 'Everyone checked in on most days.'}
-            </p>
-          </section>
-
-          <footer className="rp-foot">
-            <span>Numbers in brackets: change since the last report ({fmtDate(R.end - PERIOD)}). Mellow Care · generated {fmtDate(Math.min(DAYS, R.end), { day: 'numeric', month: 'short', year: 'numeric' })}. Scores are an explainable early-warning heuristic built from each person’s own baseline, not a diagnosis. Only patients who consented to share are included.</span>
-          </footer>
-        </div>
+        <ReportPaper end={end} paperRef={paper} />
       </div>
     </div>
   );
 }
 
 // The browser draws the report itself (SVG foreignObject), so text and spacing match the screen exactly.
-async function savePdf(el: HTMLElement, fileName: string) {
+export function reportMeta(end: number) {
+  const R = buildReport(end);
+  const range = `${fmtDate(R.start)} – ${fmtDate(R.end, { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  const fileName = `mellow-care-report-${fmtDate(R.end, { year: 'numeric', month: '2-digit', day: '2-digit' }).split('/').reverse().join('-')}.pdf`;
+  return { R, range, fileName };
+}
+
+// The one-page report itself. Also rendered off-screen by the Patients page to download it from there.
+export function ReportPaper({ end, paperRef }: { end: number; paperRef?: Ref<HTMLDivElement> }) {
+  const S = useStore();
+  const { R, range } = useMemo(() => reportMeta(end), [end]);
+  return (
+    <div className="paper" ref={paperRef}>
+      <div className="rp-head">
+        <div className="rp-logo"><Logo /></div>
+        <div className="rp-title">
+          <span>Biweekly report</span>
+          <b>{range}</b>
+        </div>
+      </div>
+      <div className="rp-meta">
+        <span>{S.user?.clinic}</span>
+        <span>Prepared for {S.user?.name} · {R.total} patients sharing</span>
+      </div>
+
+      <section className="rp-summary">
+        <h4>In short</h4>
+        <ul>{R.summary.map((s) => <li key={s}>{s}</li>)}</ul>
+      </section>
+
+      <div className="rp-kpis">
+        {R.counts.map((c) => (
+          <div key={c.level} className="rp-kpi" style={{ borderTopColor: HUE[c.level] }}>
+            <div className="rp-kpi-n"><b>{c.now}</b><Change level={c.level} n={c.now - c.prev} /></div>
+            <span><Dot level={c.level} /> {LEVEL[c.level].label}</span>
+          </div>
+        ))}
+      </div>
+
+      <section>
+        <h4>Needs attention</h4>
+        {R.attention.length ? (
+          <table className="rp-table">
+            <thead><tr><th>Patient</th><th>Status</th><th className="num">Score</th><th>Last 14 days</th><th>Main reasons</th></tr></thead>
+            <tbody>
+              {R.attention.slice(0, 6).map((r) => (
+                <tr key={r.p.id} onClick={() => go('/patients/' + r.p.id)}>
+                  <td><b>{r.p.name}</b></td>
+                  <td><Pill level={r.level} /></td>
+                  <td className="num"><b>{r.now}</b>{r.prev != null && <small> from {r.prev}</small>}</td>
+                  <td><MiniStrip r={r} start={R.start} end={R.end} /></td>
+                  <td className="rp-reasons">{r.reasons.length ? r.reasons.slice(0, 2).map((x) => x.label + ' ' + x.change).join(' · ') : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : <p className="rp-empty">Nobody is above their usual range right now.</p>}
+      </section>
+
+      <div className="rp-cols">
+        <section>
+          <h4>Changes since last report</h4>
+          <ul className="rp-list">
+            {R.worse.map((r) => <li key={'w' + r.p.id}><Arrow up /> <b>{r.p.name}</b> {label(r.prevLevel)} → {LEVEL[r.level].label}</li>)}
+            {R.better.map((r) => <li key={'b' + r.p.id}><Arrow /> <b>{r.p.name}</b> {label(r.prevLevel)} → {LEVEL[r.level].label}{r.peak != null && r.peak >= 55 ? ` (peaked at ${r.peak})` : ''}</li>)}
+            {R.newcomers.map((r) => <li key={'n' + r.p.id}><span className="rp-new">New</span> <b>{r.p.name}</b> started sharing on {fmtDate(r.p.firstDay)}</li>)}
+            {!R.worse.length && !R.better.length && !R.newcomers.length && <li className="rp-empty">No level changes.</li>}
+          </ul>
+        </section>
+        <section>
+          <h4>PHQ-9 this period</h4>
+          {R.phq.length ? (
+            <table className="rp-table compact">
+              <tbody>
+                {R.phq.slice(0, 6).map((q) => {
+                  const up = q.prevScore != null ? q.score - q.prevScore : null;
+                  const flag = q.score >= 10 || (up != null && up >= 5);
+                  return (
+                    <tr key={q.p.id + q.day}>
+                      <td><b>{q.p.name}</b><small> · {fmtDate(q.day)}</small></td>
+                      <td className="num"><b style={flag ? { color: HUE.high } : undefined}>{q.score}</b></td>
+                      <td>{phqBand(q.score)}</td>
+                      <td className="num"><small>{up == null ? 'first' : delta(up)}</small></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          ) : <p className="rp-empty">No PHQ-9 taken in this period.</p>}
+        </section>
+      </div>
+
+      <section>
+        <h4>Check-in gaps</h4>
+        <p className="rp-text">
+          {R.lowEngagement.length
+            ? R.lowEngagement.slice(0, 5).map((r) => `${r.p.name} (${r.missed} of ${r.days} days missed)`).join(' · ')
+            : 'Everyone checked in on most days.'}
+        </p>
+      </section>
+
+      <footer className="rp-foot">
+        <span>Numbers in brackets: change since the last report ({fmtDate(R.end - PERIOD)}). Mellow Care · generated {fmtDate(Math.min(DAYS, R.end), { day: 'numeric', month: 'short', year: 'numeric' })}. Scores are an explainable early-warning heuristic built from each person’s own baseline, not a diagnosis. Only patients who consented to share are included.</span>
+      </footer>
+    </div>
+  );
+}
+
+export async function savePdf(el: HTMLElement, fileName: string) {
   const [{ domToCanvas }, { jsPDF }] = await Promise.all([import('modern-screenshot'), import('jspdf')]);
   try { await document.fonts?.ready; } catch { /* fonts API missing */ }
   const canvas = await domToCanvas(el, {

@@ -72,7 +72,7 @@ export const SIGNALS: SignalDef[] = [
 export const SIGNAL = Object.fromEntries(SIGNALS.map((s) => [s.key, s])) as Record<SignalKey, SignalDef>;
 
 // ---------- patient model ----------
-export type Reason = { key: SignalKey | string; label: string; change: string; z: number };
+export type Reason = { key: SignalKey | string; label: string; change: string; text: string; z: number }; // change = compact ("−48%"), text = plain sentence
 export type Questionnaire = { day: number; phq9?: number; who5?: number };
 export type Patient = {
   id: string; name: string; initials: string; isSam: boolean;
@@ -103,6 +103,26 @@ export function signalNow(p: Patient, key: SignalKey, day: number) {
 }
 const isWorse = (def: SignalDef, z: number) => (def.worse === 'both' ? Math.abs(z) : def.worse === 'up' ? z : -z);
 
+// A change in plain words, e.g. "Morning activity 48% lower than usual", "Sleeping 1.3 h more than usual".
+export function describeChange(key: string, label: string, now: number, usual: number): string {
+  const up = now >= usual;
+  const pctOf = () => Math.abs(Math.round(((now - usual) / (usual || 1)) * 100)) + '%';
+  const d = Math.abs(now - usual);
+  switch (key) {
+    case 'sleepHours': return `Sleeping ${d.toFixed(1)} h ${up ? 'more' : 'less'} than usual`;
+    case 'sleepEfficiency': return `Sleep quality ${Math.round(d * (usual <= 1 ? 100 : 1))} points ${up ? 'higher' : 'lower'} than usual`;
+    case 'restingHr': return `Resting heart rate ${Math.round(d)} bpm ${up ? 'higher' : 'lower'} than usual`;
+    case 'hrvRmssd': return `Heart rate variability ${pctOf()} ${up ? 'higher' : 'lower'} than usual`;
+    case 'morningSteps': return `Morning activity ${pctOf()} ${up ? 'higher' : 'lower'} than usual`;
+    case 'steps': return `${pctOf()} ${up ? 'more' : 'fewer'} steps than usual`;
+    case 'screenMinutes': return `${(d / 60).toFixed(1)} h ${up ? 'more' : 'less'} screen time than usual`;
+    case 'lateNightScreenMinutes': return `${Math.round(d)} min ${up ? 'more' : 'less'} phone use late at night`;
+    case 'messagesSent': return `${pctOf()} ${up ? 'more' : 'fewer'} messages to friends`;
+    case 'mood': return `Check-in mood ${d.toFixed(1)} points ${up ? 'higher' : 'lower'} than usual`;
+    default: return `${label} ${up ? 'higher' : 'lower'} than usual`;
+  }
+}
+
 function computedReasons(p: Patient, day: number): Reason[] {
   if (day - p.firstDay < 14) return [];
   const out: Reason[] = [];
@@ -111,7 +131,7 @@ function computedReasons(p: Patient, day: number): Reason[] {
     const { recent, base, z } = signalNow(p, def.key, day);
     if (recent == null || base == null || z == null) continue;
     const w = isWorse(def, z);
-    if (w >= 0.8) out.push({ key: def.key, label: def.label, change: def.delta(recent, base) + ' vs usual', z: w });
+    if (w >= 0.8) out.push({ key: def.key, label: def.label, change: def.delta(recent, base), text: describeChange(def.key, def.label, recent, base), z: w });
   }
   out.sort((a, b) => b.z - a.z);
   const strong = out.filter((r) => r.z >= 1.5);
@@ -200,7 +220,7 @@ function samPatient(row: RawClinic | undefined): Patient {
   return {
     id: 'sam-k', name: 'Sam K.', initials: 'SK', isSam: true, firstDay: 1, weeksAtEnd: Math.max(row?.weeksSinceTms ?? 0, Math.round(DAYS / 7)),
     risk: s.series.risk.map((v) => (v == null ? null : Math.round(v))), series, baseline: { from: 7, to: 34 },
-    reasonsAt: (day) => (s.drivers[day - 1] || []).map((d) => ({ key: d.key, label: d.label, change: d.change + ' vs usual', z: d.z })),
+    reasonsAt: (day) => (s.drivers[day - 1] || []).map((d) => ({ key: d.key, label: d.label, change: d.change.replace(' %', '%'), text: describeChange(d.key, d.label, d.to, d.from), z: d.z })),
     questionnaires: s.questionnaires.map((q) => ({ day: q.day, phq9: q.phq9, who5: q.who5 })),
     lastCheckIn: 'today',
     events: [
@@ -240,6 +260,12 @@ export function dayOfDate(iso: string) {
 }
 const shortName = (full: string) => { const w = full.trim().split(/\s+/); return w.length > 1 ? w[0][0] + '. ' + w.slice(1).join(' ') : full; };
 
+// Reasons saved before they had a plain-language sentence: tidy the old "… vs usual" wording.
+function fromDb(r: Reason): Reason {
+  const change = (r.change || '').replace(/ vs usual$/, '');
+  return { ...r, change, text: r.text || `${r.label} ${change}` };
+}
+
 export function patientFromRows(
   prof: ProfileRow, metrics: MetricRow[], checkins: { day: string; mood: string }[],
   questionnaires: { day: string; phq9: number | null; who5: number | null }[], phq9: { created_at: string; score: number }[],
@@ -252,7 +278,7 @@ export function patientFromRows(
     const d = dayOfDate(m.day); if (d == null) continue;
     seen.push(d);
     for (const [k, col] of COLS) series[k][d - 1] = (m[col] as number | null) ?? null;
-    risk[d - 1] = m.risk; reasons[d - 1] = m.reasons;
+    risk[d - 1] = m.risk; reasons[d - 1] = m.reasons ? m.reasons.map(fromDb) : null;
   }
   // The patient's own check-in from the app is the truth for that day's mood.
   const said: (string | null)[] = Array(DAYS).fill(null);
@@ -267,7 +293,8 @@ export function patientFromRows(
     const base = reasons[day - 1] || [];
     const m = said[day - 1];
     if (!m || !MOOD_LABEL[m]) return base;
-    return [{ key: 'checkin', label: 'Checked in', change: MOOD_LABEL[m] + (day === lastSeen() ? ' today' : ''), z: m === 'heavy' ? 9 : 6 }, ...base.filter((r) => r.key !== 'mood')].slice(0, 3);
+    const today = day === lastSeen();
+    return [{ key: 'checkin', label: 'Checked in', change: MOOD_LABEL[m] + (today ? ' today' : ''), text: `Checked in feeling ${m}${today ? ' today' : ''}`, z: m === 'heavy' ? 9 : 6 }, ...base.filter((r) => r.key !== 'mood')].slice(0, 3);
   };
   const lastSeen = () => (seen.length ? Math.max(...seen) : DAYS);
   const qByDay = new Map<number, Questionnaire>();

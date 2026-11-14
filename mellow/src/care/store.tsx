@@ -39,7 +39,7 @@ const sessLoad = () => { try { const v = sessionStorage.getItem('mellowcare.sess
 
 export type Clinician = { name: string; role: string; email: string; clinic: string };
 export type Note = { id: string; patientId: string; text: string; at: number; author: string };
-export type Call = { id: string; patientId: string; when: string; reason: string; createdAt: number };
+export type Call = { id: string; patientId: string; when: string; at?: string; reason: string; createdAt: number }; // at = start time (ISO)
 // A chat message from this patient sounded like a crisis (they consented to this alert). Never includes the text.
 export type CrisisAlert = { id: string; patientId: string; at: number; seen: boolean };
 
@@ -58,7 +58,7 @@ type Store = {
   day: number; setDay: (d: number) => void;
   notes: Note[]; addNote: (patientId: string, text: string) => void;
   alerts: CrisisAlert[]; markAlertSeen: (id: string) => void;
-  calls: Call[]; addCall: (patientId: string, when: string, reason: string) => void; cancelCall: (id: string) => void;
+  calls: Call[]; addCall: (patientId: string, when: string, reason: string, at?: string) => void; cancelCall: (id: string) => void;
   reviewed: Record<string, number>; markReviewed: (patientId: string) => void;
   toast: string | null; say: (m: string) => void;
 };
@@ -179,8 +179,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (supabase) supabase.from('care_notes').insert({ patient_id: patientId, text, author_name: author }).select('id').single()
       .then(({ data, error }) => { if (error) say('Couldn’t save the note: ' + error.message); else setNotes((n) => n.map((x) => (x.id === temp.id ? { ...x, id: String(data.id) } : x))); });
   }, [user, say]);
-  const addCall = useCallback((patientId: string, when: string, reason: string) => {
-    const temp: Call = { id: uid(), patientId, when, reason, createdAt: Date.now() };
+  const addCall = useCallback((patientId: string, when: string, reason: string, at?: string) => {
+    const temp: Call = { id: uid(), patientId, when, at, reason, createdAt: Date.now() };
     setCalls((c) => [...c, temp]);
     if (supabase) supabase.from('care_calls').insert({ patient_id: patientId, when_text: when, reason }).select('id').single()
       .then(({ data, error }) => { if (error) say('Couldn’t save the call: ' + error.message); else setCalls((c) => c.map((x) => (x.id === temp.id ? { ...x, id: String(data.id) } : x))); });

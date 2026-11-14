@@ -43,7 +43,7 @@ export function buildReport(end: number) {
 
   const summary: string[] = [];
   const high = count('high'), highPrev = count('high', 'prevLevel');
-  summary.push(high === 0 ? 'Nobody currently needs a call.' : `${high} ${high === 1 ? 'patient needs' : 'patients need'} a call${highPrev !== high ? ` (${high > highPrev ? '+' : '−'}${Math.abs(high - highPrev)} vs the last report)` : ''}.`);
+  summary.push(high === 0 ? 'Nobody currently needs a call.' : `${high} ${high === 1 ? 'patient needs' : 'patients need'} a call${highPrev !== high ? ` (${Math.abs(high - highPrev)} ${high > highPrev ? 'more' : 'fewer'} than in the last report)` : ''}.`);
   if (worse.length) summary.push(`${list(worse.map((r) => r.p.name))} moved to a higher level.`);
   if (better.length) summary.push(`${list(better.map((r) => r.p.name))} ${better.length === 1 ? 'is' : 'are'} doing better than two weeks ago.`);
   const flagged = phq.filter((q) => q.score >= 10 || (q.prevScore != null && q.score - q.prevScore >= 5));
