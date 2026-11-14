@@ -16,7 +16,6 @@ import { MAX_W, SIDEBAR_W, useLayout } from './src/layout';
 import { onScrollLock, registerPageScroll } from './src/scrollLock';
 import Home from './src/screens/Home';
 import Campfire from './src/screens/Campfire';
-import Activities from './src/screens/Activities';
 import Journey from './src/screens/Journey';
 import Wardrobe from './src/screens/Wardrobe';
 import Clinic from './src/screens/Clinic';
@@ -24,7 +23,7 @@ import Insights from './src/screens/Insights';
 import Games from './src/screens/Games';
 import GameScreen from './src/screens/GameScreen';
 
-// Four tabs. Activities, the wardrobe, insights and the care-team view are sub-pages with a back link.
+// Four tabs. The wardrobe, insights and the care-team view are sub-pages with a back link.
 const NAV: [Route, string, string][] = [['home', 'Today', 'home'], ['campfire', 'Campfire', 'flame'], ['journey', 'Journey', 'leaf'], ['games', 'Games', 'play']];
 const LOGO = { name: '', color: 'vanilla', face: 'happy', hat: 'none', glasses: 'none', acc: 'none', item: 'none' };
 
@@ -46,7 +45,7 @@ function Shell() {
     return () => sub.remove();
   }, [S.route, S.lastTab]);
   const full = S.route === 'campfire'; // the campfire scene fills the screen
-  const Screen = { home: Home, campfire: Campfire, activities: Activities, journey: Journey, games: Games, nono: GameScreen, sight: GameScreen, hotel: GameScreen, wardrobe: Wardrobe, clinic: Clinic, insights: Insights }[S.route];
+  const Screen = { home: Home, campfire: Campfire, journey: Journey, games: Games, nono: GameScreen, sight: GameScreen, hotel: GameScreen, wardrobe: Wardrobe, clinic: Clinic, insights: Insights }[S.route];
   // Wide screens: side menu (default) or tabs across the top. Remembered on this device.
   const [topNav, setTopNavS] = useState(false);
   useEffect(() => { AsyncStorage.getItem('mellow.topNav').then((v) => setTopNavS(v === '1')).catch(() => {}); }, []);

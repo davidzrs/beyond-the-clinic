@@ -1,5 +1,4 @@
 import { Avatar } from './pixel/sprites';
-import { themed, themeMode } from './theme';
 
 export const ME_DEFAULT: Avatar = { name: 'Sam', color: 'vanilla', face: 'content', hat: 'beanie', glasses: 'none', acc: 'scarf', item: 'mug' };
 
@@ -40,33 +39,6 @@ export const QUEST_POOL: Quest[] = [
   { id: 'drink', icon: 'drink', title: 'Make yourself a warm drink', dur: '5 min', why: 'A cozy pause counts.', ember: 1 },
 ];
 
-export type ActType = 'daily' | 'together' | 'quest' | 'relax';
-export type Act = { id: string; type: ActType; icon: string; title: string; desc: string; dur: string };
-export const ACTS: Act[] = [
-  { id: 'words', type: 'daily', icon: 'words', title: 'Ember Words', desc: 'Guess the cozy five-letter word in six tries. A new word every day.', dur: '3 min' },
-  { id: 'light', type: 'daily', icon: 'sun', title: 'Find the Light', desc: 'Spot the little sun hiding among the rain clouds. Three quick rounds.', dur: '2 min' },
-  { id: 'sync', type: 'together', icon: 'sync', title: 'MindSync', desc: 'Everyone at your fire answers the same prompt. See who thinks alike.', dur: '5 min' },
-  { id: 'talk', type: 'together', icon: 'chat', title: 'Sunday Talk', desc: 'A weekly gathering with a gentle prompt. Come to talk or just to listen.', dur: 'Sun 19:00' },
-  { id: 'sky', type: 'quest', icon: 'sky', title: 'Sky Break', desc: 'Step outside or to a window and look up for five minutes.', dur: '5 min' },
-  { id: 'walk', type: 'quest', icon: 'walk', title: 'Slow Walk', desc: 'A ten-minute loop around the block. Any pace counts.', dur: '10 min' },
-  { id: 'note', type: 'quest', icon: 'note', title: 'Kind Note', desc: 'Send a short, kind message to someone at your fire.', dur: '2 min' },
-  { id: 'breathe', type: 'relax', icon: 'flame', title: 'Breathe with the Flame', desc: 'Follow the fire as it grows and settles. Three slow breaths.', dur: '3 min' },
-  { id: 'forest', type: 'relax', icon: 'forest', title: 'Forest at Dusk', desc: 'Soft wind in the pines and the odd sleepy bird. Headphones help.', dur: 'Any length' },
-  { id: 'sea', type: 'relax', icon: 'wave', title: 'Sea Breeze', desc: 'Slow waves rolling onto a quiet shore.', dur: 'Any length' },
-];
-export const TYPE_LABEL: Record<ActType, string> = { daily: 'Daily game', together: 'Together', quest: 'Quest', relax: 'Relax' };
-export const TYPE_COLORS: Record<ActType, { bg: string; chipBg: string; chipFg: string; btn: 'ember' | 'green' | 'plum' }> = themed(() => (themeMode() === 'day' ? {
-  daily: { bg: '#E8F1FB', chipBg: '#D3E5F8', chipFg: '#245E96', btn: 'ember' },
-  together: { bg: '#FDEDEF', chipBg: '#F8D7DD', chipFg: '#9A3343', btn: 'ember' },
-  quest: { bg: '#E4F4E8', chipBg: '#CCEAD5', chipFg: '#1E6A3F', btn: 'green' },
-  relax: { bg: '#FFF2D9', chipBg: '#FDE3B0', chipFg: '#87570A', btn: 'plum' },
-} : {
-  daily: { bg: '#2e2752', chipBg: '#3d335f', chipFg: '#d6c9ff', btn: 'ember' },
-  together: { bg: '#40263a', chipBg: '#5a2f3b', chipFg: '#ffc3cb', btn: 'ember' },
-  quest: { bg: '#1e3a31', chipBg: '#24463a', chipFg: '#bfe8c9', btn: 'green' },
-  relax: { bg: '#1d2e4f', chipBg: '#24375a', chipFg: '#c4dcff', btn: 'plum' },
-}) as Record<ActType, { bg: string; chipBg: string; chipFg: string; btn: 'ember' | 'green' | 'plum' }>);
-export const WORDS = ['SHINE', 'EMBER', 'BLOOM', 'CABIN', 'CLOUD', 'HONEY', 'LIGHT', 'OCEAN', 'PEACE', 'SPARK', 'TOAST', 'MAPLE', 'SMILE', 'QUIET', 'CREEK', 'GLOWS'];
 export const COOP_GOAL = 12;
 export const SYNC_OPTS = ['Rain on the windows', 'Fresh coffee', 'Old cartoons', 'A long slow walk', 'Pancakes', 'Sleeping in'];
 export const SYNC_PICKS: Record<string, string> = { juno: 'Rain on the windows', teo: 'Fresh coffee', ama: 'Rain on the windows' };

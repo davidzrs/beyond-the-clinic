@@ -2,11 +2,10 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useApp } from '../state';
-import { Member, OTHER_CAMPS, SYNC_OPTS, SYNC_PICKS, WORDS } from '../data';
+import { Member, OTHER_CAMPS, SYNC_OPTS, SYNC_PICKS } from '../data';
 import { C, F, themed } from '../theme';
 import { Icon, Mallow } from '../components/Pixel';
 import { Btn, Eyebrow, H2, IconBtn, Reply, T, Tab } from '../components/ui';
-import { startSoundscape, Scape } from '../audio/soundscape';
 import { BreatheScreen } from '../components/BreatheScreen';
 import { useLayout } from '../layout';
 import { CheckinFlow, PlanCalendar, Report } from './Checkin';
@@ -28,114 +27,6 @@ function Sheet({ title, eyebrow, onClose, children }: { title: string; eyebrow?:
         </Pressable>
       </Pressable>
     </Modal>
-  );
-}
-
-function scoreWord(g: string, t: string) {
-  const res = Array(5).fill('miss'); const tc: Record<string, number> = {};
-  for (let i = 0; i < 5; i++) { if (g[i] === t[i]) res[i] = 'hit'; else tc[t[i]] = (tc[t[i]] || 0) + 1; }
-  for (let i = 0; i < 5; i++) { if (res[i] !== 'hit' && tc[g[i]]) { res[i] = 'near'; tc[g[i]]--; } }
-  return res as ('hit' | 'near' | 'miss')[];
-}
-const TILE_BG = themed(() => ({ hit: C.forest, near: '#D99A00', miss: '#9AA4BC' }));
-
-function WordsGame({ onDone }: { onDone: (won: boolean) => void }) {
-  const day = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 864e5);
-  const target = WORDS[day % WORDS.length];
-  const [rows, setRows] = useState<string[]>([]);
-  const [cur, setCur] = useState('');
-  const [over, setOver] = useState(false);
-  const [msg, setMsg] = useState('');
-  const press = useCallback((k: string) => {
-    if (over) return; setMsg('');
-    if (k === 'ENTER') {
-      if (cur.length < 5) { setMsg('Five letters, please.'); return; }
-      const nr = [...rows, cur]; setRows(nr); setCur('');
-      if (cur === target || nr.length >= 6) { setOver(true); onDone(cur === target); }
-      return;
-    }
-    if (k === 'DEL') { setCur((c) => c.slice(0, -1)); return; }
-    if (/^[A-Z]$/.test(k) && cur.length < 5) setCur((c) => c + k);
-  }, [cur, rows, over, target, onDone]);
-  useEffect(() => {
-    if (Platform.OS !== 'web') return;
-    const h = (e: KeyboardEvent) => { if (e.key === 'Enter') press('ENTER'); else if (e.key === 'Backspace') press('DEL'); else if (/^[a-zA-Z]$/.test(e.key)) press(e.key.toUpperCase()); };
-    window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h);
-  }, [press]);
-  const ks: Record<string, string> = {};
-  rows.forEach((r) => scoreWord(r, target).forEach((s, i) => { const l = r[i], p = ks[l]; if (s === 'hit' || (s === 'near' && p !== 'hit') || !p) ks[l] = s; }));
-  const won = rows.length > 0 && rows[rows.length - 1] === target;
-  return (
-    <View>
-      <T muted style={{ fontSize: 14 }}>Guess the five-letter word. Green is the right spot, orange is in the word. Any five letters are a valid guess.</T>
-      <View style={{ alignItems: 'center', gap: 6, marginVertical: 14 }}>
-        {Array.from({ length: 6 }, (_, i) => {
-          const g = rows[i]; const live = i === rows.length && !over; const word = g || (live ? cur : ''); const sc = g ? scoreWord(g, target) : null;
-          return (
-            <View key={i} style={{ flexDirection: 'row', gap: 6 }}>
-              {[0, 1, 2, 3, 4].map((j) => (
-                <View key={j} style={[st.wt, sc ? { backgroundColor: TILE_BG[sc[j]], borderColor: TILE_BG[sc[j]] } : word[j] ? { borderColor: C.lineHi } : null]}>
-                  <Text style={[st.wtT, sc && { color: C.white }]}>{word[j] || ''}</Text>
-                </View>
-              ))}
-            </View>
-          );
-        })}
-      </View>
-      {over ? (
-        <Reply><T><Text style={{ fontFamily: F.bodyBold }}>{won ? 'You found it: ' + target + '.' : 'Today’s word was ' + target + '.'}</Text> {won ? 'Nice work. Your campfire can see you played, not your score.' : 'Every guess warms you up for tomorrow. A new word arrives at midnight.'}</T></Reply>
-      ) : msg ? <T muted style={{ textAlign: 'center', marginBottom: 8 }}>{msg}</T> : null}
-      <View style={{ gap: 6, marginTop: 12 }}>
-        {['QWERTYUIOP', 'ASDFGHJKL', '+ZXCVBNM-'].map((row, ri) => (
-          <View key={ri} style={{ flexDirection: 'row', gap: 5, justifyContent: 'center' }}>
-            {row.split('').map((ch) => {
-              const k = ch === '+' ? 'ENTER' : ch === '-' ? 'DEL' : ch; const s = ks[k];
-              return (
-                <Pressable key={k} onPress={() => press(k)} style={[st.key, k.length > 1 && { flex: 1.6 }, s === 'hit' && { backgroundColor: C.forest }, s === 'near' && { backgroundColor: '#D99A00' }, s === 'miss' && { backgroundColor: '#CBD2E0' }]}>
-                  <Text style={[st.keyT, k.length > 1 && { fontSize: 12 }, (s === 'hit' || s === 'near') && { color: C.white }, s === 'miss' && { color: C.muted }]}>{k === 'DEL' ? 'Del' : k === 'ENTER' ? 'Enter' : k}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-}
-
-function LightGame({ onDone }: { onDone: () => void }) {
-  const mk = (n: number) => { const t = Math.floor(Math.random() * n * n); return { n, t, cells: Array.from({ length: n * n }, (_, i) => (i === t ? 'sun' : Math.random() > 0.45 ? 'rain' : 'cloud')) }; };
-  const [round, setRound] = useState(0);
-  const [g, setG] = useState(() => mk(4));
-  const [t0, setT0] = useState(() => Date.now());
-  const [times, setTimes] = useState<number[]>([]);
-  const [found, setFound] = useState(-1);
-  const [wrong, setWrong] = useState(-1);
-  const { width } = useLayout();
-  const gridW = Math.min(340, width - 72);
-  const cell = (gridW - (g.n - 1) * 8) / g.n;
-  const click = (i: number) => {
-    if (times.length >= 3 || found >= 0) return;
-    if (i === g.t) {
-      const nt = [...times, (Date.now() - t0) / 1000]; setTimes(nt); setFound(i);
-      setTimeout(() => { setFound(-1); if (nt.length < 3) { setRound((r) => r + 1); setG(mk(5)); setT0(Date.now()); } else onDone(); }, 500);
-    } else { setWrong(i); setTimeout(() => setWrong(-1), 350); }
-  };
-  if (times.length >= 3) {
-    const avg = (times.reduce((a, b) => a + b, 0) / 3).toFixed(1);
-    return <Reply><T><Text style={{ fontFamily: F.bodyBold }}>You found the light three times.</Text> Average {avg}s. There’s no target time. Over weeks, Mellow uses how this feels for you to notice what helps.</T></Reply>;
-  }
-  return (
-    <View>
-      <T muted style={{ fontSize: 14 }}>Round {round + 1} of 3. Tap the little sun hiding among the clouds.</T>
-      <View style={{ width: gridW, alignSelf: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
-        {g.cells.map((c, i) => (
-          <Pressable key={round + '-' + i} onPress={() => click(i)} style={[st.lcell, { width: cell, height: cell }, found === i && { backgroundColor: C.amberSoft }, wrong === i && { backgroundColor: C.roseSoft }]}>
-            <Icon name={c} size={cell * 0.7} />
-          </Pressable>
-        ))}
-      </View>
-    </View>
   );
 }
 
@@ -167,38 +58,6 @@ function SyncGame({ members, onShare }: { members: Member[]; onShare: (t: string
           <Btn label="Share in the chat" sm onPress={() => onShare('MindSync: I picked “' + pick + '” for a Sunday morning.')} />
         </Reply>
       ) : null}
-    </View>
-  );
-}
-
-function Soundscape({ kind }: { kind: 'forest' | 'sea' }) {
-  const [on, setOn] = useState(false);
-  const [vol, setVol] = useState(0.6);
-  const ref = useRef<Scape | null>(null);
-  useEffect(() => () => { ref.current?.stop(); }, []);
-  const toggle = async () => {
-    if (on) { ref.current?.stop(); ref.current = null; setOn(false); return; }
-    try { ref.current = await startSoundscape(kind, vol); setOn(true); } catch { setOn(false); }
-  };
-  const setV = (v: number) => { const c = Math.max(0, Math.min(1, v)); setVol(c); ref.current?.setVolume(c); };
-  const forest = kind === 'forest';
-  return (
-    <View>
-      <View style={[st.art, { backgroundColor: forest ? '#232a55' : '#2d2f62' }]}>
-        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '45%', backgroundColor: forest ? '#1d3028' : '#244a6e' }} />
-        <View style={{ position: 'absolute', right: '14%', top: '16%', width: 18, height: 18, borderRadius: 4, backgroundColor: '#f4ecd0' }} />
-        {forest ? [10, 24, 40, 58, 72, 88].map((x, i) => (
-          <View key={i} style={{ position: 'absolute', left: (x + '%') as any, bottom: '30%', width: 0, height: 0, borderLeftWidth: 18, borderRightWidth: 18, borderBottomWidth: 50 + (i % 3) * 14, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderBottomColor: i % 2 ? '#1b2a2a' : '#16223a', marginLeft: -18 }} />
-        )) : [0, 1, 2].map((i) => <View key={i} style={{ position: 'absolute', left: 0, right: 0, bottom: (18 + i * 14 + '%') as any, height: 6, backgroundColor: i === 1 ? '#3d6a90' : '#5a8ab0', opacity: 0.7 }} />)}
-      </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
-        <Btn label={on ? 'Pause' : 'Play'} kind={on ? 'ghost' : 'ember'} onPress={toggle} />
-        <Text style={st.volL}>Volume</Text>
-        <Btn label="−" kind="ghost" sm onPress={() => setV(vol - 0.1)} />
-        <View style={st.volBar}><View style={{ width: (vol * 100 + '%') as any, height: '100%', backgroundColor: C.ember, borderRadius: 4 }} /></View>
-        <Btn label="+" kind="ghost" sm onPress={() => setV(vol + 0.1)} />
-      </View>
-      <T muted style={{ fontSize: 13, marginTop: 12 }}>Generated on your device. Sound starts only when you press Play.</T>
     </View>
   );
 }
@@ -244,11 +103,8 @@ export function ModalHost() {
   if (!m) return null;
   const close = () => S.setModal(null);
   switch (m.type) {
-    case 'words': return <Sheet title="Ember Words" eyebrow="Daily game" onClose={close}><WordsGame onDone={() => S.finishAct('words', 'Ember Words', 'words')} /></Sheet>;
-    case 'light': return <Sheet title="Find the Light" eyebrow="Daily game" onClose={close}><LightGame onDone={() => S.finishAct('light', 'Find the Light', 'sun')} /></Sheet>;
     case 'sync': return <Sheet title="MindSync" eyebrow="With Pinehollow" onClose={close}><SyncGame members={S.members} onShare={(t) => { S.sendChat(t); S.finishAct('sync', 'MindSync', 'sync'); close(); S.go('campfire'); }} /></Sheet>;
     case 'breathe': return <BreatheScreen onClose={(breaths) => { if (breaths > 0) { if (m.quest) S.doQuest(m.quest); else S.finishAct('breathe', 'Breathe with the Flame', 'flame'); } close(); }} />;
-    case 'sound': return <Sheet title={m.kind === 'sea' ? 'Sea Breeze' : 'Forest at Dusk'} eyebrow="Soundscape" onClose={close}><Soundscape kind={m.kind} /></Sheet>;
     case 'phq': return <Sheet title="Your 2-week check-in" eyebrow="PHQ-9" onClose={close}><CheckinFlow /></Sheet>;
     case 'report': return <Sheet title="Your check-in" eyebrow={'PHQ-9 · ' + niceDate(fromYmd(m.c.date))} onClose={close}><Report c={m.c} /></Sheet>;
     case 'plan': return <Sheet title="Your next 2 weeks" eyebrow="Your plan" onClose={close}><PlanCalendar /></Sheet>;

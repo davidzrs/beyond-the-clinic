@@ -158,8 +158,8 @@ export default function Campfire() {
         <View style={{ gap: 10 }}>
           <Text style={st.quote}>Gather {COOP_GOAL} embers together</Text>
           <View style={st.track}><View style={[st.fill, { width: ((coop / COOP_GOAL) * 100 + '%') as any }]} /></View>
-          <T style={{ color: C.creamDim }}>{S.coop >= COOP_GOAL ? 'The fire is roaring. Everyone pitched in tonight.' : coop + ' of ' + COOP_GOAL + '. Any quest or game you finish adds an ember for the whole fire.'}</T>
-          <Btn label="Find something to do" onPress={() => { close(); S.go('activities'); }} />
+          <T style={{ color: C.creamDim }}>{S.coop >= COOP_GOAL ? 'The fire is roaring. Everyone pitched in tonight.' : coop + ' of ' + COOP_GOAL + '. Any puzzle or plan step you finish adds an ember for the whole fire.'}</T>
+          <Btn label="Play today’s puzzles" onPress={() => { close(); S.go('games'); }} />
         </View>
       </BottomSheet>
     </View>

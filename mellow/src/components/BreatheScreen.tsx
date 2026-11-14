@@ -9,8 +9,7 @@ import { PixelCtx } from '../pixel/raster';
 import { buildScene, drawFrame, LAYOUTS } from '../pixel/scene';
 import { PixelImage } from '../pixel/PixelImage';
 import { F } from '../theme';
-import type { Scape } from '../audio/soundscape';
-import { startFireplace } from '../audio/fireplace';
+import { startFireplace, type Scape } from '../audio/fireplace';
 
 const ND = Platform.OS !== 'web';
 const INTRO = 4; // seconds of "get comfortable" before the first breath

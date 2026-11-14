@@ -2,15 +2,15 @@ import React, { createContext, useContext, useEffect, useRef, useState } from 'r
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Avatar } from './pixel/sprites';
-import { ACTS, CHAT0, COOP_GOAL, ME_DEFAULT, Member, MEMBERS, MoodKey, Msg, QUEST_POOL, Quest, REPLIES } from './data';
+import { CHAT0, COOP_GOAL, ME_DEFAULT, Member, MEMBERS, MoodKey, Msg, QUEST_POOL, Quest, REPLIES } from './data';
 import { addDays, buildPlan, Checkin, dayIndex, fromYmd, Plan, PlanTask, PLAN_DAYS, phqScore, ymd } from './checkin';
 import { SAM } from './demo';
 import { useAuth } from './auth';
 import * as sync from './lib/sync';
 
-export type Route = 'home' | 'campfire' | 'activities' | 'journey' | 'games' | 'nono' | 'sight' | 'hotel' | 'wardrobe' | 'clinic' | 'insights';
+export type Route = 'home' | 'campfire' | 'journey' | 'games' | 'nono' | 'sight' | 'hotel' | 'wardrobe' | 'clinic' | 'insights';
 export type ModalState = null | { type: string; [k: string]: any };
-const ROUTES: Route[] = ['home', 'campfire', 'activities', 'journey', 'games', 'nono', 'sight', 'hotel', 'wardrobe', 'clinic', 'insights'];
+const ROUTES: Route[] = ['home', 'campfire', 'journey', 'games', 'nono', 'sight', 'hotel', 'wardrobe', 'clinic', 'insights'];
 export const TABS: Route[] = ['home', 'campfire', 'journey', 'games'];
 
 // Check-in history = Sam's fortnightly PHQ-9 totals from the demo data, spread over the items
@@ -218,11 +218,6 @@ function useAppState() {
     if (q && !quests.find((x) => x.id === id)) setQuests((qs) => [q, ...qs.slice(0, 2)]);
   };
   const swapQuest = (id: string) => setQuests((qs) => { const used = new Set(qs.map((q) => q.id)); const next = QUEST_POOL.find((q) => !used.has(q.id) && !questState[q.id]); if (!next) return qs; return qs.map((q) => (q.id === id ? next : q)); });
-  const doActivity = (id: string, title: string) => {
-    setActDone((s) => ({ ...s, [id]: true }));
-    if (QUEST_POOL.find((x) => x.id === id)) setQS((s) => ({ ...s, [id]: true }));
-    const a = ACTS.find((x) => x.id === id); gainEmbers(2, title, a ? a.icon : 'star'); toast('Nice. +2 embers for the fire.');
-  };
   const finishAct = (id: string, title: string, icon: string) => { if (!actDone[id]) { setActDone((s) => ({ ...s, [id]: true })); gainEmbers(2, title, icon); } };
   const today = ymd(new Date());
   const puzzleSolvedToday = (id: string) => (solved[id] || []).includes(today);
@@ -287,7 +282,7 @@ function useAppState() {
   const planDay = Math.max(0, dayIndex(plan));
   const checkinDue = planDay >= PLAN_DAYS - 1;
 
-  return { uid, email: session?.user.email || null, signOut, campfireId, campfireName, resetN, resetDemo, skyOverride, streak, streakCount, answerMood, showDaily, dismissDaily: () => setDailyDismissed(true), lastTab, back, backTo, checkins, saveCheckin, plan, adoptPlan, planDone, doTask, undoTask, planDay, checkinDue, route, go, avatar, setAvatar, mood, setMood, embers, coop, quests, questState, doQuest, swapQuest, actDone, doActivity, finishAct, puzzleSolvedToday, puzzleCount, solvePuzzle, tutorials, tutorialsLoaded, markTutorialSeen, actLog, chat, chatPeople, sendChat, sending, strikes, chatBanned: strikes >= sync.MAX_STRIKES, chatWarning, bubbles, members, modal, setModal, toastMsg, toast, hopId, wave, talkReminder, setTalkReminder, chatDraft, setChatDraft, demoDay, setDemoDay };
+  return { uid, email: session?.user.email || null, signOut, campfireId, campfireName, resetN, resetDemo, skyOverride, streak, streakCount, answerMood, showDaily, dismissDaily: () => setDailyDismissed(true), lastTab, back, backTo, checkins, saveCheckin, plan, adoptPlan, planDone, doTask, undoTask, planDay, checkinDue, route, go, avatar, setAvatar, mood, setMood, embers, coop, quests, questState, doQuest, swapQuest, actDone, finishAct, puzzleSolvedToday, puzzleCount, solvePuzzle, tutorials, tutorialsLoaded, markTutorialSeen, actLog, chat, chatPeople, sendChat, sending, strikes, chatBanned: strikes >= sync.MAX_STRIKES, chatWarning, bubbles, members, modal, setModal, toastMsg, toast, hopId, wave, talkReminder, setTalkReminder, chatDraft, setChatDraft, demoDay, setDemoDay };
 }
 
 export type AppState = ReturnType<typeof useAppState>;
