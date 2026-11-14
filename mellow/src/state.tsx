@@ -61,6 +61,8 @@ function useAppState() {
   const [checkins, setCheckins] = useState<Checkin[]>(SEED_C);
   const [plan, setPlanS] = useState<Plan>(SEED_P);
   const [planDone, setPlanDone] = useState<Record<string, boolean>>(() => seedDone(SEED_P));
+  // Daily puzzles: the dates each one was solved. One puzzle a day, so a date appears at most once.
+  const [solved, setSolved] = useState<Record<string, string[]>>({});
   const toastT = useRef<any>(null);
 
   useEffect(() => {
@@ -72,6 +74,7 @@ function useAppState() {
         if (m) { const v = JSON.parse(m); if (v.date === ymd(new Date())) setMood(v.key); }
       } catch {}
     }).catch(() => {}).finally(() => setMoodLoaded(true));
+    AsyncStorage.getItem('mellow.v2.puzzles').then((v) => { if (v) { try { setSolved(JSON.parse(v)); } catch {} } }).catch(() => {});
     AsyncStorage.multiGet(['mellow.v2.checkins', 'mellow.v2.plan', 'mellow.v2.planDone']).then((r) => {
       try {
         const [c, p, d] = r.map((x) => x[1]);
@@ -127,6 +130,15 @@ function useAppState() {
     const a = ACTS.find((x) => x.id === id); gainEmbers(2, title, a ? a.icon : 'star'); toast('Nice. +2 embers for the fire.');
   };
   const finishAct = (id: string, title: string, icon: string) => { if (!actDone[id]) { setActDone((s) => ({ ...s, [id]: true })); gainEmbers(2, title, icon); } };
+  const today = ymd(new Date());
+  const puzzleSolvedToday = (id: string) => (solved[id] || []).includes(today);
+  const puzzleCount = (id: string) => (solved[id] || []).length;
+  const solvePuzzle = (id: string, title: string, icon: string) => {
+    if (puzzleSolvedToday(id)) return;
+    const next = { ...solved, [id]: [...(solved[id] || []), today] };
+    setSolved(next); AsyncStorage.setItem('mellow.v2.puzzles', JSON.stringify(next)).catch(() => {});
+    finishAct(id, title, icon);
+  };
   const wave = (m: Member) => { setHop(m.id); setTimeout(() => setHop(null), 800); toast('You waved at ' + m.name + '.'); setTimeout(() => bubble(m.id, '*waves back*'), 900); };
 
   const saveDone = (d: Record<string, boolean>) => { setPlanDone(d); AsyncStorage.setItem('mellow.v2.planDone', JSON.stringify(d)).catch(() => {}); };
@@ -162,7 +174,7 @@ function useAppState() {
   const planDay = Math.max(0, dayIndex(plan));
   const checkinDue = planDay >= PLAN_DAYS - 1;
 
-  return { streak, streakCount, answerMood, showDaily, dismissDaily: () => setDailyDismissed(true), lastTab, back, backTo, checkins, saveCheckin, plan, adoptPlan, planDone, doTask, undoTask, planDay, checkinDue, route, go, avatar, setAvatar, mood, setMood, embers, coop, quests, questState, doQuest, swapQuest, actDone, doActivity, finishAct, actLog, chat, sendChat, bubbles, members, modal, setModal, toastMsg, toast, hopId, wave, talkReminder, setTalkReminder, chatDraft, setChatDraft, demoDay, setDemoDay };
+  return { streak, streakCount, answerMood, showDaily, dismissDaily: () => setDailyDismissed(true), lastTab, back, backTo, checkins, saveCheckin, plan, adoptPlan, planDone, doTask, undoTask, planDay, checkinDue, route, go, avatar, setAvatar, mood, setMood, embers, coop, quests, questState, doQuest, swapQuest, actDone, doActivity, finishAct, puzzleSolvedToday, puzzleCount, solvePuzzle, actLog, chat, sendChat, bubbles, members, modal, setModal, toastMsg, toast, hopId, wave, talkReminder, setTalkReminder, chatDraft, setChatDraft, demoDay, setDemoDay };
 }
 
 export type AppState = ReturnType<typeof useAppState>;

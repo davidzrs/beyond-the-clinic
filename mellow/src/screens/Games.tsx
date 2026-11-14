@@ -6,7 +6,8 @@ import { C, F, themed } from '../theme';
 import { Icon } from '../components/Pixel';
 import { Btn, Chip, Eyebrow, H1, H3, LinkBtn, Panel, T } from '../components/ui';
 import { useLayout } from '../layout';
-import { TODAY_SIZE } from '../games/PuzzleGames';
+import { friendsWhoSolved, TODAY_SIZE } from '../games/PuzzleGames';
+import { puzzleSocialLine } from './GameScreen';
 
 // The Games tab: three daily logic puzzles. They are the daily reason to open the app; each one is short,
 // can't be lost, and its hints explain the reasoning. Older games (Ember Words etc.) stay under Activities.
@@ -23,7 +24,8 @@ export default function Games() {
   const cardW = (cw - (cols - 1) * 16) / cols;
   const wd = (new Date().getDay() + 6) % 7;
   const tc = TYPE_COLORS.daily;
-  const doneCount = GAMES.filter((g) => S.actDone[g.id]).length;
+  const doneCount = GAMES.filter((g) => S.puzzleSolvedToday(g.id)).length;
+  const friends = S.members.filter((m) => m.id !== 'me');
   return (
     <View style={{ gap: 20 }}>
       <View style={{ gap: 6 }}>
@@ -37,7 +39,7 @@ export default function Games() {
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16 }}>
         {GAMES.map((g) => {
-          const n = g.size[wd], done = !!S.actDone[g.id];
+          const n = g.size[wd], done = S.puzzleSolvedToday(g.id);
           return (
             <Panel key={g.id} style={{ width: cardW, padding: 0 }}>
               <View style={[st.art, { backgroundColor: tc.bg }]}>
@@ -47,9 +49,18 @@ export default function Games() {
               <View style={{ padding: 16, gap: 6, flex: 1 }}>
                 <H3>{g.title}</H3>
                 <T style={{ color: C.creamDim, fontSize: 14 }}>{g.desc}</T>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6 }}>
+                  <Icon name="people" size={14} color={C.muted} />
+                  <T muted style={{ fontSize: 13, flex: 1 }}>{puzzleSocialLine(S.puzzleCount(g.id), friendsWhoSolved(friends, g.id))}</T>
+                </View>
                 <View style={st.foot}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><Icon name="clock" size={14} /><T muted style={{ fontSize: 13 }}>{`${n}×${n} today`}</T></View>
-                  {done ? <Text style={st.done}>Solved today</Text> : <Btn sm label="Play" onPress={() => S.go(g.id)} />}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><Icon name="words" size={14} color={C.muted} /><T muted style={{ fontSize: 13 }}>{`${n}×${n} today`}</T></View>
+                  {done ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <Text style={st.done}>Solved today</Text>
+                      <Btn sm kind="ghost" label="View" onPress={() => S.go(g.id)} />
+                    </View>
+                  ) : <Btn sm label="Play" onPress={() => S.go(g.id)} />}
                 </View>
               </View>
             </Panel>

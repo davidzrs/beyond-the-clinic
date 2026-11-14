@@ -8,11 +8,16 @@ import { HOTEL, PICS, SIGHT } from './puzzles';
 import { blocked, clueText, FURN, GUESTS, Hint, hotelNext, lineClue, nonoHint, ROOMS, sightHint, sightSeen, thief } from './engines';
 
 // One puzzle a day: everyone gets the same one, and it grows a little through the week (Monday small, weekend big).
-// "Another puzzle" is there for the demo; the real app would show only today's.
+// Once solved, the puzzle stays solved for the rest of the day; a new one arrives tomorrow.
 const dayOfYear = () => Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 864e5);
 const weekday = () => (new Date().getDay() + 6) % 7;
 export const TODAY_SIZE = { nono: [5, 5, 7, 7, 8, 10, 10], sight: [5, 5, 6, 6, 6, 7, 7], hotel: [4, 4, 5, 5, 5, 6, 6] };
-const pick = <T,>(list: T[], variant: number) => list[(dayOfYear() + variant) % list.length];
+const pick = <T,>(list: T[]) => list[dayOfYear() % list.length];
+// Who at your fire solved today's puzzle. Demo data, fixed per day and game; times are never shown.
+export function friendsWhoSolved(friends: { id: string; name: string }[], game: string) {
+  const day = dayOfYear();
+  return friends.filter((f) => { let h = day * 31 + game.length * 7; for (const ch of game + f.id) h = (h * 33 + ch.charCodeAt(0)) % 9973; return h % 3 !== 0; }).map((f) => f.name);
+}
 
 // The game page is at most 620 wide and the board sits in a panel with 18 px padding (plus its border).
 function useBoardWidth() { const { cw } = useLayout(); return Math.max(220, Math.min(560, Math.min(620, cw) - 38)); }
@@ -70,29 +75,28 @@ function useLive<V>(init: () => V): [V, React.MutableRefObject<V>, (v: V) => voi
   return [v, r, (n: V) => { r.current = n; setV(n); }];
 }
 
-function Controls({ mode, onMode, onHint, onNext, done }: { mode?: [string, boolean]; onMode?: () => void; onHint: () => void; onNext: () => void; done: boolean }) {
+function Controls({ mode, onMode, onHint, done }: { mode?: [string, boolean]; onMode?: () => void; onHint: () => void; done: boolean }) {
+  if (done) return null;
   return (
     <View style={gs.controls}>
-      {mode && !done ? <Btn sm kind="ghost" label={mode[0]} onPress={onMode} style={mode[1] ? { borderWidth: 1, borderColor: C.ember } : null} /> : null}
-      {!done ? <Btn sm kind="ghost" icon="info" label="Hint" onPress={onHint} /> : null}
-      <Btn sm kind="ghost" icon="refresh" label="Another puzzle" onPress={onNext} />
+      {mode ? <Btn sm kind="ghost" icon={mode[1] ? 'x' : 'brush'} label={mode[0]} onPress={onMode} style={mode[1] ? { borderWidth: 1, borderColor: C.ember } : null} /> : null}
+      <Btn sm kind="ghost" icon="bulb" label="Hint" onPress={onHint} />
     </View>
   );
 }
 const TIP = 'Tap a square to fill it, tap again for ✕, once more to clear. Drag to do several at once.' + (Platform.OS === 'web' ? ' Right-click marks ✕.' : '');
 
 // ---------- Hidden Picture ----------
-export function HiddenPicture({ onDone }: { onDone: () => void }) {
+export function HiddenPicture({ onDone, solved }: { onDone: () => void; solved?: boolean }) {
   const W = useBoardWidth();
-  const [variant, setVariant] = useState(0);
   const P = useMemo(() => {
-    const n = TODAY_SIZE.nono[weekday()], names = Object.keys(PICS[n]), name = pick(names, variant);
+    const n = TODAY_SIZE.nono[weekday()], names = Object.keys(PICS[n]), name = pick(names);
     const sol = PICS[n][name].join('').split('').map((c) => (c === '#' ? 1 : 0));
     const grid = (r: number, c: number) => sol[r * n + c];
     const rows = Array.from({ length: n }, (_, r) => lineClue(Array.from({ length: n }, (_, c) => grid(r, c))));
     const cols = Array.from({ length: n }, (_, c) => lineClue(Array.from({ length: n }, (_, r) => grid(r, c))));
     return { n, name, sol, rows, cols, k: Math.max(1, ...rows.map((x) => x.length), ...cols.map((x) => x.length)) };
-  }, [variant]);
+  }, []);
   const { n, sol, rows, cols, k } = P;
   // 0 empty, 1 filled, 2 marked ✕
   const [st, stRef, setSt] = useLive<number[]>(() => Array(n * n).fill(0));
@@ -101,7 +105,8 @@ export function HiddenPicture({ onDone }: { onDone: () => void }) {
   const [won, setWon] = useState(false);
   const wonRef = useRef(false);
   const drag = useRef<number | null>(null);
-  useEffect(() => { setSt(Array(n * n).fill(0)); setHint(null); setWon(false); wonRef.current = false; }, [P]);
+  // Already solved today (saved progress can arrive a moment after the page opens): show the finished board.
+  useEffect(() => { if (solved && !wonRef.current) { setSt(sol.map((v) => (v ? 1 : 2))); setWon(true); wonRef.current = true; } }, [solved]);
   const u = W / (n + 0.62 * k + 0.3), off = W - n * u;
   const lineDone = (axis: 'row' | 'col', i: number) => {
     const got = lineClue(Array.from({ length: n }, (_, j) => (axis === 'row' ? st[i * n + j] : st[j * n + i])));
@@ -172,21 +177,20 @@ export function HiddenPicture({ onDone }: { onDone: () => void }) {
           </>
         ) : null}
       </View>
-      {won ? <Reply><T><Text style={{ fontFamily: F.bodyBold }}>It was {P.name}.</Text> Every square worked out by logic. A new picture arrives tomorrow.</T></Reply>
+      {won ? <Reply><T><Text style={{ fontFamily: F.bodyBold }}>It was {P.name}.</Text> Every square worked out by logic. Come back tomorrow for a new picture.</T></Reply>
         : hint ? <Reply><T style={{ fontSize: 14 }}>{hint.why}</T></Reply> : null}
-      <Controls mode={[mark ? 'Mode: mark ✕' : 'Mode: fill', mark]} onMode={() => setMark(!mark)} onHint={doHint} onNext={() => setVariant(variant + 1)} done={won} />
+      <Controls mode={[mark ? 'Mode: mark ✕' : 'Mode: fill', mark]} onMode={() => setMark(!mark)} onHint={doHint} done={won} />
     </View>
   );
 }
 
 // ---------- Line of Sight ----------
-export function LineOfSight({ onDone }: { onDone: () => void }) {
+export function LineOfSight({ onDone, solved }: { onDone: () => void; solved?: boolean }) {
   const W = useBoardWidth();
-  const [variant, setVariant] = useState(0);
   const P = useMemo(() => {
-    const n = TODAY_SIZE.sight[weekday()], p = pick(SIGHT[n], variant);
+    const n = TODAY_SIZE.sight[weekday()], p = pick(SIGHT[n]);
     return { n, cl: p.c.split(',').map(Number), sol: p.s.split('').map(Number) };
-  }, [variant]);
+  }, []);
   const { n, cl, sol } = P;
   const fresh = () => cl.map((v) => (v ? 0 : -1));
   // -1 undecided, 0 marked ✕ (stays open), 1 shaded
@@ -196,7 +200,7 @@ export function LineOfSight({ onDone }: { onDone: () => void }) {
   const [won, setWon] = useState(false);
   const wonRef = useRef(false);
   const drag = useRef<number | null>(null);
-  useEffect(() => { setSt(fresh()); setHint(null); setWon(false); wonRef.current = false; }, [P]);
+  useEffect(() => { if (solved && !wonRef.current) { setSt(sol.map((v, i) => (cl[i] ? 0 : v ? 1 : 0))); setWon(true); wonRef.current = true; } }, [solved]);
   const u = W / n;
   const check = (next: number[]) => {
     if (!wonRef.current && next.every((v, i) => (v === 1) === (sol[i] === 1))) { wonRef.current = true; setWon(true); setHint(null); onDone(); }
@@ -239,9 +243,9 @@ export function LineOfSight({ onDone }: { onDone: () => void }) {
           );
         })}
       </View>
-      {won ? <Reply><T><Text style={{ fontFamily: F.bodyBold }}>Solved.</Text> Every number sees exactly what it should. A new one arrives tomorrow.</T></Reply>
+      {won ? <Reply><T><Text style={{ fontFamily: F.bodyBold }}>Solved.</Text> Every number sees exactly what it should. Come back tomorrow for a new one.</T></Reply>
         : hint ? <Reply><T style={{ fontSize: 14 }}>{hint.why}</T></Reply> : null}
-      <Controls mode={[mark ? 'Mode: mark ✕' : 'Mode: shade', mark]} onMode={() => setMark(!mark)} onHint={doHint} onNext={() => setVariant(variant + 1)} done={won} />
+      <Controls mode={[mark ? 'Mode: mark ✕' : 'Mode: shade', mark]} onMode={() => setMark(!mark)} onHint={doHint} done={won} />
     </View>
   );
 }
@@ -253,13 +257,12 @@ export function LineOfSight({ onDone }: { onDone: () => void }) {
 type HState = { pos: number[]; notes: number[][]; xm: boolean[]; xa: number[] };
 type Tool = 'note' | 'x' | 'erase';
 const HOLD_MS = 420;
-export function HotelMystery({ onDone }: { onDone: () => void }) {
+export function HotelMystery({ onDone, solved }: { onDone: () => void; solved?: boolean }) {
   // Wide screens: guest cards | board | tools, like a suspect sheet. Phones: board, tools, then cards.
   const { cw } = useLayout();
   const wide = cw >= 900;
   const W = wide ? Math.max(280, Math.min(560, cw - 38 - 280 - 190 - 40)) : Math.max(220, Math.min(560, cw - 38));
-  const [variant, setVariant] = useState(0);
-  const P = useMemo(() => pick(HOTEL[TODAY_SIZE.hotel[weekday()]], variant), [variant]);
+  const P = useMemo(() => pick(HOTEL[TODAY_SIZE.hotel[weekday()]]), []);
   const n = P.n;
   // pos: square per guest. notes: small initials per square. xm: ✕ set by hand. xa: ✕ added by placed guests (a count).
   const blank = (): HState => ({ pos: Array(n).fill(-1), notes: Array.from({ length: n * n }, () => []), xm: Array(n * n).fill(false), xa: Array(n * n).fill(0) });
@@ -272,7 +275,7 @@ export function HotelMystery({ onDone }: { onDone: () => void }) {
   const [won, setWon] = useState(false);
   const wonRef = useRef(false);
   const press = useRef<null | { c: number; alt: boolean; moved: boolean; done: boolean; timer: any; paint?: (k: number) => void }>(null);
-  useEffect(() => { setS(blank()); hist.current = []; setSel(0); setWhy(null); setWon(false); wonRef.current = false; setTool('note'); }, [P]);
+  useEffect(() => { if (solved && !wonRef.current) { const s0 = blank(); P.sol.forEach((c, x) => place(s0, x, c)); setS(s0); setWon(true); wonRef.current = true; } }, [solved]);
   const u = W / n, night = themeMode() === 'night';
 
   const clone = (s: HState): HState => ({ pos: s.pos.slice(), notes: s.notes.map((a) => a.slice()), xm: s.xm.slice(), xa: s.xa.slice() });
@@ -361,8 +364,8 @@ export function HotelMystery({ onDone }: { onDone: () => void }) {
   S.pos.forEach((c) => { if (c >= 0) { rowCount[Math.floor(c / n)] = (rowCount[Math.floor(c / n)] || 0) + 1; colCount[c % n] = (colCount[c % n] || 0) + 1; } });
   const labeled = new Set<number>();
   const t = thief(P), room = ROOMS[P.area[P.cake]];
-  const toolBtn = (k: Tool, label: string) => (
-    <Btn sm kind="ghost" label={label} onPress={() => setTool(tool === k ? 'note' : k)} style={[wide && gs.toolWide, tool === k && { borderWidth: 1, borderColor: C.ember }]} />
+  const toolBtn = (k: Tool, label: string, icon: string) => (
+    <Btn sm kind="ghost" icon={icon} label={label} onPress={() => setTool(tool === k ? 'note' : k)} style={[wide && gs.toolWide, tool === k && { borderWidth: 1, borderColor: C.ember }]} />
   );
   const board = (
     <View ref={input.ref} {...input.handlers} style={{ width: W, height: W, borderRadius: 10, overflow: 'hidden', borderWidth: 2, borderColor: C.lineHi }}>
@@ -391,7 +394,7 @@ export function HotelMystery({ onDone }: { onDone: () => void }) {
       })}
     </View>
   );
-  const message = won ? <Reply><T><Text style={{ fontFamily: F.bodyBold }}>It was {GUESTS[P.people[t]].name}.</Text> The only guest in the {room.name} with the safe. Case closed until tomorrow.</T></Reply>
+  const message = won ? <Reply><T><Text style={{ fontFamily: F.bodyBold }}>It was {GUESTS[P.people[t]].name}.</Text> The only guest in the {room.name} with the safe. Case closed. A new mystery arrives tomorrow.</T></Reply>
     : why ? <Reply><T style={{ fontSize: 14 }}>{why.text}</T></Reply> : null;
   // One card per guest, with the clues about them, like a suspect sheet. Tapping a card picks that guest.
   const cardW = wide ? 280 : cw >= 560 ? (cw - 38 - 10) / 2 : cw - 38;
@@ -418,16 +421,15 @@ export function HotelMystery({ onDone }: { onDone: () => void }) {
   );
   const tools = (
     <View style={wide ? { width: 190, gap: 8 } : gs.controls}>
-      {!won ? toolBtn('x', '✕ Impossible') : null}
+      {!won ? toolBtn('x', 'Impossible', 'x') : null}
       {!won ? (
         <Pressable onPress={() => setTool(tool === 'erase' ? 'note' : 'erase')} onLongPress={clearAll} delayLongPress={600} accessibilityRole="button"
           accessibilityHint="Hold to clear everything" style={[s.btn, s.btnSm, { backgroundColor: C.night4 }, wide && gs.toolWide, tool === 'erase' && { borderWidth: 1, borderColor: C.ember }]}>
-          <Text style={[s.btnT, { fontSize: 13.5, color: C.cream }]}>Eraser</Text>
+          <Icon name="eraser" size={16} color={C.cream} /><Text style={[s.btnT, { fontSize: 13.5, color: C.cream }]}>Eraser</Text>
         </Pressable>
       ) : null}
-      {!won ? <Btn sm kind="ghost" label="Undo" onPress={undo} style={wide ? gs.toolWide : null} /> : null}
-      {!won ? <Btn sm kind="ghost" icon="info" label="Hint" onPress={doHint} style={wide ? gs.toolWide : null} /> : null}
-      <Btn sm kind="ghost" icon="refresh" label="Another puzzle" onPress={() => setVariant(variant + 1)} style={wide ? gs.toolWide : null} />
+      {!won ? <Btn sm kind="ghost" icon="undo" label="Undo" onPress={undo} style={wide ? gs.toolWide : null} /> : null}
+      {!won ? <Btn sm kind="ghost" icon="bulb" label="Hint" onPress={doHint} style={wide ? gs.toolWide : null} /> : null}
       {!won ? <T muted style={{ fontSize: 12.5 }}>Hold the eraser to clear the whole plan.</T> : null}
     </View>
   );
