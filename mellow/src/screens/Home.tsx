@@ -133,7 +133,7 @@ export default function Home() {
           {!last ? 'The fire is quiet. Say hello to your campfire.'
             : <><Text style={{ fontFamily: F.bodyBold }}>{ember ? 'Ember (AI)' : last.from === 'me' ? 'You' : who.name}: </Text>{last.text}</>}
         </Text>
-        <Text style={st.sub} numberOfLines={1}>Pinehollow · Sunday Talk, Sun 19:00</Text>
+        <Text style={st.sub} numberOfLines={1}>{S.campfireName + ' · Sunday Talk, Sun 19:00'}</Text>
       </View>
       <Icon name="chevron" size={18} />
     </Pressable>

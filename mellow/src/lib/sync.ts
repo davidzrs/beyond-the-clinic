@@ -59,14 +59,16 @@ export async function submitCheckin(uid: string, day: string, mood: MoodKey, str
 }
 
 // Join (or find) my campfire and who else is there.
-export async function myCampfire(uid: string): Promise<{ id: string; name: string; mates: Mate[] } | null> {
+export async function myCampfire(uid: string): Promise<{ id: string; name: string; code: string | null; mates: Mate[] } | null> {
   if (!supabase) return null;
   const { data: id, error } = await supabase.rpc('join_campfire');
   if (error || !id) { warn('join campfire', error); return null; }
-  const [{ data: fire }, { data: members }] = await Promise.all([
-    supabase.from('campfires').select('name').eq('id', id).maybeSingle(),
+  const [{ data: withCode, error: e2 }, { data: members }] = await Promise.all([
+    supabase.from('campfires').select('name, invite_code').eq('id', id).maybeSingle(),
     supabase.from('campfire_members').select('user_id, joined_at').eq('campfire_id', id).order('joined_at'),
   ]);
+  // Before campfire-invites.sql runs there is no invite_code column: still load the name.
+  const fire = e2 ? (await supabase.from('campfires').select('name').eq('id', id).maybeSingle()).data : withCode;
   const ids = (members || []).map((m: any) => m.user_id).filter((x: string) => x !== uid);
   let mates: Mate[] = [];
   if (ids.length) {
@@ -74,7 +76,7 @@ export async function myCampfire(uid: string): Promise<{ id: string; name: strin
     warn('load campfire friends', e3);
     mates = (profs || []) as Mate[];
   }
-  return { id: id as string, name: fire?.name || 'Your campfire', mates };
+  return { id: id as string, name: fire?.name || 'Your campfire', code: (fire as any)?.invite_code || null, mates };
 }
 
 // Chat messages go through the send-message Edge Function, which asks Gemini first (supabase/functions).
@@ -168,4 +170,24 @@ export function onVotes(onVote: (v: Vote) => void) {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'spark_votes' }, (p: any) => { if (p.new?.message_id) onVote(p.new as Vote); })
     .subscribe();
   return () => { supabase?.removeChannel(ch); };
+}
+
+// ---------- invite codes (supabase/campfire-invites.sql) ----------
+
+// Which fire is this code? Seats taken, and whether I'm already there. Doesn't join.
+export type Peek = { status: 'found'; name: string; members: number; mine: boolean } | { status: 'not_found' } | { status: 'error' };
+export async function peekCampfire(code: string): Promise<Peek> {
+  if (!supabase) return { status: 'error' };
+  const { data, error } = await supabase.rpc('peek_campfire', { code });
+  if (error) { warn('peek campfire', error); return { status: 'error' }; }
+  return data as Peek;
+}
+
+// Sit at the fire with this code (leaving the current one).
+export type Joined = { status: 'joined' | 'already'; id: string; name: string } | { status: 'full'; name: string } | { status: 'not_found' } | { status: 'error' };
+export async function joinByCode(code: string): Promise<Joined> {
+  if (!supabase) return { status: 'error' };
+  const { data, error } = await supabase.rpc('join_campfire_by_code', { code });
+  if (error) { warn('join by code', error); return { status: 'error' }; }
+  return data as Joined;
 }
