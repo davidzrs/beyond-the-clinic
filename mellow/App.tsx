@@ -104,7 +104,7 @@ function Shell() {
         </View>
       ) : null}
       <ModalHost />
-      <DailyCheckin />
+      <DailyCheckin key={S.resetN} />
     </View>
   );
 }

@@ -157,10 +157,22 @@ function useAppState() {
   const streakAlive = streak.last === ymd(new Date()) || streak.last === ymd(addDays(new Date(), -1));
   const streakCount = streakAlive ? streak.count : 0;
   const showDaily = moodLoaded && !mood && !dailyDismissed;
+  // Testing only: put the demo back to its starting point (keeps your marshmallow).
+  const [resetN, setResetN] = useState(0);
+  const [skyOverride, setSkyOverride] = useState<'day' | 'night' | null>(null); // null = follow the clock
+  const resetDemo = (sky: 'day' | 'night' | null = null) => {
+    setSkyOverride(sky);
+    AsyncStorage.multiRemove(['mellow.v2.streak', 'mellow.v2.mood', 'mellow.v2.checkins', 'mellow.v2.plan', 'mellow.v2.planDone']).catch(() => {});
+    setStreak({ count: 6, last: ymd(addDays(new Date(), -1)) }); setMood(null); setDailyDismissed(false);
+    setCheckins(SEED_C); setPlanS(SEED_P); setPlanDone(seedDone(SEED_P));
+    setEmbers(86); setCoop(8); setQS({}); setActDone({}); setActLog([]); setQuests(QUEST_POOL.slice(0, 3));
+    setChat(CHAT0); setModal(null); setResetN((n) => n + 1);
+    go('home');
+  };
   const planDay = Math.max(0, dayIndex(plan));
   const checkinDue = planDay >= PLAN_DAYS - 1;
 
-  return { streak, streakCount, answerMood, showDaily, dismissDaily: () => setDailyDismissed(true), lastTab, back, checkins, saveCheckin, plan, adoptPlan, planDone, doTask, undoTask, planDay, checkinDue, route, go, avatar, setAvatar, mood, setMood, embers, coop, quests, questState, doQuest, swapQuest, actDone, doActivity, finishAct, actLog, chat, sendChat, bubbles, members, modal, setModal, toastMsg, toast, hopId, wave, talkReminder, setTalkReminder, chatDraft, setChatDraft, demoDay, setDemoDay };
+  return { resetN, resetDemo, skyOverride,streak, streakCount, answerMood, showDaily, dismissDaily: () => setDailyDismissed(true), lastTab, back, checkins, saveCheckin, plan, adoptPlan, planDone, doTask, undoTask, planDay, checkinDue, route, go, avatar, setAvatar, mood, setMood, embers, coop, quests, questState, doQuest, swapQuest, actDone, doActivity, finishAct, actLog, chat, sendChat, bubbles, members, modal, setModal, toastMsg, toast, hopId, wave, talkReminder, setTalkReminder, chatDraft, setChatDraft, demoDay, setDemoDay };
 }
 
 export type AppState = ReturnType<typeof useAppState>;
