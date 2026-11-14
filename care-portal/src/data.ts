@@ -47,19 +47,27 @@ export const THRESHOLDS = { watch: 30, high: 55 };
 
 // ---------- signals ----------
 export type SignalKey = 'sleepHours' | 'restingHr' | 'hrvRmssd' | 'morningSteps' | 'steps' | 'screenMinutes' | 'lateNightScreenMinutes' | 'messagesSent' | 'mood';
-export type SignalDef = { key: SignalKey; label: string; unit: string; worse: 'up' | 'down' | 'both'; fmt: (v: number) => string; delta: (to: number, from: number) => string };
+export type SignalDef = {
+  key: SignalKey; label: string; unit: string; worse: 'up' | 'down' | 'both';
+  fmt: (v: number) => string; delta: (to: number, from: number) => string;
+  range: (lo: number, hi: number) => string; // "970–2,360 steps"
+  min?: number; max?: number; // physical limits for the usual range
+};
 const pct = (to: number, from: number) => { const p = Math.round(((to - from) / (from || 1)) * 100); return (p > 0 ? '+' : p < 0 ? '−' : '±') + Math.abs(p) + '%'; };
 const signed = (v: number, d = 0, u = '') => (v > 0 ? '+' : v < 0 ? '−' : '±') + Math.abs(v).toFixed(d) + u;
+const loc = (v: number) => Math.round(v).toLocaleString('en-GB');
+const sig = (key: SignalKey, label: string, worse: SignalDef['worse'], n: (v: number) => string, u: string, delta: SignalDef['delta'], lim: { min?: number; max?: number } = { min: 0 }): SignalDef =>
+  ({ key, label, unit: u.trim(), worse, fmt: (v) => n(v) + u, delta, range: (lo, hi) => n(lo) + '–' + n(hi) + u, ...lim });
 export const SIGNALS: SignalDef[] = [
-  { key: 'sleepHours', label: 'Sleep', unit: 'h', worse: 'both', fmt: (v) => v.toFixed(1) + ' h', delta: (a, b) => signed(a - b, 1, ' h') },
-  { key: 'restingHr', label: 'Resting heart rate', unit: 'bpm', worse: 'up', fmt: (v) => Math.round(v) + ' bpm', delta: (a, b) => signed(Math.round(a - b), 0, ' bpm') },
-  { key: 'hrvRmssd', label: 'Heart rate variability', unit: 'ms', worse: 'down', fmt: (v) => Math.round(v) + ' ms', delta: pct },
-  { key: 'morningSteps', label: 'Morning activity', unit: 'steps', worse: 'down', fmt: (v) => Math.round(v).toLocaleString('en-GB') + ' steps', delta: pct },
-  { key: 'steps', label: 'Daily steps', unit: 'steps', worse: 'down', fmt: (v) => Math.round(v).toLocaleString('en-GB'), delta: pct },
-  { key: 'screenMinutes', label: 'Screen time', unit: 'min', worse: 'up', fmt: (v) => (v / 60).toFixed(1) + ' h', delta: (a, b) => signed((a - b) / 60, 1, ' h') },
-  { key: 'lateNightScreenMinutes', label: 'Late-night phone use', unit: 'min', worse: 'up', fmt: (v) => Math.round(v) + ' min', delta: (a, b) => signed(Math.round(a - b), 0, ' min') },
-  { key: 'messagesSent', label: 'Messages sent', unit: '/day', worse: 'down', fmt: (v) => v.toFixed(0) + ' / day', delta: pct },
-  { key: 'mood', label: 'Check-in mood', unit: '/5', worse: 'down', fmt: (v) => v.toFixed(1) + ' / 5', delta: (a, b) => signed(a - b, 1) },
+  sig('sleepHours', 'Sleep', 'both', (v) => v.toFixed(1), ' h', (a, b) => signed(a - b, 1, ' h')),
+  sig('restingHr', 'Resting heart rate', 'up', (v) => String(Math.round(v)), ' bpm', (a, b) => signed(Math.round(a - b), 0, ' bpm')),
+  sig('hrvRmssd', 'Heart rate variability', 'down', (v) => String(Math.round(v)), ' ms', pct),
+  sig('morningSteps', 'Morning activity', 'down', loc, ' steps', pct),
+  sig('steps', 'Daily steps', 'down', loc, '', pct),
+  sig('screenMinutes', 'Screen time', 'up', (v) => (v / 60).toFixed(1), ' h', (a, b) => signed((a - b) / 60, 1, ' h')),
+  sig('lateNightScreenMinutes', 'Late-night phone use', 'up', (v) => String(Math.round(v)), ' min', (a, b) => signed(Math.round(a - b), 0, ' min')),
+  sig('messagesSent', 'Messages to friends', 'down', (v) => v.toFixed(0), ' / day', pct),
+  sig('mood', 'Check-in mood', 'down', (v) => v.toFixed(1), ' / 5', (a, b) => signed(a - b, 1), { min: 1, max: 5 }),
 ];
 export const SIGNAL = Object.fromEntries(SIGNALS.map((s) => [s.key, s])) as Record<SignalKey, SignalDef>;
 

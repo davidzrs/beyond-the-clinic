@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { DAYS, fmtDate, fmtLong, LEVEL, levelOf, phqBand, riskAt, SIGNALS, signalNow, slice, THRESHOLDS, weeksAt, checkInAt, type Patient as P, type SignalKey } from '../data';
+import { DAYS, fmtDate, fmtLong, LEVEL, levelOf, phqBand, riskAt, SIGNALS, signalNow, slice, THRESHOLDS, weeksAt, checkInAt, type Patient as P, type SignalDef, type SignalKey } from '../data';
 import { go, useStore } from '../store';
-import { Avatar, Card, Icon, LevelPill } from '../components/ui';
+import { Avatar, Card, Hint, Icon, LevelPill } from '../components/ui';
 import { LineChart } from '../components/Charts';
 
 const SHOWN: SignalKey[] = ['sleepHours', 'restingHr', 'hrvRmssd', 'morningSteps', 'screenMinutes', 'messagesSent', 'mood', 'lateNightScreenMinutes'];
@@ -105,7 +105,7 @@ export default function Patient({ p, openCall }: { p: P; openCall: boolean }) {
           </table>
         </Card>
 
-        <Card className="span-2" title="Signals" sub="Last 6 weeks. The grey band is this person’s usual range (baseline ± 1 SD); the value is this week’s average.">
+        <Card className="span-2" title="Signals" sub={<SignalLegend from={p.baseline.from} to={p.baseline.to} />}>
           <div className="signals">
             {SHOWN.map((k) => <SignalTile key={k} p={p} k={k} day={day} />)}
           </div>
@@ -144,24 +144,72 @@ function SignalTile({ p, k, day }: { p: P; k: SignalKey; day: number }) {
   const { recent, base, sd, z } = signalNow(p, k, day);
   const from = Math.max(p.firstDay, day - 41);
   const vals = slice(p.series[k], from, day);
-  const all = vals.filter((v): v is number => v != null).concat(base != null && sd != null ? [base - sd, base + sd] : []);
+  const clampR = (v: number) => Math.min(def.max ?? Infinity, Math.max(def.min ?? -Infinity, v));
+  const band = base != null && sd != null ? { lo: clampR(base - sd), hi: clampR(base + sd) } : null;
+  const all = vals.filter((v): v is number => v != null).concat(band ? [band.lo, band.hi] : []);
   if (!all.length) return null;
   let lo = Math.min(...all), hi = Math.max(...all);
   const pad = (hi - lo) * 0.12 || 1; lo -= pad; hi += pad;
   const worse = z == null ? 0 : def.worse === 'both' ? Math.abs(z) : def.worse === 'up' ? z : -z;
   const flag = worse >= 1.6 ? 'off' : worse >= 1 ? 'drift' : 'ok';
+  const dir = (z ?? 0) >= 0 ? 'up' : 'down';
+  const chip = flag === 'off' ? (dir === 'up' ? 'Above usual' : 'Below usual') : flag === 'drift' ? (dir === 'up' ? 'Drifting up' : 'Drifting down') : 'Usual';
   return (
     <div className={'sig sig-' + flag}>
       <div className="sig-head">
         <span>{def.label}</span>
-        <span className={'sig-flag ' + flag}>{flag === 'off' ? 'Outside usual' : flag === 'drift' ? 'Drifting' : 'Usual'}</span>
+        <Hint className={'sig-flag ' + flag} tip={<><b>{chip}</b><span>{FLAG_HELP[flag]}</span></>}>{chip}</Hint>
       </div>
       <div className="sig-val">
         <b>{recent != null ? def.fmt(recent) : '—'}</b>
-        {recent != null && base != null && <span className="muted small">{def.delta(recent, base)} vs usual {def.fmt(base)}</span>}
+        <span className="muted small">this week</span>
       </div>
-      <LineChart compact ariaLabel={def.label + ', last 6 weeks'} values={vals} startDay={from} endDay={day} domain={[lo, hi]} height={58}
-        baseline={base != null && sd != null ? { lo: base - sd, hi: base + sd } : undefined} fmt={def.fmt} />
+      {z != null && base != null && sd != null && recent != null && <RangeGauge z={z} def={def} base={base} sd={sd} recent={recent} />}
+      {band && <div className="sig-range small">Usual <b>{def.range(band.lo, band.hi)}</b></div>}
+      <LineChart compact ariaLabel={def.label + ', last 6 weeks'} values={vals} startDay={from} endDay={day} domain={[lo, hi]} height={44}
+        baseline={band ?? undefined} fmt={def.fmt} />
+    </div>
+  );
+}
+
+// Where this week sits against the person's own usual range, in steps of their normal day-to-day swing.
+// Grey = usual, amber = drifting, red = outside usual. Only the worrying side has amber and red.
+function SignalLegend({ from, to }: { from: number; to: number }) {
+  return (
+    <span className="sig-legend">
+      <span>This week’s average <span className="lg-dot" /> against this person’s usual range, learned {fmtDate(from)} – {fmtDate(to)}.</span>
+      <span className="lg-keys"><i className="g-ok" /> Usual <i className="g-drift" /> Drifting <i className="g-off" /> Outside usual</span>
+    </span>
+  );
+}
+
+const FLAG_HELP = {
+  ok: 'Within this person’s normal range, or moving in a harmless direction.',
+  drift: 'Further from normal than a typical week (1–1.6× their usual day-to-day swing). Worth keeping an eye on.',
+  off: 'Rarely this far from normal in their usual weeks (1.6× their usual swing or more). One of the reasons a call may be suggested.',
+} as const;
+const ZONE_NAME = { ok: 'Usual', drift: 'Drifting', off: 'Outside usual' } as const;
+
+function RangeGauge({ z, def, base, sd, recent }: { z: number; def: SignalDef; base: number; sd: number; recent: number }) {
+  const worse = def.worse;
+  // Moving in the harmless direction (e.g. more steps) still counts as usual, so that side is all grey.
+  const segs: [number, number, keyof typeof ZONE_NAME][] =
+    worse === 'down' ? [[-3, -1.6, 'off'], [-1.6, -1, 'drift'], [-1, 3, 'ok']]
+    : worse === 'up' ? [[-3, 1, 'ok'], [1, 1.6, 'drift'], [1.6, 3, 'off']]
+    : [[-3, -1.6, 'off'], [-1.6, -1, 'drift'], [-1, 1, 'ok'], [1, 1.6, 'drift'], [1.6, 3, 'off']];
+  const at = (k: number) => Math.min(def.max ?? Infinity, Math.max(def.min ?? -Infinity, base + k * sd));
+  // the zone in real units: "below 649 steps", "649–973 steps", "above 2,362 steps"
+  const zone = (a: number, b: number) => (a <= -3 ? 'Below ' + def.fmt(at(b)) : b >= 3 ? 'Above ' + def.fmt(at(a)) : def.range(at(a), at(b)));
+  const pos = ((Math.max(-3, Math.min(3, z)) + 3) / 6) * 100;
+  const swing = Math.abs(z) < 0.1 ? 'Right at their usual average' : `${Math.abs(z).toFixed(1)}× their usual day-to-day swing ${z < 0 ? 'below' : 'above'} average (${def.fmt(base)})`;
+  return (
+    <div className="gauge" role="img" aria-label={def.label + ': ' + swing}>
+      {segs.map(([a, b, kind]) => (
+        <Hint key={a} className={'g-seg g-' + kind} style={{ width: ((b - a) / 6) * 100 + '%' }}
+          tip={<><b>{ZONE_NAME[kind]}</b><span>{zone(a, b)}</span></>} />
+      ))}
+      <Hint className="g-dot" style={{ left: pos + '%' }}
+        tip={<><b>This week: {def.fmt(recent)}</b><span>{swing}</span></>} />
     </div>
   );
 }
