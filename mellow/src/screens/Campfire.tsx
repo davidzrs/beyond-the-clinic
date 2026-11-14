@@ -50,6 +50,7 @@ function Chat() {
       <Text style={st.note}>Only the 4 of you can see this.</Text>
       <ScrollView ref={listRef} style={{ flex: 1 }} contentContainerStyle={{ gap: 10, paddingBottom: 4 }}>
         {S.chat.map((c) => {
+          if (c.kind === 'spark' && c.poll) return <SparkPoll key={c.id} id={c.id} question={c.text} poll={c.poll} time={c.time} />;
           const m = who(c.from); const me = c.from === 'me';
           return (
             <View key={c.id} style={[st.msg, me && { flexDirection: 'row-reverse' }]}>
@@ -85,6 +86,44 @@ function Chat() {
           </View>
         </>
       )}
+    </View>
+  );
+}
+
+// Ember's "this or that" poll, posted when the fire has been quiet for 2 days.
+// Ember always shows as an AI. Before you vote you see the two options; after, how the fire split.
+function SparkPoll({ id, question, poll, time }: { id: number; question: string; poll: { a: string; b: string }; time: string }) {
+  const S = useApp();
+  const v = S.votes[id] || {};
+  const mine = v.me;
+  const n = { a: 0, b: 0 };
+  Object.values(v).forEach((c) => { n[c] += 1; });
+  const total = n.a + n.b;
+  return (
+    <View style={st.msg}>
+      <View style={st.ember}><Icon name="ember" size={18} /></View>
+      <View style={[st.bub, st.sparkBub]}>
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+          <Text style={st.who}>Ember</Text>
+          <View style={st.aiTag}><Text style={st.aiTagT}>AI</Text></View>
+          <Text style={st.time}>{time}</Text>
+        </View>
+        <Text style={st.msgT}>{question}</Text>
+        <View style={{ gap: 6, marginTop: 4 }}>
+          {(['a', 'b'] as const).map((k) => {
+            const pct = total ? Math.round((n[k] / total) * 100) : 0;
+            return (
+              <Pressable key={k} onPress={() => S.castVote(id, k)} accessibilityRole="button" accessibilityState={{ selected: mine === k }}
+                accessibilityLabel={poll[k] + (mine ? `, ${n[k]} of ${total} votes` : '')} style={[st.opt, mine === k && st.optOn]}>
+                {mine ? <View style={[st.optFill, { width: (pct + '%') as any }]} /> : null}
+                <Text style={[st.optT, mine === k && { fontFamily: F.bodyBold }]}>{poll[k]}</Text>
+                {mine ? <Text style={st.optN}>{n[k]}</Text> : null}
+              </Pressable>
+            );
+          })}
+        </View>
+        <Text style={st.sparkNote}>{mine ? 'Tell the fire why you picked it.' : 'Pick one. The fire’s been quiet, so I’m asking.'}</Text>
+      </View>
     </View>
   );
 }
@@ -196,6 +235,16 @@ const st = themed(() => StyleSheet.create({
   pchip: { borderRadius: 999, borderWidth: 1, borderColor: C.line, backgroundColor: C.night3, paddingHorizontal: 10, paddingVertical: 5 },
   pchipT: { fontFamily: F.body, fontSize: 12.5, color: C.creamDim },
   input: { flex: 1, minWidth: 0, backgroundColor: C.night, borderWidth: 1, borderColor: C.line, borderRadius: 10, color: C.cream, paddingHorizontal: 12, paddingVertical: 10, fontFamily: F.body, fontSize: 15 },
+  ember: { width: 32, height: 32, borderRadius: 16, backgroundColor: C.night3, alignItems: 'center', justifyContent: 'center' },
+  sparkBub: { flexGrow: 1, gap: 4, borderWidth: 1, borderColor: C.line },
+  aiTag: { backgroundColor: C.night4, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1 },
+  aiTagT: { fontFamily: F.bodyBold, fontSize: 11, color: C.creamDim, letterSpacing: 0.5 },
+  opt: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 10, borderWidth: 1, borderColor: C.lineHi, paddingHorizontal: 12, paddingVertical: 9, overflow: 'hidden' },
+  optOn: { borderColor: C.ember },
+  optFill: { position: 'absolute', left: 0, top: 0, bottom: 0, backgroundColor: C.navySoft },
+  optT: { fontFamily: F.body, fontSize: 14.5, color: C.cream },
+  optN: { fontFamily: F.bodyBold, fontSize: 13, color: C.creamDim },
+  sparkNote: { fontFamily: F.body, fontSize: 12.5, color: C.muted, marginTop: 2 },
   warn: { backgroundColor: C.amberSoft, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9 },
   warnT: { fontFamily: F.body, fontSize: 13.5, lineHeight: 19, color: C.amber },
   when: { fontFamily: F.display, fontSize: 15, color: C.forest },

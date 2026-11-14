@@ -11,7 +11,8 @@ export const MEMBERS: Member[] = [
   { id: 'ama', name: 'Ama', since: 'Oct 9', likes: 'Film photography, green tea', a: { name: 'Ama', color: 'strawberry', face: 'calm', hat: 'none', glasses: 'hearts', acc: 'flower', item: 'mug' } },
 ];
 
-export type Msg = { id: number; from: string; text: string; time: string };
+// kind 'spark': a poll from Ember, the campfire's AI (from = 'ember'), with two options.
+export type Msg = { id: number; from: string; text: string; time: string; kind?: 'text' | 'spark'; poll?: { a: string; b: string } };
 export const CHAT0: Msg[] = [
   { id: 1, from: 'juno', text: 'Got today’s Ember Words in 4 tries. Sneaky one.', time: '18:42' },
   { id: 2, from: 'teo', text: 'Short walk before work this morning. Cold, but the sky was pink.', time: '18:55' },

@@ -46,6 +46,8 @@ export default function Patients() {
         </div>
       </header>
 
+      <CrisisAlerts />
+
       <div className="stats">
         <Stat level="high" n={count('high')} label="calls suggested" onClick={() => pickFilter('high')} active={filter === 'high'} />
         <Stat level="watch" n={count('watch')} label="worth watching" onClick={() => pickFilter('watch')} active={filter === 'watch'} />
@@ -146,5 +148,35 @@ function Stat({ level, n, label, onClick, active }: { level: Level; n: number; l
       <span className="stat-n">{n}</span>
       <span className="stat-l"><LevelIcon level={level} /> {label}</span>
     </button>
+  );
+}
+
+// Patients whose chat message sounded like a crisis, newest first. Only people who agreed to it
+// after sign-up appear, and the message itself is never shared: only that it happened, and when.
+function CrisisAlerts() {
+  const S = useStore();
+  const open = S.alerts.filter((a) => !a.seen);
+  if (!open.length) return null;
+  const name = (id: string) => PATIENTS.find((p) => p.id === id)?.name || 'A patient';
+  const when = (t: number) => new Date(t).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return (
+    <section className="crisis" role="alert" aria-label="Crisis alerts">
+      <div className="crisis-head">
+        <Icon name="phone" size={18} />
+        <div>
+          <h2>Reach out today</h2>
+          <p className="small">A message in the campfire chat sounded like a crisis. The patient saw crisis resources; the message wasn’t posted and isn’t shared with you.</p>
+        </div>
+      </div>
+      <ul>
+        {open.map((a) => (
+          <li key={a.id}>
+            <button className="crisis-who" onClick={() => go('/patients/' + a.patientId)}>{name(a.patientId)}</button>
+            <span className="muted small">{when(a.at)}</span>
+            <button className="btn sm" onClick={() => S.markAlertSeen(a.id)}>Mark as handled</button>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
