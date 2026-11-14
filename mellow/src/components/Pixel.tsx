@@ -129,7 +129,7 @@ export function CampScene({ members, bubbles, onPick, compact, hopId }: { member
 }
 
 // Full-bleed campfire: the scene covers the whole area (cropping the sides on tall screens), marshmallows stay tappable.
-export function CampFull({ members, bubbles, onPick, hopId }: { members: SceneMember[]; bubbles?: Record<string, string>; onPick?: (m: SceneMember) => void; hopId?: string | null }) {
+export function CampFull({ members, bubbles, onPick, hopId, rightInset = 0 }: { members: SceneMember[]; bubbles?: Record<string, string>; onPick?: (m: SceneMember) => void; hopId?: string | null; rightInset?: number }) {
   // Start from the window size so the scene draws on the first frame, then refine with the real layout.
   const win = useWindowDimensions();
   const [box, setBox] = useState({ w: Math.round(win.width), h: Math.round(win.height) });
@@ -140,7 +140,8 @@ export function CampFull({ members, bubbles, onPick, hopId }: { members: SceneMe
   const L = landscape ? LAYOUTS.wide : LAYOUTS.full;
   // Always cover the whole area (no empty bands); keep the ground in view and crop sky or sides instead.
   const k = !box.w ? 0 : Math.max(box.w / L.W, box.h / L.H);
-  const sw = L.W * k, sh = L.H * k, ox = (box.w - sw) / 2, oy = box.h - sh;
+  // Centred in the space a side panel (the chat on wide screens) leaves free.
+  const sw = L.W * k, sh = L.H * k, ox = (box.w - rightInset - sw) / 2, oy = box.h - sh;
   return (
     <View onLayout={(e) => setBox({ w: Math.round(e.nativeEvent.layout.width), h: Math.round(e.nativeEvent.layout.height) })} style={[StyleSheet.absoluteFill, { backgroundColor: themeMode() === 'day' ? (landscape ? '#69B04E' : '#3E8EDA') : (landscape ? '#101b16' : '#0a0e22'), overflow: 'hidden' }]}>
       {k > 0 && (

@@ -1,5 +1,5 @@
 // Creates the demo patients and clinicians as real Supabase accounts and fills in their data.
-//   node scripts/seed.mjs
+//   node scripts/seed-care.mjs   (from the mellow folder)
 // Every account uses the password 123123123. Safe to run again: existing accounts are reused and
 // their rows overwritten. Patients' trends come from the same generator the portal used offline
 // (src/data.ts), so the numbers match what the team has already seen.
@@ -9,15 +9,15 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const env = Object.fromEntries(fs.readFileSync(path.join(here, '../../mellow/.env'), 'utf8').split(/\r?\n/).filter((l) => l.includes('=') && !l.startsWith('#')).map((l) => [l.slice(0, l.indexOf('=')).trim(), l.slice(l.indexOf('=') + 1).trim()]));
+const env = Object.fromEntries(fs.readFileSync(path.join(here, '../.env'), 'utf8').split(/\r?\n/).filter((l) => l.includes('=') && !l.startsWith('#')).map((l) => [l.slice(0, l.indexOf('=')).trim(), l.slice(l.indexOf('=') + 1).trim()]));
 const URL = env.EXPO_PUBLIC_SUPABASE_URL, KEY = env.EXPO_PUBLIC_SUPABASE_KEY;
 if (!URL || !KEY) throw new Error('Missing Supabase URL or key in mellow/.env');
 const PASSWORD = '123123123';
 
 // Load the portal's data model in Node (same code, JSON loaded from disk instead of a bundler import).
-const src = fs.readFileSync(path.join(here, '../src/data.ts'), 'utf8').replace(
+const src = fs.readFileSync(path.join(here, '../src/care/data.ts'), 'utf8').replace(
   /import raw from '([^']+)';/,
-  (_, p) => `import { readFileSync as __r } from 'node:fs';\nconst raw = JSON.parse(__r(${JSON.stringify(path.resolve(path.join(here, '../src'), p))}, 'utf8'));`,
+  (_, p) => `import { readFileSync as __r } from 'node:fs';\nconst raw = JSON.parse(__r(${JSON.stringify(path.resolve(path.join(here, '../src/care'), p))}, 'utf8'));`,
 );
 const tmp = path.join(here, '.data.gen.ts');
 fs.writeFileSync(tmp, src);

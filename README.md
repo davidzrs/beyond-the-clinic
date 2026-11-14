@@ -2,8 +2,8 @@
 
 Mobile companion for staying well after depression treatment (Junction 2026 · Beyond the Clinic).
 
-- `mellow/` — the app (Expo / React Native)
-- `care-portal/` — the clinician website (React + Vite): log in and follow each patient's score
+- `mellow/` — the app (Expo / React Native) and the website. Patients sign in to the app; on the web,
+  "Are you a doctor?" on the sign-in page opens the clinician portal (`mellow/src/care/`)
 - `data-analysis/` — PHQ-9 dataset analysis
 - `RESEARCH.md` — the research behind our suggestions and the signals we track
 
@@ -38,25 +38,17 @@ On Windows, React Native's C++ build breaks when paths pass 260 characters. If t
 
 If something breaks: `npx expo-doctor`, then `npx expo install --fix`. Add libraries with `npx expo install <package>`, not `npm install`.
 
-## Run the clinician portal
+## The website (app + clinician portal)
+
+One website for everyone. Inside `mellow/`:
 
 ```bash
-cd care-portal
-npm install
-npm run dev        # http://localhost:5180
+npx expo start --web
 ```
 
-Demo sign-in: `laura.aalto@pinehollow.fi` / `mellow`. More in `care-portal/README.md`.
-
-### Ports
-
-| What | Port |
-|---|---|
-| Mellow app dev server (Expo / Metro) | 8081 |
-| Clinician portal (`npm run dev`) | 5180 |
-| Clinician portal (`npm run preview`, after a build) | 5181 |
-
-The portal ports are fixed (`strictPort`): if one is busy, Vite stops with an error instead of picking a random port. Close the old terminal and run it again.
+Open http://localhost:8081. Patients sign in (or "Try the demo"); doctors click **"Are you a doctor?"**.
+Demo accounts (password `123123123`): `laura.aalto@pinehollow.fi` for the care team, `aino.virtanen@mellow.test`
+and the other patients for the app. More in `mellow/src/care/README.md`.
 
 ## Campfire chat moderation (Gemini)
 

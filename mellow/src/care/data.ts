@@ -2,7 +2,7 @@
 // Sam's 90 days are the same timeline the Mellow app shows. The other clinic patients only have a
 // snapshot in the JSON (score + reasons for "today"), so their histories are generated here from a
 // fixed seed: same numbers on every load, ending exactly at the snapshot score on the last day.
-import raw from '../../mellow/src/demo/demoData.json';
+import raw from '../demo/demoData.json';
 
 type Driver = { key: string; label: string; z: number; from: number; to: number; change: string };
 type Q = { day: number; date: string; who5: number; phq9?: number };

@@ -13,9 +13,25 @@ import { ThemeToggle } from '../components/ThemeToggle';
 type SheetKind = null | 'chat' | 'talk' | 'spark';
 
 // Slides up from the bottom over the fire; tap outside or the close button to go back to the scene.
-function BottomSheet({ visible, title, onClose, tall, children }: { visible: boolean; title: string; onClose: () => void; tall?: boolean; children: React.ReactNode }) {
+function BottomSheet({ visible, title, onClose, tall, corner, children }: { visible: boolean; title: string; onClose: () => void; tall?: boolean; corner?: boolean; children: React.ReactNode }) {
   const insets = useSafeAreaInsets();
   const { height, width } = useLayout();
+  // On wide screens a `corner` sheet is a floating panel in the bottom-right, so the fire and every
+  // marshmallow stay in view (and stay tappable). On phones it is a regular sheet from the bottom.
+  if (corner && width >= 760) {
+    if (!visible) return null;
+    return (
+      <KeyboardAvoidingView behavior="padding" pointerEvents="box-none" style={[StyleSheet.absoluteFill, { justifyContent: 'flex-end', alignItems: 'flex-end', padding: 20, paddingBottom: 20 + insets.bottom }]}>
+        <View style={[st.sheet, st.panel, { width: Math.min(400, width * 0.42), height: Math.min(600, height - 150) }]}>
+          <View style={st.sheetHead}>
+            <Text style={st.sheetT}>{title}</Text>
+            <IconBtn icon="close" label="Close" onPress={onClose} />
+          </View>
+          {children}
+        </View>
+      </KeyboardAvoidingView>
+    );
+  }
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close" />
@@ -93,7 +109,7 @@ function Chat() {
 export default function Campfire() {
   const S = useApp();
   const insets = useSafeAreaInsets();
-  const { wide } = useLayout();
+  const { wide, width } = useLayout();
   const [sheet, setSheet] = useState<SheetKind>(S.chatDraft.startsWith('@') ? 'chat' : null);
   const close = () => setSheet(null);
   const [open, setOpen] = useState(false);
@@ -111,7 +127,7 @@ export default function Campfire() {
 
   return (
     <View style={{ flex: 1 }}>
-      <CampFull members={S.members} bubbles={S.bubbles} hopId={S.hopId} onPick={(m) => (m.id === 'me' ? S.go('wardrobe') : S.setModal({ type: 'member', m }))} />
+      <CampFull rightInset={sheet === 'chat' && width >= 760 ? Math.min(400, width * 0.42) + 20 : 0} members={S.members} bubbles={S.bubbles} hopId={S.hopId} onPick={(m) => (m.id === 'me' ? S.go('wardrobe') : S.setModal({ type: 'member', m }))} />
 
       <View style={[st.top, { paddingTop: insets.top + (wide ? 18 : 10) }]} pointerEvents="box-none">
         <View style={st.sign}>
@@ -145,7 +161,7 @@ export default function Campfire() {
         )) : null}
       </View>
 
-      <BottomSheet visible={sheet === 'chat'} title="Fireside chat" onClose={close} tall><Chat /></BottomSheet>
+      <BottomSheet visible={sheet === 'chat'} title="Fireside chat" onClose={close} tall corner><Chat /></BottomSheet>
       <BottomSheet visible={sheet === 'talk'} title="Sunday Talk" onClose={close}>
         <View style={{ gap: 10 }}>
           <Text style={st.when}>Sunday · 19:00 · about 30 min</Text>
@@ -183,6 +199,7 @@ const st = themed(() => StyleSheet.create({
   actionT: { fontFamily: F.displayMed, fontSize: 13, color: C.cream, backgroundColor: C.glass, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, overflow: 'hidden' },
   sheetWrap: { flex: 1, justifyContent: 'flex-end', alignItems: 'center' },
   sheet: { backgroundColor: C.night2, borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingHorizontal: 18, paddingTop: 8 },
+  panel: { borderRadius: 22, paddingTop: 14, paddingBottom: 14, borderWidth: 1, borderColor: C.line, boxShadow: '0px 12px 40px rgba(0,0,0,0.35)' } as any,
   grab: { alignSelf: 'center', width: 40, height: 5, borderRadius: 3, backgroundColor: C.line, marginBottom: 8 },
   sheetHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   sheetT: { fontFamily: F.display, fontSize: 20, color: C.cream },

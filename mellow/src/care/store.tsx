@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { DEMO_PATIENTS, patientFromRows, setPatients, TODAY_DAY, type MetricRow, type ProfileRow } from './data';
 import { supabase } from './supabase';
+import { exitPortal } from './exit';
 
 // ---------- tiny hash router: #/login, #/patients, #/patients/:id, #/calls ----------
 export function useHashRoute() {
@@ -24,7 +25,7 @@ export type Clinician = { name: string; role: string; email: string; clinic: str
 export type Note = { id: string; patientId: string; text: string; at: number; author: string };
 export type Call = { id: string; patientId: string; when: string; reason: string; createdAt: number };
 
-// Real Supabase accounts (created by scripts/seed.mjs). Any @pinehollow.fi account is care team.
+// Real Supabase accounts (created by mellow/scripts/seed-care.mjs). Any @pinehollow.fi account is care team.
 const CLINIC = 'Pinehollow Clinic · TMS maintenance';
 export const DEMO_PASSWORD = '123123123';
 export const DEMO_ACCOUNTS: (Clinician & { password: string })[] = [
@@ -140,11 +141,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try { return await enter(); } finally { setLoading(false); }
   }, [enter]);
+  // Signing out of the portal leaves it for the Mellow sign-in page (one website for everyone).
   const signOut = useCallback(() => {
     setUser(null); setLive(false); setPatients(DEMO_PATIENTS);
-    if (supabase) supabase.auth.signOut();
     try { sessionStorage.removeItem('mellowcare.session'); } catch { /* ignore */ }
-    go('/login');
+    exitPortal();
   }, []);
   const uid = () => Math.random().toString(36).slice(2, 9);
 
