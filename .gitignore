@@ -1,2 +1,5 @@
 data/raw/
 node_modules/
+
+# files the Claude app saves locally (reports, screenshots)
+Claude outputs/
