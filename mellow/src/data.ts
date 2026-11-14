@@ -1,4 +1,5 @@
 import { Avatar } from './pixel/sprites';
+import { themed, themeMode } from './theme';
 
 export const ME_DEFAULT: Avatar = { name: 'Sam', color: 'vanilla', face: 'content', hat: 'beanie', glasses: 'none', acc: 'scarf', item: 'mug' };
 
@@ -54,12 +55,17 @@ export const ACTS: Act[] = [
   { id: 'sea', type: 'relax', icon: 'wave', title: 'Sea Breeze', desc: 'Slow waves rolling onto a quiet shore.', dur: 'Any length' },
 ];
 export const TYPE_LABEL: Record<ActType, string> = { daily: 'Daily game', together: 'Together', quest: 'Quest', relax: 'Relax' };
-export const TYPE_COLORS: Record<ActType, { bg: string; chipBg: string; chipFg: string; btn: 'ember' | 'green' | 'plum' }> = {
+export const TYPE_COLORS: Record<ActType, { bg: string; chipBg: string; chipFg: string; btn: 'ember' | 'green' | 'plum' }> = themed(() => (themeMode() === 'day' ? {
+  daily: { bg: '#E8F1FB', chipBg: '#D3E5F8', chipFg: '#245E96', btn: 'ember' },
+  together: { bg: '#FDEDEF', chipBg: '#F8D7DD', chipFg: '#9A3343', btn: 'ember' },
+  quest: { bg: '#E4F4E8', chipBg: '#CCEAD5', chipFg: '#1E6A3F', btn: 'green' },
+  relax: { bg: '#FFF2D9', chipBg: '#FDE3B0', chipFg: '#87570A', btn: 'plum' },
+} : {
   daily: { bg: '#2e2752', chipBg: '#3d335f', chipFg: '#d6c9ff', btn: 'ember' },
   together: { bg: '#40263a', chipBg: '#5a2f3b', chipFg: '#ffc3cb', btn: 'ember' },
   quest: { bg: '#1e3a31', chipBg: '#24463a', chipFg: '#bfe8c9', btn: 'green' },
   relax: { bg: '#1d2e4f', chipBg: '#24375a', chipFg: '#c4dcff', btn: 'plum' },
-};
+}) as Record<ActType, { bg: string; chipBg: string; chipFg: string; btn: 'ember' | 'green' | 'plum' }>);
 export const WORDS = ['SHINE', 'EMBER', 'BLOOM', 'CABIN', 'CLOUD', 'HONEY', 'LIGHT', 'OCEAN', 'PEACE', 'SPARK', 'TOAST', 'MAPLE', 'SMILE', 'QUIET', 'CREEK', 'GLOWS'];
 export const COOP_GOAL = 12;
 export const SYNC_OPTS = ['Rain on the windows', 'Fresh coffee', 'Old cartoons', 'A long slow walk', 'Pancakes', 'Sleeping in'];

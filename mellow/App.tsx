@@ -1,13 +1,15 @@
-import React, { useEffect, useRef } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { BackHandler, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFonts, Outfit_500Medium, Outfit_600SemiBold, Outfit_700Bold } from '@expo-google-fonts/outfit';
 import { Nunito_400Regular, Nunito_600SemiBold, Nunito_700Bold, Nunito_800ExtraBold } from '@expo-google-fonts/nunito';
 import { AppProvider, Route, useApp } from './src/state';
-import { C, F } from './src/theme';
+import { autoMode, C, F, onTheme, setThemeMode, themed, themeMode, themeVersion } from './src/theme';
 import { Icon, Mallow } from './src/components/Pixel';
 import { ModalHost } from './src/modals/Modals';
+import { ThemeToggle } from './src/components/ThemeToggle';
+import { DailyCheckin } from './src/components/DailyCheckin';
 import { MAX_W, SIDEBAR_W, useLayout } from './src/layout';
 import Home from './src/screens/Home';
 import Campfire from './src/screens/Campfire';
@@ -15,8 +17,10 @@ import Activities from './src/screens/Activities';
 import Journey from './src/screens/Journey';
 import Wardrobe from './src/screens/Wardrobe';
 import Clinic from './src/screens/Clinic';
+import Insights from './src/screens/Insights';
 
-const NAV: [Route, string, string][] = [['home', 'Home', 'home'], ['campfire', 'Campfire', 'flame'], ['activities', 'Activities', 'play'], ['journey', 'My Journey', 'leaf']];
+// Three tabs. Games, the wardrobe, insights and the care-team view are sub-pages with a back link.
+const NAV: [Route, string, string][] = [['home', 'Today', 'home'], ['campfire', 'Campfire', 'flame'], ['journey', 'Journey', 'leaf']];
 const LOGO = { name: '', color: 'vanilla', face: 'happy', hat: 'none', glasses: 'none', acc: 'none', item: 'none' };
 
 function Shell() {
@@ -25,18 +29,27 @@ function Shell() {
   const insets = useSafeAreaInsets();
   const scroll = useRef<any>(null);
   useEffect(() => { scroll.current?.scrollTo({ y: 0, animated: false }); }, [S.route]);
-  const Screen = { home: Home, campfire: Campfire, activities: Activities, journey: Journey, wardrobe: Wardrobe, clinic: Clinic }[S.route];
+  useEffect(() => {
+    // Android back button: a sub-page goes back to its tab instead of closing the app.
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (!NAV.some(([k]) => k === S.route)) { S.back(); return true; }
+      return false;
+    });
+    return () => sub.remove();
+  }, [S.route, S.lastTab]);
+  const full = S.route === 'campfire'; // the campfire scene fills the screen
+  const Screen = { home: Home, campfire: Campfire, activities: Activities, journey: Journey, wardrobe: Wardrobe, clinic: Clinic, insights: Insights }[S.route];
 
   return (
-    <View style={[st.root, { paddingTop: insets.top }]}>
-      <StatusBar style="light" />
+    <View style={[st.root, { paddingTop: full && !wide ? 0 : insets.top }, !wide && !full && { backgroundColor: C.navyDeep }]}>
+      <StatusBar style={wide && themeMode() === 'day' ? 'dark' : 'light'} />
       <View style={{ flex: 1, flexDirection: 'row' }}>
         {wide ? (
           <View style={st.side}>
             <View style={st.brand}><Mallow a={LOGO} size={40} anim={false} /><View><Text style={st.brandT}>Mellow</Text><Text style={st.brandS}>A cozy fire for hard days</Text></View></View>
             <View style={{ gap: 6 }}>
               {NAV.map(([k, l, ic]) => {
-                const on = S.route === k;
+                const on = S.route === k || (S.lastTab === k && !NAV.some(([n]) => n === S.route));
                 return (
                   <Pressable key={k} onPress={() => S.go(k)} style={(p: any) => [st.nav, on && { backgroundColor: C.night4 }, p.hovered && !on && { backgroundColor: C.night3 }]}>
                     <Icon name={ic} size={20} color={on ? C.emberHi : C.muted} /><Text style={[st.navT, on && { color: C.cream }]}>{l}</Text>
@@ -45,6 +58,7 @@ function Shell() {
               })}
             </View>
             <View style={{ marginTop: 'auto', gap: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><ThemeToggle bg={C.night3} color={C.emberHi} /><Text style={st.meS}>{themeMode() === 'day' ? 'Day mode' : 'Night mode'}</Text></View>
               <Pressable onPress={() => S.go('wardrobe')} style={st.mechip}>
                 <Mallow a={S.avatar} size={44} anim={false} />
                 <View style={{ flex: 1 }}><Text style={st.meN}>{S.avatar.name}</Text><Text style={st.meS}>Customize your marshmallow</Text></View>
@@ -54,25 +68,31 @@ function Shell() {
             </View>
           </View>
         ) : null}
-        <ScrollView ref={scroll} style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: pad, paddingTop: wide ? 30 : 14, paddingBottom: wide ? 60 : 110 + insets.bottom }} keyboardShouldPersistTaps="handled">
+        {full ? <View style={{ flex: 1 }}><Screen /></View> : <ScrollView ref={scroll} style={{ flex: 1, backgroundColor: C.night }} contentContainerStyle={{ paddingHorizontal: pad, paddingTop: wide ? 30 : 14, paddingBottom: wide ? 60 : 110 + insets.bottom }} keyboardShouldPersistTaps="handled">
           <View style={{ width: '100%', maxWidth: MAX_W, alignSelf: 'center' }}>
             {!wide ? (
-              <View style={st.mtop}>
-                <View style={st.brand}><Mallow a={LOGO} size={32} anim={false} /><Text style={[st.brandT, { fontSize: 22 }]}>Mellow</Text></View>
-                <Pressable onPress={() => S.go('wardrobe')} style={st.meBtn} accessibilityLabel="Customize your marshmallow"><Mallow a={S.avatar} size={34} anim={false} /></Pressable>
+              <View style={[st.mtop, { marginHorizontal: -pad, paddingHorizontal: pad }, (S.route === 'home' || S.route === 'journey') ? { marginBottom: 0 } : st.mtopRound]}>
+                <View style={st.brand}><Mallow a={LOGO} size={32} anim={false} /><Text style={[st.brandT, { fontSize: 22, color: C.heroText }]}>Mellow</Text></View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <ThemeToggle />
+                  <Pressable onPress={() => S.go('wardrobe')} style={st.meBtn} accessibilityLabel="Customize your marshmallow"><Mallow a={S.avatar} size={34} anim={false} /></Pressable>
+                </View>
               </View>
             ) : null}
             <Screen />
           </View>
-        </ScrollView>
+        </ScrollView>}
       </View>
       {!wide ? (
-        <View style={[st.bnav, { paddingBottom: 6 + insets.bottom }]}>
+        <View style={[st.bnav, { paddingBottom: 8 + insets.bottom }, full && st.bnavOver]} pointerEvents="box-none">
+          {/* Soft fade so content melts into the bar instead of stopping at a hard line */}
+          {!full ? <View pointerEvents="none" style={st.fade}>{[0.15, 0.35, 0.55, 0.75, 0.9].map((o) => <View key={o} style={{ flex: 1, backgroundColor: C.night, opacity: o }} />)}</View> : null}
           {NAV.map(([k, l, ic]) => {
-            const on = S.route === k;
+            const on = S.route === k || (S.lastTab === k && !NAV.some(([n]) => n === S.route));
+            const fg = full ? (on ? '#FFFFFF' : 'rgba(255,255,255,.75)') : on ? C.emberHi : C.muted;
             return (
-              <Pressable key={k} onPress={() => S.go(k)} style={st.bbtn}>
-                <Icon name={ic} size={22} color={on ? C.emberHi : C.muted} /><Text style={[st.bT, on && { color: C.cream }]}>{l.replace('My ', '')}</Text>
+              <Pressable key={k} onPress={() => S.go(k)} style={[st.bbtn, on && (full ? st.bbtnOnOver : st.bbtnOn)]} accessibilityRole="tab" accessibilityState={{ selected: on }}>
+                <Icon name={ic} size={22} color={fg} /><Text style={[st.bT, { color: fg }, on && { fontFamily: F.display }]}>{l}</Text>
               </Pressable>
             );
           })}
@@ -84,8 +104,21 @@ function Shell() {
         </View>
       ) : null}
       <ModalHost />
+      <DailyCheckin />
     </View>
   );
+}
+
+function Themed() {
+  const [v, setV] = useState(themeVersion());
+  useEffect(() => onTheme(() => setV(themeVersion())), []);
+  useEffect(() => {
+    // Follow the clock: when it turns 7:00 or 19:00, switch.
+    let last = autoMode();
+    const id = setInterval(() => { const m = autoMode(); if (m !== last) { last = m; setThemeMode(m); } }, 60000);
+    return () => clearInterval(id);
+  }, []);
+  return <Shell key={v} />;
 }
 
 export default function App() {
@@ -94,15 +127,15 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AppProvider>
-        <Shell />
+        <Themed />
       </AppProvider>
     </SafeAreaProvider>
   );
 }
 
-const st = StyleSheet.create({
+const st = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: C.night },
-  side: { width: SIDEBAR_W, borderRightWidth: 1, borderRightColor: C.line, paddingVertical: 26, paddingHorizontal: 18, gap: 22, backgroundColor: 'rgba(18,23,46,.86)' },
+  side: { width: SIDEBAR_W, borderRightWidth: 1, borderRightColor: C.line, paddingVertical: 26, paddingHorizontal: 18, gap: 22, backgroundColor: C.night2 },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   brandT: { fontFamily: F.displayBold, fontSize: 24, color: C.cream },
   brandS: { fontFamily: F.displayMed, fontSize: 11.5, color: C.muted },
@@ -112,11 +145,17 @@ const st = StyleSheet.create({
   meN: { fontFamily: F.display, fontSize: 16, color: C.cream },
   meS: { fontFamily: F.body, fontSize: 12, color: C.muted },
   help: { fontFamily: F.body, fontSize: 13, color: C.muted, textDecorationLine: 'underline' },
-  mtop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 },
-  meBtn: { borderRadius: 12, borderWidth: 1, borderColor: C.line, backgroundColor: C.night2, padding: 4 },
-  bnav: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', justifyContent: 'space-around', paddingTop: 6, paddingHorizontal: 8, backgroundColor: 'rgba(18,23,46,.97)', borderTopWidth: 1, borderTopColor: C.line },
-  bbtn: { alignItems: 'center', gap: 2, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 10 },
+  mtop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, marginTop: -14, paddingTop: 10, paddingBottom: 10, backgroundColor: C.navyDeep },
+  mtopRound: { borderBottomLeftRadius: 22, borderBottomRightRadius: 22, paddingBottom: 14 },
+  meBtn: { borderRadius: 12, backgroundColor: C.peach, padding: 4 },
+  // The tab bar is the page colour (no border), with a short fade above it; the active tab sits in a soft pill.
+  bnav: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', justifyContent: 'space-around', paddingTop: 6, paddingHorizontal: 12, backgroundColor: C.night },
+  bnavOver: { backgroundColor: 'rgba(8,12,30,.28)' },
+  fade: { position: 'absolute', left: 0, right: 0, top: -18, height: 18 },
+  bbtn: { alignItems: 'center', gap: 2, paddingVertical: 6, paddingHorizontal: 18, borderRadius: 16 },
+  bbtnOn: { backgroundColor: C.navySoft },
+  bbtnOnOver: { backgroundColor: 'rgba(255,255,255,.2)' },
   bT: { fontFamily: F.displayMed, fontSize: 12, color: C.muted },
-  toast: { position: 'absolute', alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.cream, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10, maxWidth: '90%' },
-  toastT: { fontFamily: F.bodyBold, fontSize: 14, color: C.ink, flexShrink: 1 },
-});
+  toast: { position: 'absolute', alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.ember, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10, maxWidth: '90%' },
+  toastT: { fontFamily: F.bodyBold, fontSize: 14, color: C.emberInk, flexShrink: 1 },
+}));

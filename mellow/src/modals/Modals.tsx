@@ -3,11 +3,13 @@ import { Animated, Easing, Modal, Platform, Pressable, ScrollView, StyleSheet, T
 import * as Clipboard from 'expo-clipboard';
 import { useApp } from '../state';
 import { Member, OTHER_CAMPS, SYNC_OPTS, SYNC_PICKS, WORDS } from '../data';
-import { C, F } from '../theme';
+import { C, F, themed } from '../theme';
 import { Icon, Mallow } from '../components/Pixel';
 import { Btn, Eyebrow, H2, IconBtn, Reply, T, Tab } from '../components/ui';
 import { startSoundscape, Scape } from '../audio/soundscape';
 import { useLayout } from '../layout';
+import { CheckinFlow, PlanCalendar, Report } from './Checkin';
+import { fromYmd, niceDate } from '../checkin';
 
 function Sheet({ title, eyebrow, onClose, children }: { title: string; eyebrow?: string; onClose: () => void; children: React.ReactNode }) {
   const { width, height } = useLayout();
@@ -34,7 +36,7 @@ function scoreWord(g: string, t: string) {
   for (let i = 0; i < 5; i++) { if (res[i] !== 'hit' && tc[g[i]]) { res[i] = 'near'; tc[g[i]]--; } }
   return res as ('hit' | 'near' | 'miss')[];
 }
-const TILE_BG = { hit: C.forest, near: '#b8702c', miss: C.night4 };
+const TILE_BG = themed(() => ({ hit: C.forest, near: '#D99A00', miss: '#9AA4BC' }));
 
 function WordsGame({ onDone }: { onDone: (won: boolean) => void }) {
   const day = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 864e5);
@@ -72,7 +74,7 @@ function WordsGame({ onDone }: { onDone: (won: boolean) => void }) {
             <View key={i} style={{ flexDirection: 'row', gap: 6 }}>
               {[0, 1, 2, 3, 4].map((j) => (
                 <View key={j} style={[st.wt, sc ? { backgroundColor: TILE_BG[sc[j]], borderColor: TILE_BG[sc[j]] } : word[j] ? { borderColor: C.lineHi } : null]}>
-                  <Text style={[st.wtT, sc && sc[j] === 'miss' && { color: C.muted }]}>{word[j] || ''}</Text>
+                  <Text style={[st.wtT, sc && { color: C.white }]}>{word[j] || ''}</Text>
                 </View>
               ))}
             </View>
@@ -88,8 +90,8 @@ function WordsGame({ onDone }: { onDone: (won: boolean) => void }) {
             {row.split('').map((ch) => {
               const k = ch === '+' ? 'ENTER' : ch === '-' ? 'DEL' : ch; const s = ks[k];
               return (
-                <Pressable key={k} onPress={() => press(k)} style={[st.key, k.length > 1 && { flex: 1.6 }, s === 'hit' && { backgroundColor: C.forest }, s === 'near' && { backgroundColor: '#b8702c' }, s === 'miss' && { backgroundColor: '#1b2040' }]}>
-                  <Text style={[st.keyT, k.length > 1 && { fontSize: 12 }, s === 'miss' && { color: C.muted }]}>{k === 'DEL' ? 'Del' : k === 'ENTER' ? 'Enter' : k}</Text>
+                <Pressable key={k} onPress={() => press(k)} style={[st.key, k.length > 1 && { flex: 1.6 }, s === 'hit' && { backgroundColor: C.forest }, s === 'near' && { backgroundColor: '#D99A00' }, s === 'miss' && { backgroundColor: '#CBD2E0' }]}>
+                  <Text style={[st.keyT, k.length > 1 && { fontSize: 12 }, (s === 'hit' || s === 'near') && { color: C.white }, s === 'miss' && { color: C.muted }]}>{k === 'DEL' ? 'Del' : k === 'ENTER' ? 'Enter' : k}</Text>
                 </Pressable>
               );
             })}
@@ -127,7 +129,7 @@ function LightGame({ onDone }: { onDone: () => void }) {
       <T muted style={{ fontSize: 14 }}>Round {round + 1} of 3. Tap the little sun hiding among the clouds.</T>
       <View style={{ width: gridW, alignSelf: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
         {g.cells.map((c, i) => (
-          <Pressable key={round + '-' + i} onPress={() => click(i)} style={[st.lcell, { width: cell, height: cell }, found === i && { backgroundColor: '#4a3a20' }, wrong === i && { backgroundColor: '#3a2030' }]}>
+          <Pressable key={round + '-' + i} onPress={() => click(i)} style={[st.lcell, { width: cell, height: cell }, found === i && { backgroundColor: C.amberSoft }, wrong === i && { backgroundColor: C.roseSoft }]}>
             <Icon name={c} size={cell * 0.7} />
           </Pressable>
         ))}
@@ -273,6 +275,9 @@ export function ModalHost() {
     case 'sync': return <Sheet title="MindSync" eyebrow="With Pinehollow" onClose={close}><SyncGame members={S.members} onShare={(t) => { S.sendChat(t); S.finishAct('sync', 'MindSync', 'sync'); close(); S.go('campfire'); }} /></Sheet>;
     case 'breathe': return <Sheet title="Breathe with the Flame" eyebrow="Relax" onClose={close}><Breathe onDone={() => { if (m.quest) S.doQuest(m.quest); else S.finishAct('breathe', 'Breathe with the Flame', 'flame'); close(); }} /></Sheet>;
     case 'sound': return <Sheet title={m.kind === 'sea' ? 'Sea Breeze' : 'Forest at Dusk'} eyebrow="Soundscape" onClose={close}><Soundscape kind={m.kind} /></Sheet>;
+    case 'phq': return <Sheet title="Your 2-week check-in" eyebrow="PHQ-9" onClose={close}><CheckinFlow /></Sheet>;
+    case 'report': return <Sheet title="Your check-in" eyebrow={'PHQ-9 · ' + niceDate(fromYmd(m.c.date))} onClose={close}><Report c={m.c} /></Sheet>;
+    case 'plan': return <Sheet title="Your next 2 weeks" eyebrow="Your plan" onClose={close}><PlanCalendar /></Sheet>;
     case 'invite': return <Sheet title="Invite or meet others" eyebrow="Pinehollow" onClose={close}><InviteBody /></Sheet>;
     case 'member': {
       const mem: Member = m.m;
@@ -303,8 +308,8 @@ export function ModalHost() {
   }
 }
 
-const st = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(8,10,24,.72)', alignItems: 'center', justifyContent: 'center' },
+const st = themed(() => StyleSheet.create({
+  backdrop: { flex: 1, backgroundColor: 'rgba(16,22,42,.45)', alignItems: 'center', justifyContent: 'center' },
   sheet: { backgroundColor: C.night2, borderRadius: 18, borderWidth: 1, borderColor: C.lineHi, overflow: 'hidden' },
   head: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 16 },
   wt: { width: 46, height: 46, borderRadius: 8, borderWidth: 2, borderColor: C.line, backgroundColor: C.night, alignItems: 'center', justifyContent: 'center' },
@@ -327,4 +332,4 @@ const st = StyleSheet.create({
   campN: { fontFamily: F.display, fontSize: 17, color: C.cream },
   sup: { backgroundColor: C.night3, borderRadius: 14, padding: 14, gap: 6 },
   supT: { fontFamily: F.display, fontSize: 17, color: C.cream },
-});
+}));

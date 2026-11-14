@@ -67,17 +67,18 @@ if (needsMirror) {
   // Plain recursive copy (fs.cpSync's filter misbehaves on some Windows/Node versions). Only changed files are copied.
   const skip = new Set(['node_modules', 'android', 'ios', '.expo', 'dist', 'web-build', '.git']);
   let copied = 0;
+  const copyIfChanged = (s, d) => {
+    const a = fs.statSync(s);
+    let same = false;
+    try { const b = fs.statSync(d); same = b.size === a.size && b.mtimeMs >= a.mtimeMs; } catch {}
+    if (!same) { fs.copyFileSync(s, d); copied++; }
+  };
   const copyTree = (src, dst) => {
     fs.mkdirSync(dst, { recursive: true });
     for (const e of fs.readdirSync(src, { withFileTypes: true })) {
       const s = path.join(src, e.name), d = path.join(dst, e.name);
       if (e.isDirectory()) copyTree(s, d);
-      else if (e.isFile()) {
-        const a = fs.statSync(s);
-        let same = false;
-        try { const b = fs.statSync(d); same = b.size === a.size && b.mtimeMs >= a.mtimeMs; } catch {}
-        if (!same) { fs.copyFileSync(s, d); copied++; }
-      }
+      else if (e.isFile()) copyIfChanged(s, d);
     }
   };
   log('Copying the app files (not node_modules) ...');
@@ -87,7 +88,7 @@ if (needsMirror) {
         if (skip.has(e.name)) continue;
         const s = path.join(ROOT, e.name), d = path.join(short, e.name);
         if (e.isDirectory()) copyTree(s, d);
-        else if (e.isFile()) { fs.copyFileSync(s, d); copied++; }
+        else if (e.isFile()) copyIfChanged(s, d);
       }
     } catch (err) { fail('Could not copy the project to ' + short + ': ' + err.message); }
   }
@@ -162,6 +163,16 @@ if (WIN || process.env.MELLOW_FORCE_WINFIX) {
       fs.writeFileSync(stamp, 'cmakeObjectPathMax=240\n');
     }
     log('Cleaned the old C++ build folder');
+  }
+}
+
+// More memory for Gradle when the machine has it: the template's 2 GB heap makes React Native builds slow.
+const gprops = path.join(androidDir, "gradle.properties");
+if (fs.existsSync(gprops) && os.totalmem() >= 12 * 1024 ** 3) {
+  const cur = fs.readFileSync(gprops, "utf8");
+  if (/^org\.gradle\.jvmargs=-Xmx2048m/m.test(cur)) {
+    if (!DRY) fs.writeFileSync(gprops, cur.replace(/^org\.gradle\.jvmargs=-Xmx2048m/m, 'org.gradle.jvmargs=-Xmx4096m'));
+    log('Gave Gradle 4 GB of memory (was 2 GB)');
   }
 }
 
