@@ -10,6 +10,7 @@ import { Icon, Mallow } from './src/components/Pixel';
 import { ModalHost } from './src/modals/Modals';
 import { ThemeToggle } from './src/components/ThemeToggle';
 import { DailyCheckin } from './src/components/DailyCheckin';
+import { Onboarding } from './src/components/Onboarding';
 import { AuthGate, useAuth } from './src/auth';
 import { MAX_W, SIDEBAR_W, useLayout } from './src/layout';
 import { onScrollLock, registerPageScroll } from './src/scrollLock';
@@ -110,6 +111,7 @@ function Shell() {
       ) : null}
       <ModalHost />
       <DailyCheckin key={S.resetN} />
+      <Onboarding />
     </View>
   );
 }

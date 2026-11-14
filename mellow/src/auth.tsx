@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Session } from '@supabase/supabase-js';
 import { hasBackend, supabase } from './lib/supabase';
@@ -69,10 +70,15 @@ function AuthScreen({ onGuest, onCareTeam }: { onGuest: () => void; onCareTeam: 
     if (mode === 'up' && !name.trim()) return setError('What should your campfire call you?');
     if (mode === 'up' && !tos) return setError('Please accept the Terms of Service to join.');
     setBusy(true);
+    // A new account opens on the onboarding (see state.tsx). Noted before signing up, because the app
+    // switches to the new account as soon as the session arrives.
+    const pending = email.trim().toLowerCase();
+    if (mode === 'up') await AsyncStorage.setItem('mellow.onboard.pending', pending).catch(() => {});
     const res = mode === 'up'
       ? await supabase.auth.signUp({ email: email.trim(), password, options: { data: { name: name.trim(), crisis_consent: crisisOk, tos_accepted_at: new Date().toISOString(), tos_version: TERMS_VERSION } } })
       : await supabase.auth.signInWithPassword({ email: email.trim(), password });
     setBusy(false);
+    if (mode === 'up' && (res.error || !res.data.session)) AsyncStorage.removeItem('mellow.onboard.pending').catch(() => {});
     if (res.error) setError(friendly(res.error.message));
     else if (mode === 'up' && !res.data.session) setError('Almost there: check your email to confirm, then log in.');
   };
@@ -140,7 +146,10 @@ function Check({ checked, onToggle, label, children }: { checked: boolean; onTog
   return (
     <Pressable onPress={onToggle} hitSlop={8} accessibilityRole="checkbox" accessibilityState={{ checked }} aria-checked={checked} accessibilityLabel={label} style={st.check}>
       {/* As tall as one line of text, so the box sits centred on the first line (one-line or several). */}
-      <View style={st.box}><Ionicons name={checked ? 'checkbox' : 'square-outline'} size={24} color={checked ? C.ember : C.muted} /></View>
+      {/* Drawn with a View (not an icon glyph): the glyph was clipped at the bottom on Android. */}
+      <View style={st.box}>
+        <View style={[st.boxIn, checked && { backgroundColor: C.ember, borderColor: C.ember }]}>{checked ? <Ionicons name="checkmark" size={14} color={C.emberInk} /> : null}</View>
+      </View>
       <View style={{ flex: 1, gap: 3 }}>{children}</View>
     </Pressable>
   );
@@ -213,7 +222,8 @@ const st = themed(() => StyleSheet.create({
   go: { backgroundColor: C.ember, borderRadius: 999, minHeight: 50, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   goT: { fontFamily: F.bodyBold, fontSize: 16, color: C.emberInk },
   check: { flexDirection: 'row', gap: 10, alignItems: 'flex-start', paddingVertical: 4 },
-  box: { height: 20, width: 24, alignItems: 'center', justifyContent: 'center', overflow: 'visible' },
+  box: { height: 20, width: 22, alignItems: 'center', justifyContent: 'center' },
+  boxIn: { width: 19, height: 19, borderRadius: 5, borderWidth: 2, borderColor: C.muted, alignItems: 'center', justifyContent: 'center' },
   checkT: { fontFamily: F.body, fontSize: 14.5, lineHeight: 20, color: C.cream },
   checkS: { fontFamily: F.body, fontSize: 12.5, lineHeight: 17, color: C.muted },
   link: { fontFamily: F.bodyBold, color: C.emberHi, textDecorationLine: 'underline' },

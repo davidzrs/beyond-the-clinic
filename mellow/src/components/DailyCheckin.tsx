@@ -144,6 +144,7 @@ export function DailyCheckin() {
 
   // --- animated values ---
   const fade = useRef(new Animated.Value(0)).current;
+  const cover = useRef(new Animated.Value(1)).current; // solid background behind the screen while its content fades in
   const rise = useRef(new Animated.Value(0)).current;      // entrance
   const heat = useRef(new Animated.Value(0)).current;      // 0 = embers waiting, 1 = full fire
   const sway = useRef(new Animated.Value(0)).current;      // slow 3D turn
@@ -221,10 +222,17 @@ export function DailyCheckin() {
     op: stars[i].interpolate({ inputRange: [0, 1], outputRange: [0.25, 0.8] }),
   })), []);
 
+  // Until we know whether today's mood was answered, cover the app with the screen's own background,
+  // so the home page never flashes for a moment before the streak screen.
+  const bgColor = P.day ? P.bg[3] : P.ground[1];
+  if (!S.moodLoaded) return <View style={[StyleSheet.absoluteFill, { backgroundColor: bgColor }]} />;
   if (!S.showDaily && !picked) return null;
 
   const bare = { ...S.avatar, hat: 'none', glasses: 'none', acc: 'none', item: 'none' };
-  const close = () => Animated.timing(fade, { toValue: 0, duration: 320, useNativeDriver: ND }).start(() => { setPicked(null); S.dismissDaily(); });
+  const close = () => Animated.parallel([
+    Animated.timing(fade, { toValue: 0, duration: 320, useNativeDriver: ND }),
+    Animated.timing(cover, { toValue: 0, duration: 320, useNativeDriver: ND }),
+  ]).start(() => { setPicked(null); S.dismissDaily(); });
 
   const answer = (k: MoodKey, i: number) => {
     if (picked || Date.now() - shownAt.current < 800) return; // ignore a tap that arrives while the screen is still coming in
@@ -310,7 +318,9 @@ export function DailyCheckin() {
   const numStyle = { color: P.text, textShadowColor: P.numShadow };
 
   return (
-    <Animated.View style={[StyleSheet.absoluteFill, st.wrap, CLIP, { backgroundColor: P.day ? P.bg[3] : P.ground[1], opacity: fade, paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
+    <>
+    <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: bgColor, opacity: cover }]} />
+    <Animated.View style={[StyleSheet.absoluteFill, st.wrap, CLIP, { backgroundColor: bgColor, opacity: fade, paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
       {/* background: night sky with stars and moon, or warm daylight with drifting motes */}
       <View pointerEvents="none" style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]}>
         <LinearGradient colors={P.bg as any} locations={P.loc as any} style={StyleSheet.absoluteFill} />
@@ -507,6 +517,7 @@ export function DailyCheckin() {
       </Animated.View>
       <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: '#FFD9A0', opacity: flash }]} />
     </Animated.View>
+    </>
   );
 }
 

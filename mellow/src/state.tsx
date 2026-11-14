@@ -106,6 +106,16 @@ function useAppState() {
   const [tutorials, setTutorials] = useState<Record<string, boolean>>({});
   const [tutorialsLoaded, setTutorialsLoaded] = useState(false);
   const toastT = useRef<any>(null);
+  // Onboarding after creating an account: the sign-up screen leaves a note with the new email, and this
+  // account's first open picks it up. It can also be replayed from Home (demo), without changing the plan.
+  const [onboarding, setOnboarding] = useState(false);
+  const [obLoaded, setObLoaded] = useState(false);
+  const [obReplay, setObReplay] = useState(false);
+  useEffect(() => {
+    const mine = (session?.user.email || '').toLowerCase();
+    AsyncStorage.getItem('mellow.onboard.pending').then((v) => { if (v && mine && v === mine) setOnboarding(true); })
+      .catch(() => {}).finally(() => setObLoaded(true));
+  }, []);
 
   // Signed in: profile, streak, today's mood and campfire come from Supabase.
   useEffect(() => {
@@ -132,7 +142,7 @@ function useAppState() {
       if (m) setMood(m);
       if (fire) { setCampfireId(fire.id); setCampfireName(fire.name); setMates(fire.mates); }
       setMoodLoaded(true);
-    })();
+    })().catch(() => {}).finally(() => setMoodLoaded(true)); // never leave the start screen covered if loading fails
   }, [uid]);
 
   // Ember's polls: votes[messageId][userId] = 'a' | 'b' (mine is under 'me').
@@ -327,7 +337,15 @@ function useAppState() {
   // Streak still counts today if you answered yesterday; it only shows as broken after a missed day.
   const streakAlive = streak.last === ymd(new Date()) || streak.last === ymd(addDays(new Date(), -1));
   const streakCount = streakAlive ? streak.count : 0;
-  const showDaily = moodLoaded && !mood && !dailyDismissed;
+  const showDaily = moodLoaded && obLoaded && !onboarding && !mood && !dailyDismissed;
+  const startOnboarding = () => { setModal(null); setObReplay(true); setOnboarding(true); };
+  // Answers stay on this device for now. A real sign-up also gets the 2-week plan built from them.
+  const finishOnboarding = (o: { answers: any; plan?: Plan }) => {
+    AsyncStorage.removeItem('mellow.onboard.pending').catch(() => {});
+    if (o.answers) AsyncStorage.setItem('mellow.onboarding', JSON.stringify({ ...o.answers, at: new Date().toISOString() })).catch(() => {});
+    if (o.plan && !obReplay) { setPlanS(o.plan); AsyncStorage.setItem('mellow.v2.plan', JSON.stringify(o.plan)).catch(() => {}); saveDone({}); }
+    setObReplay(false); setOnboarding(false); go('home');
+  };
   // Testing only: put the demo back to its starting point (keeps your marshmallow).
   const [resetN, setResetN] = useState(0);
   const [skyOverride, setSkyOverride] = useState<'day' | 'night' | null>(null); // null = follow the clock
@@ -346,7 +364,7 @@ function useAppState() {
   const nextCheckin = addDays(fromYmd(plan.start), PLAN_DAYS - 1);
   const checkinIn = Math.max(0, PLAN_DAYS - 1 - planDay);
 
-  return { uid, email: session?.user.email || null, signOut, campfireId, campfireName, resetN, resetDemo, skyOverride, streak, streakCount, answerMood, showDaily, dismissDaily: () => setDailyDismissed(true), lastTab, back, backTo, checkins, saveCheckin, plan, adoptPlan, planDone, doTask, undoTask, planDay, checkinDue, nextCheckin, checkinIn, route, go, avatar, setAvatar, mood, setMood, embers, coop, quests, questState, doQuest, swapQuest, actDone, finishAct, puzzleSolvedToday, puzzleCount, solvePuzzle, tutorials, tutorialsLoaded, markTutorialSeen, actLog, chat, chatPeople, votes, castVote, consent, answerConsent, sendChat, sending, strikes, chatBanned: strikes >= sync.MAX_STRIKES, chatWarning, bubbles, members, modal, setModal, toastMsg, toast, hopId, wave, talkReminder, setTalkReminder, chatDraft, setChatDraft, chatOpenN, openChat, messageAt: (name: string) => openChat('@' + name + ' '), demoDay, setDemoDay };
+  return { uid, email: session?.user.email || null, signOut, campfireId, campfireName, resetN, resetDemo, skyOverride, streak, streakCount, answerMood, showDaily, moodLoaded: moodLoaded && obLoaded, onboarding, startOnboarding, finishOnboarding, dismissDaily: () => setDailyDismissed(true), lastTab, back, backTo, checkins, saveCheckin, plan, adoptPlan, planDone, doTask, undoTask, planDay, checkinDue, nextCheckin, checkinIn, route, go, avatar, setAvatar, mood, setMood, embers, coop, quests, questState, doQuest, swapQuest, actDone, finishAct, puzzleSolvedToday, puzzleCount, solvePuzzle, tutorials, tutorialsLoaded, markTutorialSeen, actLog, chat, chatPeople, votes, castVote, consent, answerConsent, sendChat, sending, strikes, chatBanned: strikes >= sync.MAX_STRIKES, chatWarning, bubbles, members, modal, setModal, toastMsg, toast, hopId, wave, talkReminder, setTalkReminder, chatDraft, setChatDraft, chatOpenN, openChat, messageAt: (name: string) => openChat('@' + name + ' '), demoDay, setDemoDay };
 }
 
 export type AppState = ReturnType<typeof useAppState>;
