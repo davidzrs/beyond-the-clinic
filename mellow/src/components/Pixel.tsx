@@ -52,6 +52,7 @@ const ICON_MAP: Record<string, [string, string]> = themed(() => ({
   heart: ['heart-outline', C.rose], drink: ['cafe-outline', C.emberHi], check: ['checkmark-circle', C.moss], clock: ['time-outline', C.muted],
   refresh: ['shuffle-outline', C.creamDim], info: ['information-circle-outline', '#4F7F96'], people: ['person-add-outline', C.cream], close: ['close', C.creamDim],
   clipboard: ['clipboard-outline', C.emberHi], calendar: ['calendar-outline', C.emberHi], bed: ['bed-outline', C.plumSoft], steps: ['footsteps-outline', C.moss],
+  picture: ['image-outline', C.plum], eye: ['eye-outline', C.plum], key: ['key-outline', C.amber],
   phone: ['phone-portrait-outline', '#4F7F96'], pulse: ['pulse-outline', C.rose], chevron: ['chevron-forward', C.muted], back: ['chevron-back', C.creamDim], down: ['chevron-down', C.ember], up: ['chevron-up', C.ember], lifebuoy: ['help-buoy-outline', C.rose],
 }));
 export function Icon({ name, size = 22, color }: { name: string; size?: number; color?: string }) {

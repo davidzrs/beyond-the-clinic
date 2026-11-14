@@ -6,10 +6,10 @@ import { ACTS, CHAT0, COOP_GOAL, ME_DEFAULT, Member, MEMBERS, MoodKey, Msg, QUES
 import { addDays, buildPlan, Checkin, dayIndex, fromYmd, Plan, PlanTask, PLAN_DAYS, phqScore, ymd } from './checkin';
 import { SAM } from './demo';
 
-export type Route = 'home' | 'campfire' | 'activities' | 'journey' | 'wardrobe' | 'clinic' | 'insights';
+export type Route = 'home' | 'campfire' | 'activities' | 'journey' | 'games' | 'wardrobe' | 'clinic' | 'insights';
 export type ModalState = null | { type: string; [k: string]: any };
-const ROUTES: Route[] = ['home', 'campfire', 'activities', 'journey', 'wardrobe', 'clinic', 'insights'];
-export const TABS: Route[] = ['home', 'campfire', 'journey'];
+const ROUTES: Route[] = ['home', 'campfire', 'activities', 'journey', 'games', 'wardrobe', 'clinic', 'insights'];
+export const TABS: Route[] = ['home', 'campfire', 'journey', 'games'];
 
 // Check-in history = Sam's fortnightly PHQ-9 totals from the demo data, spread over the items
 // (sleep and energy first, never question 9). The current plan comes from the latest one.

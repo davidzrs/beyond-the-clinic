@@ -4,7 +4,7 @@ import { useApp } from '../state';
 import { C, F } from '../theme';
 import { Icon } from './Pixel';
 
-const NAMES: Record<string, string> = { home: 'Today', campfire: 'Campfire', journey: 'Journey' };
+const NAMES: Record<string, string> = { home: 'Today', campfire: 'Campfire', journey: 'Journey', games: 'Games' };
 
 // "‹ Today" link for sub-pages: goes back to the tab you came from.
 export function BackLink() {
