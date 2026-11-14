@@ -18,7 +18,8 @@ export default function GameScreen() {
   const id = (S.route in PAGES ? S.route : 'nono') as keyof typeof PAGES;
   const { title, icon, sub, Game } = PAGES[id];
   return (
-    <View style={{ gap: 16, width: '100%', maxWidth: 620, alignSelf: 'center' }}>
+    // Hotel Mystery uses the full width (cards | board | tools); the grid puzzles stay narrow.
+    <View style={{ gap: 16, width: '100%', maxWidth: id === 'hotel' ? undefined : 620, alignSelf: 'center' }}>
       <BackLink />
       <View style={{ gap: 6 }}>
         <Eyebrow>Daily puzzle</Eyebrow>

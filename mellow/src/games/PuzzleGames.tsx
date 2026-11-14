@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { PanResponder, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { C, F, themed, themeMode } from '../theme';
-import { Btn, Reply, T } from '../components/ui';
+import { Btn, Reply, s, T } from '../components/ui';
+import { Icon } from '../components/Pixel';
 import { useLayout } from '../layout';
 import { HOTEL, PICS, SIGHT } from './puzzles';
 import { blocked, clueText, FURN, GUESTS, Hint, hotelNext, lineClue, nonoHint, ROOMS, sightHint, sightSeen, thief } from './engines';
@@ -246,128 +247,210 @@ export function LineOfSight({ onDone }: { onDone: () => void }) {
 }
 
 // ---------- Hotel Mystery ----------
+// Same flow as Murdoku-style puzzles: pick a guest; a quick tap jots their initial as a small note,
+// press and hold places them (big letter), which crosses out their row and column and locks the square.
+// Drag paints notes. Tools: ✕ (mark impossible), eraser (tap a square to clear it, hold the button to clear all), undo.
+type HState = { pos: number[]; notes: number[][]; xm: boolean[]; xa: number[] };
+type Tool = 'note' | 'x' | 'erase';
+const HOLD_MS = 420;
 export function HotelMystery({ onDone }: { onDone: () => void }) {
-  const W = useBoardWidth();
+  // Wide screens: guest cards | board | tools, like a suspect sheet. Phones: board, tools, then cards.
+  const { cw } = useLayout();
+  const wide = cw >= 900;
+  const W = wide ? Math.max(280, Math.min(560, cw - 38 - 280 - 190 - 40)) : Math.max(220, Math.min(560, cw - 38));
   const [variant, setVariant] = useState(0);
   const P = useMemo(() => pick(HOTEL[TODAY_SIZE.hotel[weekday()]], variant), [variant]);
   const n = P.n;
-  const [pos, posRef, setPos] = useLive<number[]>(() => Array(n).fill(-1));
-  // ✕ notes: "nobody is here". They don't count for the solution.
-  const [marks, marksRef, setMarks] = useLive<boolean[]>(() => Array(n * n).fill(false));
+  // pos: square per guest. notes: small initials per square. xm: ✕ set by hand. xa: ✕ added by placed guests (a count).
+  const blank = (): HState => ({ pos: Array(n).fill(-1), notes: Array.from({ length: n * n }, () => []), xm: Array(n * n).fill(false), xa: Array(n * n).fill(0) });
+  const [S, sRef, setS] = useLive<HState>(blank);
+  const hist = useRef<HState[]>([]);
+  const [tool, setTool] = useState<Tool>('note');
   const [sel, setSel] = useState(0);
-  const [mark, setMark] = useState(false);
+  const selRef = useRef(0); selRef.current = sel;
   const [why, setWhy] = useState<{ text: string; cell: number; clues: number[] } | null>(null);
   const [won, setWon] = useState(false);
-  const [hover, setHover] = useState(-1);
   const wonRef = useRef(false);
-  // A press either paints ✕ notes or carries a guest; a guest is dropped where the press ends.
-  const drag = useRef<null | { kind: 'mark'; v: boolean } | { kind: 'guest'; x: number; from: number; fresh: boolean; at: number }>(null);
-  useEffect(() => { setPos(Array(n).fill(-1)); setMarks(Array(n * n).fill(false)); setSel(0); setWhy(null); setWon(false); wonRef.current = false; }, [P]);
+  const press = useRef<null | { c: number; alt: boolean; moved: boolean; done: boolean; timer: any; paint?: (k: number) => void }>(null);
+  useEffect(() => { setS(blank()); hist.current = []; setSel(0); setWhy(null); setWon(false); wonRef.current = false; setTool('note'); }, [P]);
   const u = W / n, night = themeMode() === 'night';
-  const commit = (next: number[], nextSel?: number) => {
-    setPos(next);
-    const free = next.findIndex((c) => c < 0);
-    setSel(nextSel ?? (free >= 0 ? free : sel));
-    if (!wonRef.current && next.every((c, x) => c === P.sol[x])) { wonRef.current = true; setWon(true); setWhy(null); onDone(); }
+
+  const clone = (s: HState): HState => ({ pos: s.pos.slice(), notes: s.notes.map((a) => a.slice()), xm: s.xm.slice(), xa: s.xa.slice() });
+  const line = (c: number) => { const r = Math.floor(c / n), col = c % n, out: number[] = []; for (let k = 0; k < n; k++) { if (k !== col) out.push(r * n + k); if (k !== r) out.push(k * n + col); } return out; };
+  const unplace = (s: HState, x: number) => {
+    const c = s.pos[x]; if (c < 0) return;
+    s.pos[x] = -1; for (const k of line(c)) s.xa[k] = Math.max(0, s.xa[k] - 1);
   };
-  const clearMark = (c: number) => { if (marksRef.current[c]) { const m = marksRef.current.slice(); m[c] = false; setMarks(m); } };
+  const place = (s: HState, x: number, c: number) => {
+    unplace(s, x);
+    const other = s.pos.indexOf(c); if (other >= 0) unplace(s, other);
+    s.pos[x] = c; s.notes[c] = []; s.xm[c] = false;
+    for (const k of line(c)) s.xa[k]++;
+  };
+  const isX = (s: HState, c: number) => s.xm[c] || s.xa[c] > 0;
+  const commit = (s: HState) => {
+    setS(s);
+    if (s.pos[selRef.current] >= 0) { const free = s.pos.findIndex((c) => c < 0); if (free >= 0) setSel(free); }
+    if (!wonRef.current && s.pos.every((c, x) => c === P.sol[x])) { wonRef.current = true; setWon(true); setWhy(null); onDone(); }
+  };
+  const snap = () => { hist.current.push(sRef.current); if (hist.current.length > 200) hist.current.shift(); };
   const cellAt = (x: number, y: number) => { const cx = Math.floor(x / u), cy = Math.floor(y / u); return cx >= 0 && cy >= 0 && cx < n && cy < n ? cy * n + cx : -1; };
+
+  // What a quick tap (or the first square of a drag) does, given the tool. Returns a painter for the rest of the drag.
+  const painterFor = (c: number, alt: boolean): ((k: number) => void) => {
+    const s0 = sRef.current;
+    const t: Tool = alt ? 'x' : tool;
+    if (t === 'erase') return (k) => { const s = clone(sRef.current); if (s.pos.includes(k)) unplace(s, s.pos.indexOf(k)); s.notes[k] = []; s.xm[k] = false; commit(s); };
+    if (t === 'x') { const v = !s0.xm[c]; return (k) => { if (sRef.current.pos.includes(k) || sRef.current.xm[k] === v) return; const s = clone(sRef.current); s.xm[k] = v; commit(s); }; }
+    const g = selRef.current, add = !s0.notes[c].includes(g);
+    return (k) => {
+      const cur = sRef.current; if (cur.pos.includes(k) || cur.notes[k].includes(g) === add) return;
+      const s = clone(cur); s.notes[k] = add ? [...s.notes[k], g].sort((a, b) => a - b) : s.notes[k].filter((v) => v !== g); commit(s);
+    };
+  };
   const input = useBoardPointer({
     down: (x, y, alt) => {
       if (wonRef.current) return;
       const c = cellAt(x, y); if (c < 0 || blocked(P, c)) return;
-      const there = posRef.current.indexOf(c);
-      if (alt || mark) {
-        if (there >= 0) return;
-        const v = !marksRef.current[c]; drag.current = { kind: 'mark', v };
-        const m = marksRef.current.slice(); m[c] = v; setMarks(m); return;
-      }
-      if (there >= 0) { drag.current = { kind: 'guest', x: there, from: c, fresh: false, at: c }; setHover(c); return; }
-      const next = posRef.current.slice(); next[sel] = c; clearMark(c);
-      drag.current = { kind: 'guest', x: sel, from: c, fresh: true, at: c };
-      setPos(next); setHover(c);
+      const p = { c, alt, moved: false, done: false, timer: null as any };
+      // Hold: place the selected guest (or take away the guest already there).
+      if (!alt) p.timer = setTimeout(() => {
+        if (press.current !== p || p.moved) return;
+        p.done = true; snap();
+        const s = clone(sRef.current), there = s.pos.indexOf(c);
+        if (there >= 0) unplace(s, there); else place(s, selRef.current, c);
+        commit(s);
+      }, HOLD_MS);
+      press.current = p;
     },
     move: (x, y) => {
-      const d = drag.current, c = cellAt(x, y); if (!d || c < 0) return;
-      if (d.kind === 'mark') {
-        if (blocked(P, c) || posRef.current.includes(c) || marksRef.current[c] === d.v) return;
-        const m = marksRef.current.slice(); m[c] = d.v; setMarks(m);
-      } else if (c !== d.at) { d.at = c; setHover(c); }
+      const p = press.current; if (!p || p.done) return;
+      const c = cellAt(x, y); if (c < 0 || c === p.c && !p.moved || blocked(P, c)) return;
+      if (!p.moved) {
+        p.moved = true; clearTimeout(p.timer); snap();
+        if (sRef.current.pos.includes(p.c) && tool !== 'erase' && !p.alt) { p.done = true; return; }
+        p.paint = painterFor(p.c, p.alt); p.paint(p.c);
+      }
+      p.paint && p.paint(c);
     },
     up: () => {
-      const d = drag.current; drag.current = null; setHover(-1);
-      if (!d || d.kind !== 'guest') return;
-      const next = posRef.current.slice();
-      if (d.at === d.from) { if (!d.fresh) { next[d.x] = -1; commit(next, d.x); } else commit(next); return; }
-      if (blocked(P, d.at) || (next.includes(d.at) && next.indexOf(d.at) !== d.x)) { commit(next); return; }
-      next[d.x] = d.at; clearMark(d.at); commit(next);
+      const p = press.current; press.current = null; if (!p) return;
+      clearTimeout(p.timer);
+      if (p.done || p.moved) return;
+      // Quick tap. A placed guest's square is locked: only the eraser (or another hold) changes it.
+      if (sRef.current.pos.includes(p.c) && tool !== 'erase') return;
+      snap(); painterFor(p.c, p.alt)(p.c);
     },
   });
+  const undo = () => { const prev = hist.current.pop(); if (prev) { setS(prev); setWhy(null); } };
+  const clearAll = () => { snap(); commit(blank()); setWhy(null); };
   const doHint = () => {
-    const pos0 = posRef.current;
-    for (let x = 0; x < n; x++) if (pos0[x] >= 0 && pos0[x] !== P.sol[x]) {
-      const next = pos0.slice(); const c = next[x]; next[x] = -1;
-      setWhy({ text: `${GUESTS[P.people[x]].name} can’t be there. Moved them off the board.`, cell: c, clues: [] }); commit(next, x); return;
+    const s = clone(sRef.current);
+    for (let x = 0; x < n; x++) if (s.pos[x] >= 0 && s.pos[x] !== P.sol[x]) {
+      const c = s.pos[x]; snap(); unplace(s, x);
+      setWhy({ text: `${GUESTS[P.people[x]].name} can’t be there. Took them off the plan.`, cell: c, clues: [] }); commit(s); setSel(x); return;
     }
-    const s = hotelNext(P, pos0);
-    const x = s ? s.x : pos0.indexOf(-1); if (x < 0) return;
-    const cell = s ? s.cell : P.sol[x], next = pos0.slice(); next[x] = cell; clearMark(cell);
-    setWhy({ text: s ? s.why : `${GUESTS[P.people[x]].name} goes here once several clues are combined.`, cell, clues: s ? s.clues : [] });
-    commit(next);
+    const h = hotelNext(P, s.pos);
+    const x = h ? h.x : s.pos.indexOf(-1); if (x < 0) return;
+    const cell = h ? h.cell : P.sol[x];
+    snap(); place(s, x, cell);
+    setWhy({ text: h ? h.why : `${GUESTS[P.people[x]].name} goes here once several clues are combined.`, cell, clues: h ? h.clues : [] });
+    commit(s);
   };
   const rowCount: Record<number, number> = {}, colCount: Record<number, number> = {};
-  pos.forEach((c) => { if (c >= 0) { rowCount[Math.floor(c / n)] = (rowCount[Math.floor(c / n)] || 0) + 1; colCount[c % n] = (colCount[c % n] || 0) + 1; } });
+  S.pos.forEach((c) => { if (c >= 0) { rowCount[Math.floor(c / n)] = (rowCount[Math.floor(c / n)] || 0) + 1; colCount[c % n] = (colCount[c % n] || 0) + 1; } });
   const labeled = new Set<number>();
   const t = thief(P), room = ROOMS[P.area[P.cake]];
-  return (
-    <View>
-      <T muted style={{ fontSize: 14 }}>A necklace has gone missing from the hotel safe. Place each guest on the floor plan: one per row and one per column, never on a plant, bookcase, fireplace or the safe. Whoever ends up alone in the room with the safe took it.</T>
-      <T muted style={{ fontSize: 13, marginTop: 4 }}>Pick a guest below and tap a square. Drag a guest to move them. {Platform.OS === 'web' ? 'Right-click' : 'Use the mode button'} to mark ✕ where nobody can be.</T>
-      <View ref={input.ref} {...input.handlers} style={{ width: W, height: W, alignSelf: 'center', marginTop: 14, borderRadius: 10, overflow: 'hidden', borderWidth: 2, borderColor: C.lineHi }}>
-        {Array.from({ length: n * n }, (_, c) => {
-          const x = c % n, y = Math.floor(c / n), r = ROOMS[P.area[c]], o = P.obj[c], who = pos.indexOf(c);
-          const first = !labeled.has(P.area[c]); if (first) labeled.add(P.area[c]);
-          const bad = who >= 0 && ((rowCount[y] || 0) > 1 || (colCount[x] || 0) > 1);
-          const g = who >= 0 ? GUESTS[P.people[who]] : null;
-          return (
-            <View key={c} pointerEvents="none"
-              style={[gs.room, { left: x * u, top: y * u, width: u, height: u, backgroundColor: night ? r.colorN : r.color,
-                borderRightWidth: x < n - 1 && P.area[c + 1] !== P.area[c] ? 2.5 : 0.5, borderBottomWidth: y < n - 1 && P.area[c + n] !== P.area[c] ? 2.5 : 0.5 }]}>
-              {first ? <Text style={[gs.roomT, { fontSize: Math.max(9, u * 0.15) }]} numberOfLines={1}>{r.label}</Text> : null}
-              {o ? <Text style={g ? [gs.furnSmall, { fontSize: u * 0.24 }] : { fontSize: u * 0.42 }}>{FURN[o].e}</Text> : null}
-              {!g && !o && marks[c] && !won ? <Text style={[gs.x, { fontSize: u * 0.36 }]}>✕</Text> : null}
-              {g ? (
-                <View style={[gs.guest, { width: u * 0.6, height: u * 0.6, borderRadius: u * 0.3, backgroundColor: g.color },
-                  bad && { borderColor: C.rose, borderWidth: 3 }, won && who === t && { borderColor: C.ember, borderWidth: 4 }]}>
-                  <Text style={[gs.guestT, { fontSize: u * 0.28 }]}>{g.ini}</Text>
+  const toolBtn = (k: Tool, label: string) => (
+    <Btn sm kind="ghost" label={label} onPress={() => setTool(tool === k ? 'note' : k)} style={[wide && gs.toolWide, tool === k && { borderWidth: 1, borderColor: C.ember }]} />
+  );
+  const board = (
+    <View ref={input.ref} {...input.handlers} style={{ width: W, height: W, borderRadius: 10, overflow: 'hidden', borderWidth: 2, borderColor: C.lineHi }}>
+      {Array.from({ length: n * n }, (_, c) => {
+        const x = c % n, y = Math.floor(c / n), r = ROOMS[P.area[c]], o = P.obj[c], who = S.pos.indexOf(c);
+        const first = !labeled.has(P.area[c]); if (first) labeled.add(P.area[c]);
+        const bad = who >= 0 && ((rowCount[y] || 0) > 1 || (colCount[x] || 0) > 1);
+        const g = who >= 0 ? GUESTS[P.people[who]] : null;
+        const showX = !g && !blocked(P, c) && isX(S, c) && !won;
+        return (
+          <View key={c} pointerEvents="none"
+            style={[gs.room, { left: x * u, top: y * u, width: u, height: u, backgroundColor: night ? r.colorN : r.color,
+              borderRightWidth: x < n - 1 && P.area[c + 1] !== P.area[c] ? 2.5 : 0.5, borderBottomWidth: y < n - 1 && P.area[c + n] !== P.area[c] ? 2.5 : 0.5 }]}>
+            {first ? <Text style={[gs.roomT, { fontSize: Math.max(9, u * 0.15) }]} numberOfLines={1}>{r.label}</Text> : null}
+            {o ? <Text style={g || showX ? [gs.furnSmall, { fontSize: u * 0.24 }] : { fontSize: u * 0.42 }}>{FURN[o].e}</Text> : null}
+            {g ? <Text style={[gs.big, { fontSize: u * 0.56, color: g.color }, bad && { color: C.rose }, won && who === t && { textDecorationLine: 'underline' }]}>{g.ini}</Text>
+              : showX ? <Text style={[gs.x, { fontSize: u * 0.36 }]}>✕</Text>
+              : !won && S.notes[c].length ? (
+                <View style={[gs.notes, o ? { top: u * 0.06, right: u * 0.08, left: undefined, bottom: undefined } : null]}>
+                  {S.notes[c].map((v) => { const q = GUESTS[P.people[v]]; return <Text key={v} style={[gs.note, { fontSize: Math.max(9, u * 0.2), color: q.color }]}>{q.ini}</Text>; })}
                 </View>
               ) : null}
-              {hover === c || (why && why.cell === c) ? <View style={[StyleSheet.absoluteFill, { borderWidth: 3, borderColor: hover === c ? C.ember : C.plum, borderRadius: 4 }]} /> : null}
+            {why && why.cell === c ? <View style={[StyleSheet.absoluteFill, { borderWidth: 3, borderColor: C.plum, borderRadius: 4 }]} /> : null}
+          </View>
+        );
+      })}
+    </View>
+  );
+  const message = won ? <Reply><T><Text style={{ fontFamily: F.bodyBold }}>It was {GUESTS[P.people[t]].name}.</Text> The only guest in the {room.name} with the safe. Case closed until tomorrow.</T></Reply>
+    : why ? <Reply><T style={{ fontSize: 14 }}>{why.text}</T></Reply> : null;
+  // One card per guest, with the clues about them, like a suspect sheet. Tapping a card picks that guest.
+  const cardW = wide ? 280 : cw >= 560 ? (cw - 38 - 10) / 2 : cw - 38;
+  const cards = (
+    <View style={wide ? { width: 280, gap: 10 } : gs.cardGrid}>
+      {P.people.map((gi, x) => {
+        const g = GUESTS[gi], on = x === sel && !won, placed = S.pos[x] >= 0;
+        const mine = P.clues.map((c, i) => [c, i] as const).filter(([c]) => c.p === x);
+        return (
+          <Pressable key={x} onPress={() => setSel(x)} accessibilityState={{ selected: on }}
+            style={(p: any) => [gs.card, { width: cardW }, on && { borderColor: g.color }, p.hovered && !on && { borderColor: C.lineHi }]}>
+            <View style={gs.cardHead}>
+              <View style={gs.cardLetterBox}><Text style={[gs.cardLetter, { color: g.color }]}>{g.ini}</Text></View>
+              <Text style={gs.cardName}>{g.name}</Text>
+              {placed ? <Icon name="check" size={18} /> : null}
             </View>
-          );
-        })}
-      </View>
+            {mine.length ? mine.map(([c, i]) => (
+              <T key={i} style={[{ fontSize: 13.5, lineHeight: 19 }, why?.clues.includes(i) && { fontFamily: F.bodyBold, color: C.emberHi }]}>{clueText(P, c)}</T>
+            )) : <T muted style={{ fontSize: 13 }}>No clue about {g.name}. Work it out from the others.</T>}
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+  const tools = (
+    <View style={wide ? { width: 190, gap: 8 } : gs.controls}>
+      {!won ? toolBtn('x', '✕ Impossible') : null}
       {!won ? (
-        <View style={gs.guests}>
-          {P.people.map((gi, x) => {
-            const g = GUESTS[gi], placed = pos[x] >= 0, on = x === sel;
-            return (
-              <Pressable key={x} onPress={() => setSel(x)} accessibilityState={{ selected: on }} style={(p: any) => [gs.gchip, on && gs.gchipOn, p.hovered && !on && { borderColor: C.lineHi }]}>
-                <View style={[gs.gdot, { backgroundColor: g.color }]}><Text style={gs.gdotT}>{g.ini}</Text></View>
-                <Text style={[gs.gname, placed && { color: C.moss }]}>{g.name}{placed ? ' ✓' : ''}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        <Pressable onPress={() => setTool(tool === 'erase' ? 'note' : 'erase')} onLongPress={clearAll} delayLongPress={600} accessibilityRole="button"
+          accessibilityHint="Hold to clear everything" style={[s.btn, s.btnSm, { backgroundColor: C.night4 }, wide && gs.toolWide, tool === 'erase' && { borderWidth: 1, borderColor: C.ember }]}>
+          <Text style={[s.btnT, { fontSize: 13.5, color: C.cream }]}>Eraser</Text>
+        </Pressable>
       ) : null}
-      {won ? <Reply><T><Text style={{ fontFamily: F.bodyBold }}>It was {GUESTS[P.people[t]].name}.</Text> The only guest in the {room.name} with the safe. Case closed until tomorrow.</T></Reply>
-        : why ? <Reply><T style={{ fontSize: 14 }}>{why.text}</T></Reply> : null}
-      <View style={gs.clues}>
-        {P.clues.map((c, i) => (
-          <T key={i} style={[{ fontSize: 14.5 }, why?.clues.includes(i) && { fontFamily: F.bodyBold, color: C.emberHi }]}>{i + 1}. {clueText(P, c)}</T>
-        ))}
+      {!won ? <Btn sm kind="ghost" label="Undo" onPress={undo} style={wide ? gs.toolWide : null} /> : null}
+      {!won ? <Btn sm kind="ghost" icon="info" label="Hint" onPress={doHint} style={wide ? gs.toolWide : null} /> : null}
+      <Btn sm kind="ghost" icon="refresh" label="Another puzzle" onPress={() => setVariant(variant + 1)} style={wide ? gs.toolWide : null} />
+      {!won ? <T muted style={{ fontSize: 12.5 }}>Hold the eraser to clear the whole plan.</T> : null}
+    </View>
+  );
+  return (
+    <View style={{ gap: 14 }}>
+      <View style={{ gap: 4 }}>
+        <T muted style={{ fontSize: 14 }}>A necklace has gone missing from the hotel safe. Place each guest on the floor plan: one per row and one per column, never on a plant, bookcase, fireplace or the safe. Whoever ends up alone in the room with the safe took it.</T>
+        <T muted style={{ fontSize: 13 }}>Pick a guest. Tap a square to jot their initial as a note; press and hold to place them, which crosses out their row and column. Drag to note several squares. {Platform.OS === 'web' ? 'Right-click or the ✕ tool' : 'The ✕ tool'} marks a square as impossible.</T>
       </View>
-      <Controls mode={[mark ? 'Mode: mark ✕' : 'Mode: place', mark]} onMode={() => setMark(!mark)} onHint={doHint} onNext={() => setVariant(variant + 1)} done={won} />
+      {wide ? (
+        <View style={{ flexDirection: 'row', gap: 20, alignItems: 'flex-start' }}>
+          {cards}
+          <View style={{ gap: 12, width: W }}>{board}{message}</View>
+          {tools}
+        </View>
+      ) : (
+        <View style={{ gap: 14 }}>
+          <View style={{ alignSelf: 'center' }}>{board}</View>
+          {message}
+          {tools}
+          {cards}
+        </View>
+      )}
     </View>
   );
 }
@@ -389,10 +472,19 @@ const gs = themed(() => StyleSheet.create({
   guest: { alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: C.white },
   guestT: { fontFamily: F.displayBold, color: C.white },
   guests: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 14 },
-  gchip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, borderWidth: 1, borderColor: C.line, backgroundColor: C.night2, paddingLeft: 5, paddingRight: 12, paddingVertical: 5 },
+  gchip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, borderWidth: 1, borderColor: C.line, backgroundColor: C.night2, paddingLeft: 10, paddingRight: 12, paddingVertical: 6 },
   gchipOn: { borderColor: C.ember, backgroundColor: C.night4 },
-  gdot: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  gdotT: { fontFamily: F.displayBold, fontSize: 12.5, color: C.white },
+  gletter: { fontFamily: F.displayBold, fontSize: 17, color: C.cream, minWidth: 14, textAlign: 'center' },
+  big: { fontFamily: F.displayBold, color: C.cream },
+  notes: { position: 'absolute', left: 4, bottom: 2, flexDirection: 'row', flexWrap: 'wrap', gap: 3 },
+  note: { fontFamily: F.bodyXBold },
+  toolWide: { alignSelf: 'stretch' },
+  cardGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  card: { backgroundColor: C.night3, borderRadius: 14, borderWidth: 2, borderColor: 'transparent', padding: 12, gap: 6 },
+  cardHead: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 2 },
+  cardLetterBox: { width: 38, height: 38, borderRadius: 10, backgroundColor: C.night2, alignItems: 'center', justifyContent: 'center' },
+  cardLetter: { fontFamily: F.displayBold, fontSize: 24 },
+  cardName: { flex: 1, fontFamily: F.display, fontSize: 16.5, color: C.cream },
   gname: { fontFamily: F.displayMed, fontSize: 14, color: C.cream },
   clues: { backgroundColor: C.night3, borderRadius: 14, padding: 14, gap: 6, marginTop: 14 },
 }));
