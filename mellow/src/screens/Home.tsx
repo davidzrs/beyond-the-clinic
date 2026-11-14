@@ -8,7 +8,6 @@ import { Btn, Eyebrow, H2, LinkBtn, Panel, T } from '../components/ui';
 import { useLayout } from '../layout';
 import { niceDate, PLAN_DAYS, PlanTask } from '../checkin';
 
-const LOGO = { name: 'Ember', color: 'vanilla', face: 'happy', hat: 'none', glasses: 'none', acc: 'none', item: 'none' };
 import { LEVEL_UI, levelOf, SAM } from '../demo';
 
 // Games stay as they are for now (TBD); Today just links to them.
@@ -239,7 +238,7 @@ export default function Home() {
   // The campfire: who's there, the last few messages, the shared goal and the next talk.
   const coop = Math.min(S.coop, COOP_GOAL);
   const recent = S.chat.slice(-3);
-  const person = (id: string) => (id === 'me' ? { name: 'You', a: S.avatar } : S.chatPeople[id] || S.members.find((x) => x.id === id) || { name: 'Ember', a: LOGO });
+  const person = (id: string) => (id === 'me' ? { name: 'You', a: S.avatar } : S.chatPeople[id] || S.members.find((x) => x.id === id) || { name: 'Someone', a: S.members[2].a });
   const fireWide = (
     <View style={[st.card, st.cardL, { gap: 14, flex: 1 }]}>
       <View style={st.row}>
@@ -254,12 +253,14 @@ export default function Home() {
         </View>
       </View>
       <View style={{ gap: 10 }}>
-        {recent.map((msg) => {
-          const p = person(msg.from);
+        {/* A brand-new campfire has no messages yet; Ember (the AI) isn't one of the seats. */}
+        {!recent.length ? <Text style={st.msg}>The fire is quiet. Say hello to your campfire.</Text> : recent.map((msg) => {
+          const ai = msg.from === 'ember';
+          const p = ai ? null : person(msg.from);
           return (
             <View key={msg.id} style={[st.row, { alignItems: 'flex-start' }]}>
-              <Mallow a={p.a} size={26} anim={false} />
-              <Text style={[st.msg, { flex: 1 }]} numberOfLines={2}><Text style={{ fontFamily: F.bodyBold, color: C.cream }}>{p.name} </Text>{msg.text}</Text>
+              {p ? <Mallow a={p.a} size={26} anim={false} /> : <Icon name="ember" size={24} />}
+              <Text style={[st.msg, { flex: 1 }]} numberOfLines={2}><Text style={{ fontFamily: F.bodyBold, color: C.cream }}>{p ? p.name : 'Ember (AI)'} </Text>{msg.text}</Text>
             </View>
           );
         })}
