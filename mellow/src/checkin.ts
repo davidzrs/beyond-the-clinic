@@ -73,29 +73,43 @@ export function addDays(d: Date, n: number) { const x = new Date(d.getFullYear()
 export function dayIndex(plan: Plan, now = new Date()) { return Math.round((addDays(now, 0).getTime() - fromYmd(plan.start).getTime()) / 864e5); }
 export function niceDate(d: Date) { return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }); }
 
-// When nothing is in the zone: one small anchor a day. Morning light, sleep and contact are the
-// signals that moved first before relapse in our demo data (see data/README.md).
+// Small, basic anchors that fill the day when the check-in didn't flag enough areas. Morning light, sleep
+// and contact are the signals that moved first before relapse in our demo data (see data/README.md).
 export const KEEP_UP_AREA = 'Keep your anchors';
 export const KEEP_UP_BASIS = 'Keeping routines steady protects against relapse';
 const KEEP_UP: PlanTask[] = [
-  { t: 'Get outside in the morning, even 10 minutes', icon: 'sun', dur: '10 min', area: KEEP_UP_AREA },
+  { t: 'Open a window for some fresh air', icon: 'sky', dur: '2 min', area: KEEP_UP_AREA },
+  { t: 'Drink a glass of water when you wake up', icon: 'drink', dur: 'Morning', area: KEEP_UP_AREA },
   { t: 'Phone away by 23:00', icon: 'moon', dur: 'Evening', area: KEEP_UP_AREA },
   { t: 'Write down 3 good things from today', icon: 'note', dur: '3 min', area: KEEP_UP_AREA },
-  { t: 'Say hi to someone at your fire', icon: 'chat', dur: '2 min', area: KEEP_UP_AREA, act: 'campfire' },
+  { t: 'Stretch for 5 minutes', icon: 'leaf', dur: '5 min', area: KEEP_UP_AREA },
+  { t: 'Get 5 minutes of sunlight', icon: 'sun', dur: '5 min', area: KEEP_UP_AREA },
+  { t: 'Step outside for a short walk', icon: 'walk', dur: '10 min', area: KEEP_UP_AREA },
+  { t: 'Breathe with the flame', icon: 'flame', dur: '3 min', area: KEEP_UP_AREA, act: 'breathe' },
 ];
+// The n-th anchor, skipping any whose text is already on that day.
+function anchor(n: number, day: PlanTask[]) {
+  for (let i = 0; i < KEEP_UP.length; i++) { const t = KEEP_UP[(n + i) % KEEP_UP.length]; if (!day.some((x) => x.t === t.t)) return t; }
+  return KEEP_UP[n % KEEP_UP.length];
+}
 
-// At most 2 small things a day, rotating through the focus areas. Day 14 is the next check-in.
+// Always 2 small things a day: from the focus areas first (rotating), topped up with basic anchors.
+// Day 14 is the next check-in, plus one anchor.
 export function buildPlan(a: number[], start = new Date()): Plan {
   const zone = focusAreas(a);
-  const perDay = Math.min(2, zone.length);
+  const fromZone = Math.min(2, zone.length);
   const days: PlanDay[] = [];
   let k = 0;
   for (let d = 0; d < PLAN_DAYS; d++) {
     const date = ymd(addDays(start, d));
     const tasks: PlanTask[] = [];
-    if (d === PLAN_DAYS - 1) tasks.push({ t: 'Your 2-week check-in', icon: 'clipboard', dur: '2 min', area: 'Check-in', retake: true });
-    else if (perDay === 0) tasks.push(KEEP_UP[d % KEEP_UP.length]);
-    else for (let s = 0; s < perDay; s++) { const z = zone[k % zone.length]; tasks.push(z.tasks[Math.floor(k / zone.length) % 2]); k++; }
+    if (d === PLAN_DAYS - 1) {
+      tasks.push({ t: 'Your 2-week check-in', icon: 'clipboard', dur: '2 min', area: 'Check-in', retake: true });
+      tasks.push(anchor(d * 2, tasks));
+    } else {
+      for (let s = 0; s < fromZone; s++) { const z = zone[k % zone.length]; tasks.push(z.tasks[Math.floor(k / zone.length) % 2]); k++; }
+      while (tasks.length < 2) tasks.push(anchor(d * 2 + tasks.length, tasks));
+    }
     days.push({ date, tasks });
   }
   return { start: ymd(start), days, areas: zone.map((z) => z.area) };

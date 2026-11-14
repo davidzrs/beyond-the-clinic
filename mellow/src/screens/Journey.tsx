@@ -225,7 +225,7 @@ export default function Journey() {
   const wins: [string, string, string][] = [
     ['flame', S.streakCount > 0 ? S.streakCount + '-day streak' : 'Fresh start today', 'Days in a row you checked in with yourself'],
     ['leaf', planDoneN + (planDoneN === 1 ? ' small step' : ' small steps'), 'Done in this 2-week path'],
-    ['ember', S.embers + ' embers', 'Warming the fire for everyone at Pinehollow'],
+    ['ember', S.embers + ' embers', 'Warming the fire for everyone at ' + S.campfireName],
   ];
   const winsCard = (
     <View style={[st.card, { gap: 12 }, two && { flex: 1 }]}>
