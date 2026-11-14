@@ -336,6 +336,8 @@ code { background: var(--line-2); padding: 1px 6px; border-radius: 6px; font-siz
 .paper h4 { font-family: var(--display); font-size: 14.5px; font-weight: 600; margin: 0 0 8px; color: #16233a; }
 .rp-head { display: flex; justify-content: space-between; align-items: center; background: #1d2652; border-radius: 12px; padding: 14px 18px; }
 .rp-logo .logo { font-size: 17px; }
+/* The PDF capture measures text a hair wider than the screen, so header lines must never wrap. */
+.rp-title, .rp-meta span, .rp-kpi span { white-space: nowrap; }
 .rp-title { display: grid; justify-items: end; color: #c8cde3; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
 .rp-title b { color: #fff; font-family: var(--display); font-size: 17px; letter-spacing: 0; text-transform: none; font-weight: 600; }
 .rp-meta { display: flex; justify-content: space-between; color: #718096; font-size: 12px; margin-top: -8px; }

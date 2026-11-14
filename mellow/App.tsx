@@ -11,7 +11,6 @@ import { ModalHost } from './src/modals/Modals';
 import { ThemeToggle } from './src/components/ThemeToggle';
 import { DailyCheckin } from './src/components/DailyCheckin';
 import { AuthGate, useAuth } from './src/auth';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MAX_W, SIDEBAR_W, useLayout } from './src/layout';
 import { onScrollLock, registerPageScroll } from './src/scrollLock';
 import Home from './src/screens/Home';
@@ -29,7 +28,7 @@ const LOGO = { name: '', color: 'vanilla', face: 'happy', hat: 'none', glasses: 
 
 function Shell() {
   const S = useApp();
-  const { wide, pad, width } = useLayout();
+  const { wide, pad } = useLayout();
   const insets = useSafeAreaInsets();
   const scroll = useRef<any>(null);
   // A game board switches page scrolling off while a finger drags across it (see src/scrollLock.ts).
@@ -46,41 +45,12 @@ function Shell() {
   }, [S.route, S.lastTab]);
   const full = S.route === 'campfire'; // the campfire scene fills the screen
   const Screen = { home: Home, campfire: Campfire, journey: Journey, games: Games, nono: GameScreen, sight: GameScreen, hotel: GameScreen, wardrobe: Wardrobe, clinic: Clinic, insights: Insights }[S.route];
-  // Wide screens: side menu (default) or tabs across the top. Remembered on this device.
-  const [topNav, setTopNavS] = useState(false);
-  useEffect(() => { AsyncStorage.getItem('mellow.topNav').then((v) => setTopNavS(v === '1')).catch(() => {}); }, []);
-  const setTopNav = (v: boolean) => { setTopNavS(v); AsyncStorage.setItem('mellow.topNav', v ? '1' : '0').catch(() => {}); };
-  const navOn = (k: Route) => S.route === k || (S.backTo === k && !NAV.some(([n]) => n === S.route));
 
   return (
     <View style={[st.root, { paddingTop: full && !wide ? 0 : insets.top }, !wide && !full && { backgroundColor: C.navyDeep }]}>
       <StatusBar style={wide && themeMode() === 'day' ? 'dark' : 'light'} />
-      {wide && topNav ? (
-        <View style={st.topbar}>
-          <View style={[st.brand, { flex: 1 }]}><Mallow a={LOGO} size={34} anim={false} /><Text style={[st.brandT, { fontSize: 22 }]}>Mellow</Text></View>
-          <View style={st.tabs}>
-            {NAV.map(([k, l, ic]) => {
-              const on = navOn(k);
-              return (
-                <Pressable key={k} onPress={() => S.go(k)} accessibilityRole="tab" accessibilityState={{ selected: on }} style={(p: any) => [st.tabBtn, on && st.tabOn, p.hovered && !on && { backgroundColor: C.night3 }]}>
-                  <Icon name={ic} size={18} color={on ? C.emberHi : C.muted} /><Text style={[st.navT, { fontSize: 15 }, on && { color: C.cream }]}>{l}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 14 }}>
-            {width >= 1240 ? <Pressable onPress={() => S.go('clinic')}><Text style={[st.help, S.route === 'clinic' && { color: C.cream }]}>Care team</Text></Pressable> : null}
-            {width >= 1240 ? <Pressable onPress={() => S.setModal({ type: 'support' })}><Text style={st.help}>Need to talk?</Text></Pressable> : null}
-            <Pressable onPress={() => setTopNav(false)}><Text style={st.help}>Side menu</Text></Pressable>
-            <ThemeToggle bg={C.night3} color={C.emberHi} />
-            <Pressable onPress={() => S.go('wardrobe')} accessibilityLabel="Customize your marshmallow" style={st.topMe}>
-              <Mallow a={S.avatar} size={34} anim={false} /><Text style={st.meN} numberOfLines={1}>{S.avatar.name}</Text>
-            </Pressable>
-          </View>
-        </View>
-      ) : null}
       <View style={{ flex: 1, flexDirection: 'row' }}>
-        {wide && !topNav ? (
+        {wide ? (
           <View style={st.side}>
             <View style={st.brand}><Mallow a={LOGO} size={40} anim={false} /><View><Text style={st.brandT}>Mellow</Text><Text style={st.brandS}>A cozy fire for hard days</Text></View></View>
             <View style={{ gap: 6 }}>
@@ -99,9 +69,7 @@ function Shell() {
                 <Mallow a={S.avatar} size={44} anim={false} />
                 <View style={{ flex: 1 }}><Text style={st.meN}>{S.avatar.name}</Text><Text style={st.meS}>Customize your marshmallow</Text></View>
               </Pressable>
-              <Pressable onPress={() => S.go('clinic')}><Text style={[st.help, S.route === 'clinic' && { color: C.cream }]}>Care team view (demo)</Text></Pressable>
               <Pressable onPress={() => S.setModal({ type: 'support' })}><Text style={st.help}>Need to talk to someone now?</Text></Pressable>
-              <Pressable onPress={() => setTopNav(true)}><Text style={st.help}>Try tabs across the top</Text></Pressable>
             </View>
           </View>
         ) : null}
@@ -187,11 +155,6 @@ const st = themed(() => StyleSheet.create({
   brandT: { fontFamily: F.displayBold, fontSize: 24, color: C.cream },
   brandS: { fontFamily: F.displayMed, fontSize: 11.5, color: C.muted },
   nav: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10 },
-  topbar: { height: 66, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, gap: 16, borderBottomWidth: 1, borderBottomColor: C.line, backgroundColor: C.night2, zIndex: 10 },
-  tabs: { flexDirection: 'row', gap: 4, backgroundColor: C.night3, borderRadius: 999, padding: 4 },
-  tabBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 18, paddingVertical: 9, borderRadius: 999, minHeight: 40 },
-  tabOn: { backgroundColor: C.night2 },
-  topMe: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4, paddingLeft: 4, paddingRight: 12, borderRadius: 999, borderWidth: 1, borderColor: C.line, maxWidth: 180 },
   navT: { fontFamily: F.displayMed, fontSize: 15.5, color: C.creamDim },
   mechip: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 8, borderRadius: 14, borderWidth: 1, borderColor: C.line, backgroundColor: C.night2 },
   meN: { fontFamily: F.display, fontSize: 16, color: C.cream },
