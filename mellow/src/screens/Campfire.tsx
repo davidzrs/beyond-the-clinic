@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../state';
 import { COOP_GOAL, ME_DEFAULT, MEMBERS } from '../data';
@@ -9,6 +9,7 @@ import { CampFull, Icon, Mallow } from '../components/Pixel';
 import { Btn, IconBtn, T } from '../components/ui';
 import { useLayout } from '../layout';
 import { ThemeToggle } from '../components/ThemeToggle';
+import { googleCalendarUrl, nextWeekly, outlookCalendarUrl } from '../lib/calendarLinks';
 
 type SheetKind = null | 'chat' | 'talk' | 'spark';
 
@@ -155,7 +156,11 @@ export default function Campfire() {
   const [sheet, setSheet] = useState<SheetKind>(null);
   // openChat() (from "Message at the fire" or MindSync): open the chat, whether the campfire was already open or not.
   useEffect(() => { if (S.chatOpenN > handledChatOpen) { handledChatOpen = S.chatOpenN; setSheet('chat'); } }, [S.chatOpenN]);
-  const close = () => setSheet(null);
+  const close = () => { setSheet(null); setCalOpen(false); };
+  const [calOpen, setCalOpen] = useState(false);
+  // Sunday Talk as a weekly calendar event, starting with the next one.
+  const talkEvent = () => ({ title: 'Sunday Talk · Mellow', start: nextWeekly(0, 19), minutes: 30, weekly: true,
+    details: 'Your campfire’s weekly talk in the Mellow app. Come to talk or just to listen. Nobody has to speak.' });
   const [open, setOpen] = useState(false);
   // New messages since you last opened the chat (the latest one also shows as a bubble at the fire).
   const [seen, setSeen] = useState(S.chat.length - 2);
@@ -211,7 +216,20 @@ export default function Campfire() {
           <Text style={st.when}>Sunday · 19:00 · about 30 min</Text>
           <Text style={st.quote}>“A film that feels like a warm blanket.”</Text>
           <T style={{ color: C.creamDim }}>Come to talk or just to listen. Nobody has to speak.</T>
-          <Btn label={S.talkReminder ? 'Reminder set' : 'Remind me'} kind={S.talkReminder ? 'green' : 'ember'} icon={S.talkReminder ? 'check' : 'clock'} onPress={() => S.setTalkReminder(!S.talkReminder)} />
+          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+            <Btn label={S.talkReminder ? 'Reminder set' : 'Remind me'} kind={S.talkReminder ? 'green' : 'ember'} icon={S.talkReminder ? 'check' : 'clock'} onPress={() => S.setTalkReminder(!S.talkReminder)} />
+            <Btn label="Add to calendar" kind="ghost" icon="calendar" onPress={() => setCalOpen((o) => !o)} />
+          </View>
+          {calOpen && (
+            <View style={st.calRow}>
+              <Pressable onPress={() => Linking.openURL(googleCalendarUrl(talkEvent()))} accessibilityRole="link" style={(p: any) => [st.calLink, (p.pressed || p.hovered) && { backgroundColor: C.night4 }]}>
+                <Text style={st.calLinkT}>Google Calendar</Text><Icon name="chevron" size={14} />
+              </Pressable>
+              <Pressable onPress={() => Linking.openURL(outlookCalendarUrl(talkEvent()))} accessibilityRole="link" style={(p: any) => [st.calLink, (p.pressed || p.hovered) && { backgroundColor: C.night4 }]}>
+                <Text style={st.calLinkT}>Outlook</Text><Icon name="chevron" size={14} />
+              </Pressable>
+            </View>
+          )}
         </View>
       </BottomSheet>
       <BottomSheet visible={sheet === 'spark'} title="Tonight’s spark" onClose={close}>
@@ -271,6 +289,9 @@ const st = themed(() => StyleSheet.create({
   warnT: { fontFamily: F.body, fontSize: 13.5, lineHeight: 19, color: C.amber },
   when: { fontFamily: F.display, fontSize: 15, color: C.forest },
   quote: { fontFamily: F.displayMed, fontSize: 20, lineHeight: 26, color: C.cream },
+  calRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  calLink: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 12, borderWidth: 1, borderColor: C.line, backgroundColor: C.night3, paddingHorizontal: 12, paddingVertical: 9 },
+  calLinkT: { fontFamily: F.label, fontSize: 13.5, color: C.cream },
   track: { height: 12, borderRadius: 6, backgroundColor: C.night4, overflow: 'hidden' },
   fill: { height: '100%', borderRadius: 6, backgroundColor: C.fire },
 }));
