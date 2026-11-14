@@ -546,7 +546,9 @@ const st = StyleSheet.create({
   tier: { paddingVertical: 3, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   tierNew: { backgroundColor: '#FFC857', borderColor: '#FFC857' },
   tierT: { fontFamily: F.bodyBold, fontSize: 12 },
-  mood: { flex: 1, alignItems: 'center', gap: 2, paddingVertical: 8, borderRadius: 14, borderWidth: 1.5 },
+  // No flex: 1 here: the Animated.View around each tile already splits the row. On Android, flex: 1 inside that
+  // column made the tile 0 high (just padding), so the marshmallow and label spilled out below it.
+  mood: { alignItems: 'center', gap: 2, paddingVertical: 8, borderRadius: 14, borderWidth: 1.5 },
   moodT: { fontFamily: F.displayMed, fontSize: 12 },
   go: { marginTop: 8, borderRadius: 999, paddingVertical: 12, paddingHorizontal: 28, minHeight: 44, justifyContent: 'center' },
   goT: { fontFamily: F.bodyBold, fontSize: 15 },
