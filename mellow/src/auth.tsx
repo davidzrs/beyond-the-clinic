@@ -25,6 +25,18 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     if (Platform.OS === 'web') window.history.pushState(null, '', '/care/login');
     setCareTeam(true);
   };
+  // Back / forward across the /care boundary: entering shows the portal; leaving reloads the page,
+  // the same way signing out of the portal does, so none of the portal's styles linger in the app.
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const on = () => {
+      const inCare = window.location.pathname.startsWith('/care');
+      if (inCare && !careTeam) setCareTeam(true);
+      else if (!inCare && careTeam) window.location.reload();
+    };
+    window.addEventListener('popstate', on);
+    return () => window.removeEventListener('popstate', on);
+  }, [careTeam]);
   const [role, setRole] = useState<string | null>(null);
   useEffect(() => {
     if (!supabase) return;

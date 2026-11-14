@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Call } from '../store';
+import { careUrl, type Call } from '../store';
 import { Icon } from './ui';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -35,7 +35,7 @@ export function AddToCalendar({ call, patientName }: { call: Call; patientName: 
   if (!start) return null;
   const end = new Date(start.getTime() + 15 * 60e3);
   const title = `Call with ${patientName} · Mellow Care`;
-  const link = `${location.origin}${location.pathname}#/patients/${call.patientId}`;
+  const link = location.origin + careUrl('/patients/' + call.patientId);
   const details = `${call.reason}\n\nPatient page: ${link}`;
   const enc = encodeURIComponent;
   const google = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${enc(title)}&dates=${stamp(start)}/${stamp(end)}&details=${enc(details)}`;
