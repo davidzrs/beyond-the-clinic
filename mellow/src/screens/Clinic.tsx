@@ -1,10 +1,11 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useApp } from '../state';
-import { C, F } from '../theme';
+import { C, F, themed } from '../theme';
 import { Btn, Chip, Eyebrow, H1, Panel, PTitle, T } from '../components/ui';
 import { DEMO, fmtDay, LEVEL_UI, levelOf, SAM } from '../demo';
 import { useLayout } from '../layout';
+import { BackLink } from '../components/BackLink';
 
 // What a clinician sees between visits: consenting patients only, trends only, sorted by who may need a call.
 export default function Clinic() {
@@ -19,6 +20,7 @@ export default function Clinic() {
   const wide = cw >= 760;
   return (
     <View style={{ gap: 20 }}>
+      <BackLink />
       <View style={{ gap: 6 }}>
         <Eyebrow>Care team view · demo</Eyebrow>
         <H1>Who might need a call</H1>
@@ -56,7 +58,7 @@ export default function Clinic() {
   );
 }
 
-const st = StyleSheet.create({
+const st = themed(() => StyleSheet.create({
   sum: { flexGrow: 1, flexBasis: 160, backgroundColor: C.night2, borderWidth: 1, borderColor: C.line, borderRadius: 14, padding: 14, gap: 2 },
   sumN: { fontFamily: F.displayBold, fontSize: 30, color: C.cream },
   row: { gap: 12, paddingHorizontal: 18, paddingVertical: 14, borderTopWidth: 1, borderTopColor: C.night4 },
@@ -65,4 +67,4 @@ const st = StyleSheet.create({
   pillT: { fontFamily: F.label, fontSize: 12 },
   track: { flex: 1, height: 6, borderRadius: 3, backgroundColor: C.night4, overflow: 'hidden' },
   fill: { height: '100%', borderRadius: 3 },
-});
+}));

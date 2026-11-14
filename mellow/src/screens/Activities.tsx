@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useApp } from '../state';
 import { Act, ACTS, TYPE_COLORS, TYPE_LABEL } from '../data';
-import { C, F } from '../theme';
+import { C, F, themed } from '../theme';
 import { Icon } from '../components/Pixel';
 import { Btn, Chip, Eyebrow, H1, H2, H3, Panel, Pill, T } from '../components/ui';
 import { useLayout } from '../layout';
+import { BackLink } from '../components/BackLink';
 
 export default function Activities() {
   const S = useApp();
@@ -20,15 +21,16 @@ export default function Activities() {
     else if (a.id === 'talk') S.go('campfire');
     else S.doActivity(a.id, a.title);
   };
-  const tiles: [string, string][] = [['E', C.forest], ['M', C.night3], ['B', '#b8702c'], ['E', C.night3], ['R', C.forest]];
+  const tiles: [string, string][] = [['E', C.forest], ['M', '#9AA4BC'], ['B', '#D99A00'], ['E', '#9AA4BC'], ['R', C.forest]];
   return (
     <View style={{ gap: 20 }}>
+      <BackLink />
       <View style={{ gap: 6 }}>
         <Eyebrow>Activities</Eyebrow>
         <H1>Things to do today</H1>
         <T style={{ color: C.creamDim }}>Short games, small quests and quiet moments. Everything here takes ten minutes or less.</T>
       </View>
-      <Panel style={{ backgroundColor: '#272452', flexDirection: cw >= 620 ? 'row' : 'column', gap: 20, alignItems: cw >= 620 ? 'center' : 'flex-start' }}>
+      <Panel style={{ backgroundColor: C.navySoft, flexDirection: cw >= 620 ? 'row' : 'column', gap: 20, alignItems: cw >= 620 ? 'center' : 'flex-start' }}>
         <View style={{ flex: cw >= 620 ? 1 : undefined, gap: 8 }}>
           <Eyebrow>Today’s puzzle</Eyebrow>
           <H2>Ember Words</H2>
@@ -75,11 +77,11 @@ export default function Activities() {
   );
 }
 
-const st = StyleSheet.create({
+const st = themed(() => StyleSheet.create({
   tile: { width: 40, height: 40, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  tileT: { fontFamily: F.displayBold, fontSize: 20, color: C.cream },
+  tileT: { fontFamily: F.displayBold, fontSize: 20, color: C.white },
   art: { height: 96, alignItems: 'center', justifyContent: 'center' },
-  iconCircle: { width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(255,255,255,.07)', alignItems: 'center', justifyContent: 'center' },
+  iconCircle: { width: 60, height: 60, borderRadius: 30, backgroundColor: C.iconWell, alignItems: 'center', justifyContent: 'center' },
   foot: { marginTop: 'auto', paddingTop: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   done: { fontFamily: F.display, fontSize: 14, color: C.moss },
-});
+}));

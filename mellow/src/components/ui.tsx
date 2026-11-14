@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native';
-import { C, F } from '../theme';
+import { C, F, themed } from '../theme';
 import { Icon } from './Pixel';
 
 export function H1({ children, style }: { children: React.ReactNode; style?: StyleProp<TextStyle> }) { return <Text style={[s.h1, style]}>{children}</Text>; }
@@ -25,12 +25,12 @@ export function PTitle({ eyebrow, title, right }: { eyebrow?: string; title: str
 }
 
 type BtnKind = 'ember' | 'ghost' | 'green' | 'plum';
-const BTN: Record<BtnKind, { bg: string; fg: string }> = {
+const BTN: Record<BtnKind, { bg: string; fg: string }> = themed(() => ({
   ember: { bg: C.ember, fg: C.emberInk },
   ghost: { bg: C.night4, fg: C.cream },
-  green: { bg: C.forest, fg: C.cream },
-  plum: { bg: C.plum, fg: C.cream },
-};
+  green: { bg: C.forest, fg: C.white },
+  plum: { bg: C.plum, fg: C.white },
+}));
 export function Btn({ label, onPress, kind = 'ember', sm, icon, disabled, style }: { label: string; onPress?: () => void; kind?: BtnKind; sm?: boolean; icon?: string; disabled?: boolean; style?: StyleProp<ViewStyle> }) {
   const k = BTN[kind];
   return (
@@ -75,7 +75,7 @@ export function LinkBtn({ label, onPress }: { label: string; onPress: () => void
   return <Pressable onPress={onPress}><Text style={s.link}>{label}</Text></Pressable>;
 }
 
-export const s = StyleSheet.create({
+export const s = themed(() => StyleSheet.create({
   h1: { fontFamily: F.display, fontSize: 32, lineHeight: 38, color: C.cream, letterSpacing: -0.3 },
   h2: { fontFamily: F.display, fontSize: 21, lineHeight: 26, color: C.cream },
   h3: { fontFamily: F.display, fontSize: 16.5, lineHeight: 21, color: C.cream },
@@ -96,4 +96,4 @@ export const s = StyleSheet.create({
   tabT: { fontFamily: F.displayMed, fontSize: 14, color: C.creamDim },
   reply: { backgroundColor: C.night3, borderRadius: 14, padding: 14, gap: 8 },
   link: { fontFamily: F.bodyBold, color: C.emberHi, textDecorationLine: 'underline', fontSize: 15 },
-});
+}));

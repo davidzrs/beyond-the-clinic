@@ -2,164 +2,182 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useApp } from '../state';
 import { MOOD_KEYS, MOODS } from '../data';
-import { C, F } from '../theme';
-import { CampScene, Icon, Mallow, StageView } from '../components/Pixel';
-import { Btn, Chip, Eyebrow, H1, H2, H3, IconBtn, LinkBtn, Panel, PTitle, Reply, T } from '../components/ui';
+import { C, F, themed } from '../theme';
+import { Icon, Mallow } from '../components/Pixel';
+import { Btn, Eyebrow, H2, LinkBtn, Panel, T } from '../components/ui';
 import { useLayout } from '../layout';
+import { PLAN_DAYS, PlanTask } from '../checkin';
+import { LEVEL_UI, levelOf, SAM } from '../demo';
 
+// Games stay as they are for now (TBD); Today just links to them.
+const QUICK: [string, string, string][] = [['words', 'words', 'Words'], ['light', 'sun', 'Find light'], ['breathe', 'flame', 'Breathe'], ['forest', 'forest', 'Forest']];
+
+// Today fits on one phone screen: one alert at most, mood, today's plan, games, the fire.
 export default function Home() {
   const S = useApp();
-  const { cw } = useLayout();
-  const two = cw >= 980;
-  const heroRow = cw >= 620;
+  const { cw, wide, pad, height } = useLayout();
+  const two = cw >= 900;
   const now = new Date();
   const hr = now.getHours();
   const greet = hr < 5 ? 'Still up' : hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
   const dateStr = now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
-  const month = now.toLocaleDateString('en-GB', { month: 'long' });
-  const dom = now.getDate();
-  const showed = [1, 2, 4, 5, 6, 8, 9, 10, 11, 12, 13];
-  const activeToday = !!S.mood || Object.keys(S.questState).length > 0;
-  const last = S.chat[S.chat.length - 1];
-  const lastM = S.members.find((m) => m.id === last.from) || S.members[2];
   const bare = { ...S.avatar, hat: 'none', glasses: 'none', acc: 'none', item: 'none' };
-  const weekFaces = ['okay', 'content', 'tired', 'okay', 'content', 'happy', S.mood ? MOODS[S.mood].face : null];
-  const days = Math.min(30, Math.max(dom, 15));
 
-  const hero = (
-    <Panel style={{ padding: 0, flexDirection: heroRow ? 'row' : 'column' }}>
-      <View style={{ width: heroRow ? 250 : '100%' }}>
-        <StageView a={S.avatar} face={S.mood ? MOODS[S.mood].face : null} maxSize={heroRow ? 250 : 340} />
-        <View style={st.stageUi}>
-          <Text style={st.nm}>{S.avatar.name}</Text>
-          <Btn label="Customize" kind="ghost" sm onPress={() => S.go('wardrobe')} />
-        </View>
+  // 1. At most one thing that needs you: the check-in when it's due, otherwise an early-warning nudge.
+  const lvl = levelOf(SAM.series.risk[S.demoDay - 1]);
+  const ui = LEVEL_UI[lvl];
+  const moved = (SAM.drivers[S.demoDay - 1] || []).slice(0, 2).map((d) => d.label.toLowerCase()).join(', ');
+  const alert = S.checkinDue ? (
+    <Pressable onPress={() => S.setModal({ type: 'phq' })} style={[st.card, st.row, { borderColor: C.ember, backgroundColor: C.navySoft }]}>
+      <View style={[st.ico, { backgroundColor: C.night2 }]}><Icon name="clipboard" size={22} /></View>
+      <View style={{ flex: 1 }}><Text style={st.title}>Time for your 2-week check-in</Text><Text style={st.sub}>9 questions · about 2 minutes</Text></View>
+      <Btn label="Start" sm onPress={() => S.setModal({ type: 'phq' })} />
+    </Pressable>
+  ) : lvl === 'watch' || lvl === 'high' ? (
+    <Pressable onPress={() => S.go('journey')} style={[st.card, st.row, { borderColor: ui.color + '88', backgroundColor: ui.bg }]}>
+      <View style={[st.ico, { backgroundColor: C.iconWell }]}><Icon name="pulse" size={22} color={ui.color} /></View>
+      <View style={{ flex: 1 }}>
+        <Text style={[st.title, { color: ui.color }]} numberOfLines={1}>{lvl === 'high' ? 'Early signs showing' : 'Worth watching'}</Text>
+        <Text style={st.sub2} numberOfLines={2}>{moved ? 'Changed: ' + moved : 'A few things shifted from your usual.'}</Text>
       </View>
-      <View style={{ flex: heroRow ? 1 : undefined, padding: 18, gap: 14 }}>
-        <View style={{ gap: 4 }}><Eyebrow>Daily check-in</Eyebrow><H2>How are you feeling today?</H2></View>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          {MOOD_KEYS.map((k) => {
-            const on = S.mood === k;
-            return (
-              <Pressable key={k} onPress={() => S.setMood(k)} accessibilityState={{ selected: on }}
-                style={(p: any) => [st.mood, on && st.moodOn, p.hovered && !on && { borderColor: C.lineHi, transform: [{ translateY: -3 }] }]}>
-                <Mallow a={bare} face={MOODS[k].face} size={44} anim={false} />
-                <Text style={[st.moodT, on && { color: C.emberHi }]}>{MOODS[k].label}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-        {S.mood ? (
-          <Reply>
-            <T>{MOODS[S.mood].reply}</T>
-            {MOODS[S.mood].sug ? <LinkBtn label={MOODS[S.mood].sug!.label} onPress={() => { const a = MOODS[S.mood!].sug!.act; if (a === 'campfire') S.go('campfire'); else if (a === 'breathe') S.setModal({ type: 'breathe' }); else S.doQuest('sky'); }} /> : null}
-            {MOODS[S.mood].support ? <LinkBtn label="Want to talk to someone now?" onPress={() => S.setModal({ type: 'support' })} /> : null}
-          </Reply>
-        ) : <T muted>One tap is enough. You can change it any time today.</T>}
-      </View>
-    </Panel>
-  );
+      {lvl === 'high' ? <Btn label="Check in" sm onPress={() => S.setModal({ type: 'phq' })} /> : <Icon name="chevron" size={18} />}
+    </Pressable>
+  ) : null;
 
-  const quests = (
-    <Panel>
-      <PTitle eyebrow="Picked for you today" title="Gentle quests" right={<Chip label="Do any, or none" bg="#4a3016" fg={C.emberHi} />} />
-      <View style={{ gap: 10 }}>
-        {S.quests.map((q) => {
-          const done = S.questState[q.id];
-          return (
-            <View key={q.id} style={[st.quest, done && { backgroundColor: '#1f3a32' }]}>
-              <View style={st.qico}><Icon name={done ? 'check' : q.icon} size={30} /></View>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={st.qt}>{q.title}</Text>
-                <T muted style={{ fontSize: 13 }}>{q.dur} · +{q.ember} embers</T>
-                <Text style={st.why}>Why this: {q.why}</Text>
-              </View>
-              {done ? <Text style={st.done}>Done</Text> : (
-                <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-                  <IconBtn icon="refresh" label={'Swap ' + q.title} onPress={() => S.swapQuest(q.id)} />
-                  <Btn label={q.act ? 'Start' : 'Done'} kind="green" sm onPress={() => (q.act ? S.setModal({ type: q.act, quest: q.id }) : S.doQuest(q.id))} />
-                </View>
-              )}
-            </View>
-          );
-        })}
+  // 2. Mood: one row of faces, then a single line once answered.
+  const m = S.mood ? MOODS[S.mood] : null;
+  const mood = m ? (
+    <View style={[st.card, { gap: 6 }]}>
+      <View style={st.row}>
+        <Mallow a={bare} face={m.face} size={34} anim={false} />
+        <View style={{ flex: 1 }}><Text style={st.title}>Feeling {m.label.toLowerCase()} today</Text><Text style={st.sub} numberOfLines={1}>{m.reply}</Text></View>
+        <LinkBtn label="Change" onPress={() => S.setMood(null)} />
       </View>
-    </Panel>
-  );
-
-  const fire = (
-    <Panel style={{ padding: 0 }}>
-      <CampScene members={S.members} compact />
-      <View style={{ padding: 16, gap: 10 }}>
-        <PTitle eyebrow="Your campfire" title="Pinehollow" right={<Chip label="2 new" />} />
-        <View style={st.lastmsg}>
-          <Mallow a={lastM.a} size={32} anim={false} />
-          <Text numberOfLines={1} style={[st.qt, { flex: 1, fontFamily: F.body }]}><Text style={{ fontFamily: F.bodyBold }}>{lastM.id === 'me' ? 'You' : lastM.name}: </Text>{last.text}</Text>
-        </View>
-        <T muted>Sunday Talk in 2 days: “A film that feels like a warm blanket.”</T>
-        <Btn label="Go to the fire" icon="flame" onPress={() => S.go('campfire')} />
-      </View>
-    </Panel>
-  );
-
-  const progress = (
-    <Panel>
-      <PTitle eyebrow="Your month so far" title="Little by little" />
-      <View style={{ flexDirection: 'row', gap: 10 }}>
-        <View style={st.stat}><Text style={st.statN}>{showed.length + (activeToday ? 1 : 0)}</Text><T muted style={{ fontSize: 12.5 }}>days you showed up in {month}</T></View>
-        <View style={st.stat}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><Icon name="ember" size={20} /><Text style={st.statN}>{S.embers}</Text></View><T muted style={{ fontSize: 12.5 }}>embers gathered</T></View>
-      </View>
-      <View style={st.cal}>
-        {Array.from({ length: days }, (_, i) => i + 1).map((d) => (
-          <View key={d} style={[st.calD, (showed.includes(d) || (d === dom && activeToday)) && { backgroundColor: C.ember }, d === dom && { borderWidth: 2, borderColor: C.emberHi }]} />
-        ))}
-      </View>
-      <T muted style={{ fontSize: 12.5, marginTop: 10 }}>No streaks to break here. Every day you show up just adds up.</T>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
-        {weekFaces.map((f, i) => (
-          <View key={i} style={{ alignItems: 'center', gap: 2 }}>
-            {f ? <Mallow a={bare} face={f} size={34} anim={false} /> : <View style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}><View style={{ width: 14, height: 14, borderWidth: 2, borderColor: C.line, borderStyle: 'dashed', borderRadius: 3 }} /></View>}
-            <Text style={st.wd}>{['M', 'T', 'W', 'T', 'F', 'S', 'S'][i]}</Text>
-          </View>
-        ))}
-      </View>
-    </Panel>
-  );
-
-  return (
-    <View style={{ gap: 20 }}>
-      <View style={{ gap: 6 }}>
-        <Eyebrow>{dateStr}</Eyebrow>
-        <H1>{greet}, {S.avatar.name}</H1>
-        <T style={{ color: C.creamDim }}>No rush today. Start wherever feels right.</T>
-      </View>
-      {two ? (
-        <View style={{ flexDirection: 'row', gap: 20, alignItems: 'flex-start' }}>
-          <View style={{ flex: 1.45, gap: 20 }}>{hero}{quests}</View>
-          <View style={{ flex: 1, gap: 20 }}>{fire}{progress}</View>
-        </View>
-      ) : (
-        <View style={{ gap: 20 }}>{hero}{quests}{fire}{progress}</View>
-      )}
+      {m.support ? <LinkBtn label="Talk to someone now" onPress={() => S.setModal({ type: 'support' })} /> : null}
     </View>
+  ) : (
+    <View style={[st.card, { gap: 10 }]}>
+      <Text style={st.h}>How are you feeling today?</Text>
+      <View style={{ flexDirection: 'row', gap: 6 }}>
+        {MOOD_KEYS.map((k) => (
+          <Pressable key={k} onPress={() => S.answerMood(k)} accessibilityLabel={MOODS[k].label} style={(p: any) => [st.mood, p.hovered && { borderColor: C.lineHi }]}>
+            <Mallow a={bare} face={MOODS[k].face} size={28} anim={false} />
+            <Text style={st.moodT} numberOfLines={1}>{MOODS[k].label}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+
+  // 3. Today's plan (from the last check-in). Tap the circle to tick it off; tap the row to start it.
+  const dayIdx = Math.min(PLAN_DAYS - 1, S.planDay);
+  const today = S.plan.days[dayIdx];
+  const tasks = S.checkinDue ? [] : today.tasks.map((t, j) => ({ t, key: today.date + '-' + j })).filter((x) => !x.t.retake);
+  const left = PLAN_DAYS - 1 - S.planDay;
+  const start = (t: PlanTask) => { if (t.act === 'breathe') S.setModal({ type: 'breathe' }); else if (t.act === 'campfire') S.go('campfire'); };
+  const rows = S.checkinDue
+    ? S.quests.slice(0, 2).map((q) => ({ key: q.id, icon: q.icon, t: q.title, sub: q.dur + ' · +' + q.ember + ' embers', done: !!S.questState[q.id], act: !!q.act, onStart: () => q.act && S.setModal({ type: q.act, quest: q.id }), onTick: () => !S.questState[q.id] && S.doQuest(q.id) }))
+    : tasks.map(({ t, key }) => ({ key, icon: t.icon, t: t.t, sub: t.dur + ' · ' + t.area, done: !!S.planDone[key], act: !!t.act, onStart: () => start(t), onTick: () => (S.planDone[key] ? S.undoTask(key) : S.doTask(key, t)) }));
+  const plan = (
+    <View style={[st.card, { gap: 10 }]}>
+      <View style={st.row}>
+        <View style={{ flex: 1 }}>
+          <Text style={st.h}>Today’s plan</Text>
+          <Text style={st.sub}>{S.checkinDue ? 'Your check-in sets the next 2 weeks' : 'Day ' + (dayIdx + 1) + ' of ' + PLAN_DAYS + ' · check-in in ' + left + (left === 1 ? ' day' : ' days')}</Text>
+        </View>
+        <Btn label="2 weeks" kind="ghost" sm icon="calendar" onPress={() => S.setModal({ type: 'plan' })} />
+      </View>
+      {rows.length ? rows.map((r) => (
+        <Pressable key={r.key} onPress={r.act ? r.onStart : r.onTick} style={[st.task, r.done && { opacity: 0.6 }]}>
+          <View style={st.tico}><Icon name={r.icon} size={20} /></View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={[st.title, { fontSize: 14.5 }, r.done && { textDecorationLine: 'line-through' }]} numberOfLines={2}>{r.t}</Text>
+            <Text style={st.sub} numberOfLines={1}>{r.sub}</Text>
+          </View>
+          <Pressable onPress={r.onTick} accessibilityRole="checkbox" accessibilityState={{ checked: r.done }} accessibilityLabel={'Done: ' + r.t} hitSlop={8}
+            style={[st.tick, r.done && { backgroundColor: C.forest, borderColor: C.forest }]}>
+            {r.done ? <Icon name="check" size={18} color={C.cream} /> : null}
+          </Pressable>
+        </Pressable>
+      )) : <Text style={st.sub}>Nothing planned today. Rest is part of the plan too.</Text>}
+    </View>
+  );
+
+  // 4. Games and calm, one tap each (unchanged games, see Activities).
+  const games = (
+    <View style={{ gap: 8 }}>
+      <View style={st.row}><Text style={[st.h, { flex: 1 }]}>Games & calm</Text><LinkBtn label="See all" onPress={() => S.go('activities')} /></View>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        {QUICK.map(([id, ic, t]) => (
+          <Pressable key={id} onPress={() => (id === 'forest' ? S.setModal({ type: 'sound', kind: 'forest' }) : S.setModal({ type: id }))}
+            style={(p: any) => [st.tile, p.hovered && { borderColor: C.lineHi }]}>
+            <Icon name={S.actDone[id] ? 'check' : ic} size={22} />
+            <Text style={st.tileT} numberOfLines={1}>{t}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+
+  // 5. The fire in one line.
+  const last = S.chat[S.chat.length - 1];
+  const who = S.members.find((x) => x.id === last.from) || S.members[2];
+  const fire = (
+    <Pressable onPress={() => S.go('campfire')} accessibilityRole="button" accessibilityLabel="Go to your campfire" style={[st.card, st.row, { paddingVertical: 10 }]}>
+      <Mallow a={who.a} size={30} anim={false} />
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text numberOfLines={1} style={[st.title, { fontFamily: F.body, fontSize: 14 }]}><Text style={{ fontFamily: F.bodyBold }}>{who.id === 'me' ? 'You' : who.name}: </Text>{last.text}</Text>
+        <Text style={st.sub} numberOfLines={1}>Pinehollow · Sunday Talk, Sun 19:00</Text>
+      </View>
+      <Icon name="chevron" size={18} />
+    </Pressable>
+  );
+
+  const header = wide ? (
+    <View style={{ gap: 2 }}>
+      <Eyebrow>{dateStr}</Eyebrow>
+      <H2>{greet}, {S.avatar.name || 'friend'}</H2>
+    </View>
+  ) : (
+    <View style={[st.hero, { marginHorizontal: -pad, paddingHorizontal: pad }]}>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Eyebrow style={{ color: C.heroDim }}>{dateStr}</Eyebrow>
+        <H2 style={{ color: C.heroText }}>{greet}, {S.avatar.name || 'friend'}</H2>
+        {height >= 760 ? <Text style={st.heroSub}>{S.streakCount > 0 ? S.streakCount + '-day streak · ' : ''}{S.embers} embers</Text> : null}
+      </View>
+      <View style={st.glow}><Mallow a={S.avatar} size={46} anim /></View>
+    </View>
+  );
+
+  return two ? (
+    <View style={{ gap: 16 }}>
+      {header}
+      <View style={{ flexDirection: 'row', gap: 20, alignItems: 'flex-start' }}>
+        <View style={{ flex: 1.3, gap: 12 }}>{alert}{mood}{plan}</View>
+        <View style={{ flex: 1, gap: 12 }}>{fire}{games}</View>
+      </View>
+    </View>
+  ) : (
+    <View style={{ gap: 10 }}>{header}{alert}{mood}{plan}{games}{fire}</View>
   );
 }
 
-const st = StyleSheet.create({
-  stageUi: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 10, backgroundColor: C.night3 },
-  nm: { fontFamily: F.display, fontSize: 18, color: C.cream },
-  mood: { flex: 1, alignItems: 'center', gap: 4, paddingVertical: 10, borderRadius: 14, borderWidth: 1, borderColor: C.line, backgroundColor: C.night3 },
-  moodOn: { borderColor: C.ember, backgroundColor: '#3a2f3e' },
-  moodT: { fontFamily: F.displayMed, fontSize: 13, color: C.creamDim },
-  quest: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 14, backgroundColor: C.night3 },
-  qico: { width: 44, height: 44, borderRadius: 10, backgroundColor: C.night2, alignItems: 'center', justifyContent: 'center' },
-  qt: { fontFamily: F.bodyBold, fontSize: 15, color: C.cream },
-  why: { fontFamily: F.body, fontSize: 12.5, color: C.creamDim, marginTop: 2 },
-  done: { fontFamily: F.display, fontSize: 14, color: C.moss },
-  lastmsg: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.night3, borderRadius: 12, padding: 8 },
-  stat: { flex: 1, backgroundColor: C.night3, borderRadius: 14, padding: 12, gap: 2 },
-  statN: { fontFamily: F.display, fontSize: 28, color: C.cream },
-  cal: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 12 },
-  calD: { width: 16, height: 16, borderRadius: 8, backgroundColor: C.night4 },
-  wd: { fontFamily: F.label, fontSize: 11, color: C.muted },
-});
+const st = themed(() => StyleSheet.create({
+  hero: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.navyDeep, paddingTop: 0, paddingBottom: 14, borderBottomLeftRadius: 24, borderBottomRightRadius: 24, marginBottom: 2 },
+  heroSub: { fontFamily: F.body, fontSize: 13, color: C.heroDim },
+  glow: { width: 60, height: 60, borderRadius: 30, backgroundColor: C.peach, alignItems: 'center', justifyContent: 'center' },
+  card: { backgroundColor: C.night2, borderWidth: 1, borderColor: C.line, borderRadius: 14, padding: 12 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  ico: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  h: { fontFamily: F.display, fontSize: 16.5, color: C.cream },
+  title: { fontFamily: F.bodyBold, fontSize: 15, color: C.cream },
+  sub: { fontFamily: F.body, fontSize: 12.5, color: C.muted },
+  sub2: { fontFamily: F.body, fontSize: 13, color: C.creamDim },
+  mood: { flex: 1, alignItems: 'center', gap: 1, paddingVertical: 5, borderRadius: 12, borderWidth: 1, borderColor: C.line, backgroundColor: C.night3 },
+  moodT: { fontFamily: F.displayMed, fontSize: 11.5, color: C.creamDim },
+  task: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 8, borderRadius: 12, backgroundColor: C.night3 },
+  tico: { width: 36, height: 36, borderRadius: 9, backgroundColor: C.night2, alignItems: 'center', justifyContent: 'center' },
+  tick: { width: 30, height: 30, borderRadius: 15, borderWidth: 2, borderColor: C.lineHi, alignItems: 'center', justifyContent: 'center' },
+  tile: { flex: 1, alignItems: 'center', gap: 3, paddingVertical: 8, paddingHorizontal: 4, borderRadius: 12, borderWidth: 1, borderColor: C.line, backgroundColor: C.night2 },
+  tileT: { fontFamily: F.displayMed, fontSize: 11.5, color: C.creamDim, textAlign: 'center' },
+}));
