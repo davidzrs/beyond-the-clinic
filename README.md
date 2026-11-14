@@ -3,6 +3,7 @@
 Mobile companion for staying well after depression treatment (Junction 2026 · Beyond the Clinic).
 
 - `mellow/` — the app (Expo / React Native)
+- `care-portal/` — the clinician website (React + Vite): log in and follow each patient's score
 - `data-analysis/` — PHQ-9 dataset analysis
 - `RESEARCH.md` — the research behind our suggestions and the signals we track
 
@@ -36,3 +37,23 @@ On Windows, React Native's C++ build breaks when paths pass 260 characters. If t
 `mellow/android/` is generated and git-ignored; never edit it by hand. Open it in Android Studio if you want Logcat or the debugger.
 
 If something breaks: `npx expo-doctor`, then `npx expo install --fix`. Add libraries with `npx expo install <package>`, not `npm install`.
+
+## Run the clinician portal
+
+```bash
+cd care-portal
+npm install
+npm run dev        # http://localhost:5180
+```
+
+Demo sign-in: `laura.aalto@pinehollow.fi` / `mellow`. More in `care-portal/README.md`.
+
+### Ports
+
+| What | Port |
+|---|---|
+| Mellow app dev server (Expo / Metro) | 8081 |
+| Clinician portal (`npm run dev`) | 5180 |
+| Clinician portal (`npm run preview`, after a build) | 5181 |
+
+The portal ports are fixed (`strictPort`): if one is busy, Vite stops with an error instead of picking a random port. Close the old terminal and run it again.

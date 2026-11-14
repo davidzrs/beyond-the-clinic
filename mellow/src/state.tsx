@@ -8,10 +8,10 @@ import { SAM } from './demo';
 import { useAuth } from './auth';
 import * as sync from './lib/sync';
 
-export type Route = 'home' | 'campfire' | 'activities' | 'journey' | 'wardrobe' | 'clinic' | 'insights';
+export type Route = 'home' | 'campfire' | 'activities' | 'journey' | 'games' | 'nono' | 'sight' | 'hotel' | 'wardrobe' | 'clinic' | 'insights';
 export type ModalState = null | { type: string; [k: string]: any };
-const ROUTES: Route[] = ['home', 'campfire', 'activities', 'journey', 'wardrobe', 'clinic', 'insights'];
-export const TABS: Route[] = ['home', 'campfire', 'journey'];
+const ROUTES: Route[] = ['home', 'campfire', 'activities', 'journey', 'games', 'nono', 'sight', 'hotel', 'wardrobe', 'clinic', 'insights'];
+export const TABS: Route[] = ['home', 'campfire', 'journey', 'games'];
 
 // Check-in history = Sam's fortnightly PHQ-9 totals from the demo data, spread over the items
 // (sleep and energy first, never question 9). The current plan comes from the latest one.
@@ -68,6 +68,11 @@ function useAppState() {
   const [checkins, setCheckins] = useState<Checkin[]>(SEED_C);
   const [plan, setPlanS] = useState<Plan>(SEED_P);
   const [planDone, setPlanDone] = useState<Record<string, boolean>>(() => seedDone(SEED_P));
+  // Daily puzzles: the dates each one was solved. One puzzle a day, so a date appears at most once.
+  const [solved, setSolved] = useState<Record<string, string[]>>({});
+  // Which puzzle tutorials have been seen (shown once, the first time a puzzle is opened).
+  const [tutorials, setTutorials] = useState<Record<string, boolean>>({});
+  const [tutorialsLoaded, setTutorialsLoaded] = useState(false);
   const toastT = useRef<any>(null);
 
   // Signed in: profile, streak, today's mood and campfire come from Supabase.
@@ -100,6 +105,8 @@ function useAppState() {
         if (m) { const v = JSON.parse(m); if (v.date === ymd(new Date())) setMood(v.key); }
       } catch {}
     }).catch(() => {}).finally(() => setMoodLoaded(true));
+    AsyncStorage.getItem('mellow.v2.puzzles').then((v) => { if (v) { try { setSolved(JSON.parse(v)); } catch {} } }).catch(() => {});
+    AsyncStorage.getItem('mellow.v2.tutorials').then((v) => { if (v) { try { setTutorials(JSON.parse(v)); } catch {} } }).catch(() => {}).finally(() => setTutorialsLoaded(true));
     AsyncStorage.multiGet(['mellow.v2.checkins', 'mellow.v2.plan', 'mellow.v2.planDone']).then((r) => {
       try {
         const [c, p, d] = r.map((x) => x[1]);
@@ -165,6 +172,20 @@ function useAppState() {
     const a = ACTS.find((x) => x.id === id); gainEmbers(2, title, a ? a.icon : 'star'); toast('Nice. +2 embers for the fire.');
   };
   const finishAct = (id: string, title: string, icon: string) => { if (!actDone[id]) { setActDone((s) => ({ ...s, [id]: true })); gainEmbers(2, title, icon); } };
+  const today = ymd(new Date());
+  const puzzleSolvedToday = (id: string) => (solved[id] || []).includes(today);
+  const puzzleCount = (id: string) => (solved[id] || []).length;
+  const solvePuzzle = (id: string, title: string, icon: string) => {
+    if (puzzleSolvedToday(id)) return;
+    const next = { ...solved, [id]: [...(solved[id] || []), today] };
+    setSolved(next); AsyncStorage.setItem('mellow.v2.puzzles', JSON.stringify(next)).catch(() => {});
+    finishAct(id, title, icon);
+  };
+  const markTutorialSeen = (id: string) => {
+    if (tutorials[id]) return;
+    const next = { ...tutorials, [id]: true };
+    setTutorials(next); AsyncStorage.setItem('mellow.v2.tutorials', JSON.stringify(next)).catch(() => {});
+  };
   const wave = (m: Member) => { setHop(m.id); setTimeout(() => setHop(null), 800); toast('You waved at ' + m.name + '.'); setTimeout(() => bubble(m.id, '*waves back*'), 900); };
 
   const saveDone = (d: Record<string, boolean>) => { setPlanDone(d); AsyncStorage.setItem('mellow.v2.planDone', JSON.stringify(d)).catch(() => {}); };
@@ -183,7 +204,9 @@ function useAppState() {
   };
   const doTask = (key: string, task: PlanTask) => { saveDone({ ...planDone, [key]: true }); gainEmbers(2, task.t, task.icon); toast('Nice. +2 embers for the fire.'); };
   const undoTask = (key: string) => { const d = { ...planDone }; delete d[key]; saveDone(d); };
-  const back = () => go(lastTab);
+  // A game page always goes back to Games, even when it was opened straight from a link.
+  const backTo: Route = route === 'nono' || route === 'sight' || route === 'hotel' ? 'games' : lastTab;
+  const back = () => go(backTo);
   const answerMood = (k: MoodKey) => {
     const today = ymd(new Date());
     setMood(k); AsyncStorage.setItem('mellow.v2.mood', JSON.stringify({ date: today, key: k })).catch(() => {});
@@ -213,7 +236,7 @@ function useAppState() {
   const planDay = Math.max(0, dayIndex(plan));
   const checkinDue = planDay >= PLAN_DAYS - 1;
 
-  return { uid, email: session?.user.email || null, signOut, campfireId, campfireName, resetN, resetDemo, skyOverride, streak, streakCount, answerMood, showDaily, dismissDaily: () => setDailyDismissed(true), lastTab, back, checkins, saveCheckin, plan, adoptPlan, planDone, doTask, undoTask, planDay, checkinDue, route, go, avatar, setAvatar, mood, setMood, embers, coop, quests, questState, doQuest, swapQuest, actDone, doActivity, finishAct, actLog, chat, sendChat, bubbles, members, modal, setModal, toastMsg, toast, hopId, wave, talkReminder, setTalkReminder, chatDraft, setChatDraft, demoDay, setDemoDay };
+  return { uid, email: session?.user.email || null, signOut, campfireId, campfireName, resetN, resetDemo, skyOverride, streak, streakCount, answerMood, showDaily, dismissDaily: () => setDailyDismissed(true), lastTab, back, backTo, checkins, saveCheckin, plan, adoptPlan, planDone, doTask, undoTask, planDay, checkinDue, route, go, avatar, setAvatar, mood, setMood, embers, coop, quests, questState, doQuest, swapQuest, actDone, doActivity, finishAct, puzzleSolvedToday, puzzleCount, solvePuzzle, tutorials, tutorialsLoaded, markTutorialSeen, actLog, chat, sendChat, bubbles, members, modal, setModal, toastMsg, toast, hopId, wave, talkReminder, setTalkReminder, chatDraft, setChatDraft, demoDay, setDemoDay };
 }
 
 export type AppState = ReturnType<typeof useAppState>;
