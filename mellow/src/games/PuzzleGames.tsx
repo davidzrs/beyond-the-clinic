@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { PanResponder, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, AppState, Easing, PanResponder, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { C, F, themed, themeMode } from '../theme';
 import { Btn, Reply, s, T } from '../components/ui';
 import { Icon } from '../components/Pixel';
@@ -277,6 +277,21 @@ export function HotelMystery({ onDone, solved }: { onDone: () => void; solved?: 
   const press = useRef<null | { c: number; alt: boolean; moved: boolean; done: boolean; timer: any; paint?: (k: number) => void }>(null);
   useEffect(() => { if (solved && !wonRef.current) { const s0 = blank(); P.sol.forEach((c, x) => place(s0, x, c)); setS(s0); setWon(true); wonRef.current = true; } }, [solved]);
   const u = W / n, night = themeMode() === 'night';
+  // The selected guest's letters gently grow and shrink, so it's always clear who you're placing.
+  const pulse = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const make = () => Animated.loop(Animated.sequence([
+      Animated.timing(pulse, { toValue: 1, duration: 650, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
+      Animated.timing(pulse, { toValue: 0, duration: 650, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
+    ]));
+    let loop = make();
+    loop.start();
+    // An animation started while the app was in the background can stall, so start a fresh loop on return
+    // (a stopped Animated.loop can't be started again).
+    const sub = AppState.addEventListener('change', (st) => { if (st === 'active') { loop.stop(); pulse.setValue(0); loop = make(); loop.start(); } });
+    return () => { loop.stop(); sub.remove(); };
+  }, []);
+  const pulseScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.2] });
 
   const clone = (s: HState): HState => ({ pos: s.pos.slice(), notes: s.notes.map((a) => a.slice()), xm: s.xm.slice(), xa: s.xa.slice() });
   const line = (c: number) => { const r = Math.floor(c / n), col = c % n, out: number[] = []; for (let k = 0; k < n; k++) { if (k !== col) out.push(r * n + k); if (k !== r) out.push(k * n + col); } return out; };
@@ -375,17 +390,23 @@ export function HotelMystery({ onDone, solved }: { onDone: () => void; solved?: 
         const bad = who >= 0 && ((rowCount[y] || 0) > 1 || (colCount[x] || 0) > 1);
         const g = who >= 0 ? GUESTS[P.people[who]] : null;
         const showX = !g && !blocked(P, c) && isX(S, c) && !won;
+        const notes = !g && !showX && !won ? S.notes[c] : [];
+        // Notes sit in the middle like a placed letter, just smaller; several notes share the space.
+        const noteSize = u * (notes.length <= 1 ? 0.38 : notes.length === 2 ? 0.3 : notes.length <= 4 ? 0.24 : 0.19);
         return (
           <View key={c} pointerEvents="none"
             style={[gs.room, { left: x * u, top: y * u, width: u, height: u, backgroundColor: night ? r.colorN : r.color,
               borderRightWidth: x < n - 1 && P.area[c + 1] !== P.area[c] ? 2.5 : 0.5, borderBottomWidth: y < n - 1 && P.area[c + n] !== P.area[c] ? 2.5 : 0.5 }]}>
             {first ? <Text style={[gs.roomT, { fontSize: Math.max(9, u * 0.15) }]} numberOfLines={1}>{r.label}</Text> : null}
-            {o ? <Text style={g || showX ? [gs.furnSmall, { fontSize: u * 0.24 }] : { fontSize: u * 0.42 }}>{FURN[o].e}</Text> : null}
-            {g ? <Text style={[gs.big, { fontSize: u * 0.56, color: g.color }, bad && { color: C.rose }, won && who === t && { textDecorationLine: 'underline' }]}>{g.ini}</Text>
+            {o ? <Text style={g || showX || notes.length ? [gs.furnSmall, { fontSize: u * 0.24 }] : { fontSize: u * 0.42 }}>{FURN[o].e}</Text> : null}
+            {g ? <Animated.Text style={[gs.big, { fontSize: u * 0.56, color: g.color }, bad && { color: C.rose }, won && who === t && { textDecorationLine: 'underline' }, who === sel && !won && { transform: [{ scale: pulseScale }] }]}>{g.ini}</Animated.Text>
               : showX ? <Text style={[gs.x, { fontSize: u * 0.36 }]}>✕</Text>
-              : !won && S.notes[c].length ? (
-                <View style={[gs.notes, o ? { top: u * 0.06, right: u * 0.08, left: undefined, bottom: undefined } : null]}>
-                  {S.notes[c].map((v) => { const q = GUESTS[P.people[v]]; return <Text key={v} style={[gs.note, { fontSize: Math.max(9, u * 0.2), color: q.color }]}>{q.ini}</Text>; })}
+              : notes.length ? (
+                <View style={[gs.notes, { width: u * 0.86 }]}>
+                  {notes.map((v) => {
+                    const q = GUESTS[P.people[v]];
+                    return <Animated.Text key={v} style={[gs.note, { fontSize: noteSize, lineHeight: noteSize * 1.15, color: q.color }, v === sel && { transform: [{ scale: pulseScale }] }]}>{q.ini}</Animated.Text>;
+                  })}
                 </View>
               ) : null}
             {why && why.cell === c ? <View style={[StyleSheet.absoluteFill, { borderWidth: 3, borderColor: C.plum, borderRadius: 4 }]} /> : null}
@@ -407,7 +428,7 @@ export function HotelMystery({ onDone, solved }: { onDone: () => void; solved?: 
           <Pressable key={x} onPress={() => setSel(x)} accessibilityState={{ selected: on }}
             style={(p: any) => [gs.card, { width: cardW }, on && { borderColor: g.color }, p.hovered && !on && { borderColor: C.lineHi }]}>
             <View style={gs.cardHead}>
-              <View style={gs.cardLetterBox}><Text style={[gs.cardLetter, { color: g.color }]}>{g.ini}</Text></View>
+              <View style={gs.cardLetterBox}><Animated.Text style={[gs.cardLetter, { color: g.color }, on && { transform: [{ scale: pulseScale }] }]}>{g.ini}</Animated.Text></View>
               <Text style={gs.cardName}>{g.name}</Text>
               {placed ? <Icon name="check" size={18} /> : null}
             </View>
@@ -478,8 +499,8 @@ const gs = themed(() => StyleSheet.create({
   gchipOn: { borderColor: C.ember, backgroundColor: C.night4 },
   gletter: { fontFamily: F.displayBold, fontSize: 17, color: C.cream, minWidth: 14, textAlign: 'center' },
   big: { fontFamily: F.displayBold, color: C.cream },
-  notes: { position: 'absolute', left: 4, bottom: 2, flexDirection: 'row', flexWrap: 'wrap', gap: 3 },
-  note: { fontFamily: F.bodyXBold },
+  notes: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', columnGap: 4 },
+  note: { fontFamily: F.displayBold, textAlign: 'center' },
   toolWide: { alignSelf: 'stretch' },
   cardGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   card: { backgroundColor: C.night3, borderRadius: 14, borderWidth: 2, borderColor: 'transparent', padding: 12, gap: 6 },
