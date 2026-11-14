@@ -119,13 +119,18 @@ export default function Home() {
   );
 
   // 5. The fire in one line.
-  const last = S.chat[S.chat.length - 1];
-  const who = S.members.find((x) => x.id === last.from) || S.members[2];
+  // A brand-new campfire has no messages yet, and Ember (the AI) isn't one of the seats.
+  const last = S.chat[S.chat.length - 1] as (typeof S.chat)[number] | undefined;
+  const ember = last?.from === 'ember';
+  const who = (last && S.members.find((x) => x.id === last.from)) || (last ? S.chatPeople[last.from] : undefined) || S.members[2];
   const fire = (
     <Pressable onPress={() => S.go('campfire')} accessibilityRole="button" accessibilityLabel="Go to your campfire" style={[st.card, st.row, { paddingVertical: 10 }]}>
-      <Mallow a={who.a} size={30} anim={false} />
+      {ember ? <Icon name="ember" size={26} /> : <Mallow a={who.a} size={30} anim={false} />}
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text numberOfLines={1} style={[st.title, { fontFamily: F.body, fontSize: 14 }]}><Text style={{ fontFamily: F.bodyBold }}>{who.id === 'me' ? 'You' : who.name}: </Text>{last.text}</Text>
+        <Text numberOfLines={1} style={[st.title, { fontFamily: F.body, fontSize: 14 }]}>
+          {!last ? 'The fire is quiet. Say hello to your campfire.'
+            : <><Text style={{ fontFamily: F.bodyBold }}>{ember ? 'Ember (AI)' : last.from === 'me' ? 'You' : who.name}: </Text>{last.text}</>}
+        </Text>
         <Text style={st.sub} numberOfLines={1}>Pinehollow · Sunday Talk, Sun 19:00</Text>
       </View>
       <Icon name="chevron" size={18} />
