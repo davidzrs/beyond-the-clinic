@@ -57,7 +57,7 @@ for (const p of D.PATIENTS) {
   const full = FULL[p.name] || p.name;
   const email = emailOf(full);
   const { sb, id } = await account(full, email);
-  await sb.from('profiles').update({ name: full, weeks_since_tms: p.weeksAtEnd, streak_count: 0 }).eq('id', id);
+  await sb.from('profiles').update({ name: full, weeks_since_tms: p.weeksAtEnd, streak_count: 0, crisis_consent: true }).eq('id', id);
   const rows = [];
   for (let d = p.firstDay; d <= D.DAYS; d++) {
     const v = (k) => p.series[k][d - 1];
