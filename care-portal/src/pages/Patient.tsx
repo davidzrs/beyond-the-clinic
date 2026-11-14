@@ -78,8 +78,17 @@ export default function Patient({ p, openCall }: { p: P; openCall: boolean }) {
               {reasons.map((r) => (
                 <li key={r.key}>
                   <div><b>{r.label}</b><span>{r.change}</span></div>
-                  <div className="zbar" title={`${r.z.toFixed(1)} SD from usual`}><i style={{ width: Math.min(100, (Math.abs(r.z) / 4) * 100) + '%' }} /></div>
-                  <span className="muted small">{Math.abs(r.z).toFixed(1)} SD from usual</span>
+                  {r.key === 'checkin' ? (
+                    <>
+                      <div className="zbar" title="Answered by the patient in the app"><i style={{ width: '100%' }} /></div>
+                      <span className="muted small">Answered by the patient in the Mellow app</span>
+                    </>
+                  ) : (
+                    <>
+                      <div className="zbar" title={`${r.z.toFixed(1)} SD from usual`}><i style={{ width: Math.min(100, (Math.abs(r.z) / 4) * 100) + '%' }} /></div>
+                      <span className="muted small">{Math.abs(r.z).toFixed(1)} SD from usual</span>
+                    </>
+                  )}
                 </li>
               ))}
             </ul>

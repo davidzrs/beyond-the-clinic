@@ -210,11 +210,10 @@ function useAppState() {
   const answerMood = (k: MoodKey) => {
     const today = ymd(new Date());
     setMood(k); AsyncStorage.setItem('mellow.v2.mood', JSON.stringify({ date: today, key: k })).catch(() => {});
-    if (uid) sync.saveMood(uid, today, k);
-    if (streak.last === today) return streak.count;
-    const next = { count: streak.last === ymd(addDays(new Date(), -1)) ? streak.count + 1 : 1, last: today };
+    const next = streak.last === today ? streak : { count: streak.last === ymd(addDays(new Date(), -1)) ? streak.count + 1 : 1, last: today };
+    if (uid) sync.submitCheckin(uid, today, k, next); // POST /rpc/submit_checkin (also when changing today's answer)
+    if (next === streak) return streak.count;
     setStreak(next); AsyncStorage.setItem('mellow.v2.streak', JSON.stringify(next)).catch(() => {});
-    if (uid) sync.saveProfile(uid, { streak_count: next.count, streak_last: next.last });
     return next.count;
   };
   // Streak still counts today if you answered yesterday; it only shows as broken after a missed day.

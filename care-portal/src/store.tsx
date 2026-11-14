@@ -109,6 +109,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     enter().catch(() => {}).finally(() => setLoading(false));
   }, [enter]);
 
+  // Live: when a patient checks in (or anything a clinician can see changes), re-read within a moment.
+  // Also re-read when the tab comes back into focus, in case a change was missed.
+  useEffect(() => {
+    if (!supabase || !user) return;
+    let t: number | undefined;
+    const soon = () => { window.clearTimeout(t); t = window.setTimeout(() => { refresh().catch(() => {}); }, 400); };
+    // One channel per table, so a table that isn't enabled for live updates can't silence the others.
+    const chans = ['checkins', 'daily_metrics', 'questionnaires', 'phq9', 'care_notes', 'care_calls'].map((table) =>
+      supabase!.channel('care-live-' + table)
+        .on('postgres_changes', { event: '*', schema: 'public', table }, soon)
+        .subscribe((status) => { if (status === 'CHANNEL_ERROR') console.warn('[care-live] no live updates for', table); }));
+    const onFocus = () => soon();
+    window.addEventListener('focus', onFocus);
+    const poll = window.setInterval(soon, 30000);
+    return () => { window.clearTimeout(t); window.clearInterval(poll); window.removeEventListener('focus', onFocus); chans.forEach((c) => supabase?.removeChannel(c)); };
+  }, [user, refresh]);
+
   const signIn = useCallback(async (email: string, password: string) => {
     if (!supabase) {
       const a = DEMO_ACCOUNTS.find((x) => x.email.toLowerCase() === email.trim().toLowerCase() && x.password === password);

@@ -254,12 +254,22 @@ export function patientFromRows(
     for (const [k, col] of COLS) series[k][d - 1] = (m[col] as number | null) ?? null;
     risk[d - 1] = m.risk; reasons[d - 1] = m.reasons;
   }
-  // Daily check-ins from the app fill in mood where the summary has none.
+  // The patient's own check-in from the app is the truth for that day's mood.
+  const said: (string | null)[] = Array(DAYS).fill(null);
   for (const c of checkins) {
     const d = dayOfDate(c.day); if (d == null) continue;
     seen.push(d);
-    if (series.mood[d - 1] == null && MOOD_SCORE[c.mood]) series.mood[d - 1] = MOOD_SCORE[c.mood];
+    if (MOOD_SCORE[c.mood]) { series.mood[d - 1] = MOOD_SCORE[c.mood]; said[d - 1] = c.mood; }
   }
+  // A heavy or low answer is always shown to the care team as a reason, on top of the score.
+  const MOOD_LABEL: Record<string, string> = { heavy: 'Heavy', low: 'Low' };
+  const withCheckin = (day: number): Reason[] => {
+    const base = reasons[day - 1] || [];
+    const m = said[day - 1];
+    if (!m || !MOOD_LABEL[m]) return base;
+    return [{ key: 'checkin', label: 'Checked in', change: MOOD_LABEL[m] + (day === lastSeen() ? ' today' : ''), z: m === 'heavy' ? 9 : 6 }, ...base.filter((r) => r.key !== 'mood')].slice(0, 3);
+  };
+  const lastSeen = () => (seen.length ? Math.max(...seen) : DAYS);
   const qByDay = new Map<number, Questionnaire>();
   for (const q of questionnaires) { const d = dayOfDate(q.day); if (d != null) qByDay.set(d, { day: d, phq9: q.phq9 ?? undefined, who5: q.who5 ?? undefined }); }
   for (const q of phq9) { const d = dayOfDate(q.created_at.slice(0, 10)); if (d != null) qByDay.set(d, { ...(qByDay.get(d) || { day: d }), phq9: q.score }); }
@@ -274,7 +284,7 @@ export function patientFromRows(
     firstDay, weeksAtEnd: prof.weeks_since_tms ?? Math.max(0, Math.round((DAYS - firstDay) / 7)),
     risk, series,
     baseline: isSam ? { from: 7, to: 34 } : { from: firstDay, to: Math.max(firstDay + 6, Math.min(firstScored > 0 ? firstScored + 21 : DAYS, firstDay + 27)) },
-    reasonsAt: (day) => reasons[day - 1] || [],
+    reasonsAt: withCheckin,
     questionnaires: [...qByDay.values()].sort((a, b) => a.day - b.day),
     lastCheckIn: ago <= 0 ? 'today' : ago === 1 ? 'yesterday' : ago + 'd ago',
     events: isSam ? [{ day: E.firstAlertDay, label: 'First alert' }, { day: E.carePlanDay, label: 'Care plan' }, { day: E.recoveredDay, label: 'Back to usual' }] : [],

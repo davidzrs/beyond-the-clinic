@@ -41,8 +41,21 @@ export async function saveMood(uid: string, day: string, mood: MoodKey) {
 
 export async function savePhq9(uid: string, answers: number[], score: number) {
   if (!supabase) return;
-  const { error } = await supabase.from('phq9').insert({ user_id: uid, answers, score });
-  warn('save PHQ-9', error);
+  // POST /rpc/submit_phq9 also records it for the care team; fall back to the table if the API isn't installed.
+  const { error } = await supabase.rpc('submit_phq9', { p_answers: answers });
+  if (!error) return;
+  const r = await supabase.from('phq9').insert({ user_id: uid, answers, score });
+  warn('save PHQ-9', r.error);
+}
+
+// POST /rpc/submit_checkin: the daily mood, today's summary for the care team and the streak, in one call.
+export async function submitCheckin(uid: string, day: string, mood: MoodKey, streak: { count: number; last: string }) {
+  if (!supabase) return;
+  const { error } = await supabase.rpc('submit_checkin', { p_mood: mood, p_day: day });
+  if (!error) return;
+  warn('submit check-in (falling back)', error);
+  await saveMood(uid, day, mood);
+  await saveProfile(uid, { streak_count: streak.count, streak_last: streak.last });
 }
 
 // Join (or find) my campfire and who else is there.
