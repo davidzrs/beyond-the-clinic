@@ -1,7 +1,8 @@
 // Sign-up / log-in with Supabase (email + password, no email confirmation).
 // If no backend is configured, or you choose "Try the demo", the app runs locally as before.
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Session } from '@supabase/supabase-js';
 import { hasBackend, supabase } from './lib/supabase';
@@ -54,6 +55,10 @@ function AuthScreen({ onGuest, onCareTeam }: { onGuest: () => void; onCareTeam: 
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Sign-up only: the Terms must be accepted; crisis alerts to the care team are optional.
+  const [tos, setTos] = useState(false);
+  const [crisisOk, setCrisisOk] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
 
   const submit = async () => {
     if (!supabase || busy) return;
@@ -61,9 +66,10 @@ function AuthScreen({ onGuest, onCareTeam }: { onGuest: () => void; onCareTeam: 
     if (!email.includes('@')) return setError('Please enter your email.');
     if (password.length < 6) return setError('Your password needs at least 6 characters.');
     if (mode === 'up' && !name.trim()) return setError('What should your campfire call you?');
+    if (mode === 'up' && !tos) return setError('Please accept the Terms of Service to join.');
     setBusy(true);
     const res = mode === 'up'
-      ? await supabase.auth.signUp({ email: email.trim(), password, options: { data: { name: name.trim() } } })
+      ? await supabase.auth.signUp({ email: email.trim(), password, options: { data: { name: name.trim(), crisis_consent: crisisOk, tos_accepted_at: new Date().toISOString(), tos_version: TERMS_VERSION } } })
       : await supabase.auth.signInWithPassword({ email: email.trim(), password });
     setBusy(false);
     if (res.error) setError(friendly(res.error.message));
@@ -92,6 +98,18 @@ function AuthScreen({ onGuest, onCareTeam }: { onGuest: () => void; onCareTeam: 
           <Field label="Email" value={email} onChange={setEmail} placeholder="you@example.com" keyboard="email-address" autoComplete="email" />
           <Field label="Password" value={password} onChange={setPassword} placeholder="At least 6 characters" secure autoComplete={mode === 'up' ? 'new-password' : 'current-password'} onSubmit={submit} />
 
+          {mode === 'up' ? (
+            <View style={{ gap: 4, marginTop: 10 }}>
+              <Check checked={tos} onToggle={() => setTos(!tos)} label="I agree to the Terms of Service">
+                <Text style={st.checkT}>I agree to the <Text style={st.link} onPress={() => setShowTerms(true)} accessibilityRole="link">Terms of Service</Text>.</Text>
+              </Check>
+              <Check checked={crisisOk} onToggle={() => setCrisisOk(!crisisOk)} label="Let my care team know if a chat message sounds like a crisis">
+                <Text style={st.checkT}>Let my care team know if something I write in the chat sounds like a crisis.</Text>
+                <Text style={st.checkS}>Optional. They only learn that it happened and when, never what you wrote. An AI does this check; it can be wrong and never diagnoses. You can change it anytime under Support.</Text>
+              </Check>
+            </View>
+          ) : null}
+
           {error ? <Text style={st.error} accessibilityLiveRegion="polite">{error}</Text> : null}
 
           <Pressable onPress={submit} disabled={busy} accessibilityRole="button" style={(p: any) => [st.go, (p.pressed || busy) && { opacity: 0.8 }]}>
@@ -105,7 +123,52 @@ function AuthScreen({ onGuest, onCareTeam }: { onGuest: () => void; onCareTeam: 
           <Text style={st.careTeamS}>Sign in as a clinician or therapist</Text>
         </Pressable>
       </ScrollView>
+      <Terms visible={showTerms} onClose={() => setShowTerms(false)} />
     </KeyboardAvoidingView>
+  );
+}
+
+// A tickable box with its label. The whole row is the control, so it's easy to hit.
+function Check({ checked, onToggle, label, children }: { checked: boolean; onToggle: () => void; label: string; children: React.ReactNode }) {
+  return (
+    <Pressable onPress={onToggle} hitSlop={8} accessibilityRole="checkbox" accessibilityState={{ checked }} aria-checked={checked} accessibilityLabel={label} style={st.check}>
+      {/* As tall as one line of text, so the box sits centred on the first line (one-line or several). */}
+      <View style={st.box}><Ionicons name={checked ? 'checkbox' : 'square-outline'} size={24} color={checked ? C.ember : C.muted} /></View>
+      <View style={{ flex: 1, gap: 3 }}>{children}</View>
+    </Pressable>
+  );
+}
+
+// Prototype terms for the Junction demo. Bump TERMS_VERSION when the text changes.
+const TERMS_VERSION = '2026-11-14';
+const TERMS: [string, string][] = [
+  ['Mellow is not a medical service', 'Mellow helps you stay well between appointments. It doesn’t diagnose, treat or replace your care team, and it isn’t an emergency service. If you are in danger, call 112.'],
+  ['Mellow uses AI', 'Some parts of Mellow are run by an AI and are always labelled as such: checking chat messages before they are posted, and Ember’s questions at the campfire. The AI can be wrong. It never gives medical advice.'],
+  ['The campfire chat', 'Be kind. Messages that insult, threaten, harass, share someone else’s private details, push anyone towards self-harm, or advertise are not posted. Each one counts as a strike, and after 3 strikes you can read the chat but no longer post.'],
+  ['When a message sounds like a crisis', 'It isn’t posted. Instead you see who you can talk to right away. If you agreed to it, your care team is told that it happened and when, never what you wrote. You can change this anytime under Support.'],
+  ['Your data', 'Your check-ins and questionnaires are shared with your care team only if you chose to share them. Chat messages are only seen by the people at your campfire. You can ask us to delete your account and data at any time.'],
+  ['This is a prototype', 'Mellow was built for Junction 2026. Demo patients use synthetic data. Please don’t rely on it for your care.'],
+];
+
+function Terms({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={st.backdrop} onPress={onClose} accessibilityLabel="Close">
+        <Pressable onPress={() => {}} style={st.terms}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 24, gap: 14 }}>
+            <Text style={st.termsH}>Terms of Service</Text>
+            <Text style={st.checkS}>Version {TERMS_VERSION}</Text>
+            {TERMS.map(([h, t]) => (
+              <View key={h} style={{ gap: 4 }}>
+                <Text style={st.termsT}>{h}</Text>
+                <Text style={st.termsP}>{t}</Text>
+              </View>
+            ))}
+            <Pressable onPress={onClose} accessibilityRole="button" style={st.go}><Text style={st.goT}>Close</Text></Pressable>
+          </ScrollView>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 
@@ -143,6 +206,16 @@ const st = themed(() => StyleSheet.create({
   go: { backgroundColor: C.ember, borderRadius: 999, minHeight: 50, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   goT: { fontFamily: F.bodyBold, fontSize: 16, color: C.emberInk },
   guest: { fontFamily: F.bodyBold, fontSize: 14.5, color: C.creamDim, textDecorationLine: 'underline' },
+  check: { flexDirection: 'row', gap: 10, alignItems: 'flex-start', paddingVertical: 4 },
+  box: { height: 20, width: 24, alignItems: 'center', justifyContent: 'center', overflow: 'visible' },
+  checkT: { fontFamily: F.body, fontSize: 14.5, lineHeight: 20, color: C.cream },
+  checkS: { fontFamily: F.body, fontSize: 12.5, lineHeight: 17, color: C.muted },
+  link: { fontFamily: F.bodyBold, color: C.emberHi, textDecorationLine: 'underline' },
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,.55)', alignItems: 'center', justifyContent: 'center', padding: 16 },
+  terms: { width: '100%', maxWidth: 560, maxHeight: '90%', backgroundColor: C.night2, borderRadius: 20, borderWidth: 1, borderColor: C.line, overflow: 'hidden' },
+  termsH: { fontFamily: F.displayBold, fontSize: 24, color: C.cream },
+  termsT: { fontFamily: F.display, fontSize: 16, color: C.cream },
+  termsP: { fontFamily: F.body, fontSize: 14.5, lineHeight: 21, color: C.creamDim },
   careTeam: { alignSelf: 'center', alignItems: 'center', gap: 2, paddingVertical: 10, paddingHorizontal: 22, minHeight: 44, borderRadius: 16, borderWidth: 1, borderColor: C.line },
   careTeamT: { fontFamily: F.display, fontSize: 15, color: C.cream },
   careTeamS: { fontFamily: F.body, fontSize: 12.5, color: C.muted },
