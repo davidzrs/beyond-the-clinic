@@ -3,6 +3,7 @@ import { Animated, AppState, Easing, PanResponder, Platform, Pressable, StyleShe
 import { C, F, themed, themeMode } from '../theme';
 import { Btn, Reply, s, T } from '../components/ui';
 import { Icon } from '../components/Pixel';
+import { lockPageScroll } from '../scrollLock';
 import { useLayout } from '../layout';
 import { HOTEL, PICS, SIGHT } from './puzzles';
 import { blocked, clueText, FURN, GUESTS, Hint, hotelNext, lineClue, nonoHint, ROOMS, sightHint, sightSeen, thief } from './engines';
@@ -55,14 +56,20 @@ function useBoardPointer(h: Pointer) {
   const pan = useMemo(() => {
     if (Platform.OS === 'web') return null;
     const start = { x: 0, y: 0 };
+    // Claim the touch straight away (capture phase too) and switch page scrolling off until the finger lifts,
+    // otherwise the page's native ScrollView takes vertical drags.
+    const end = () => { lockPageScroll(false); live.current.up(); };
     return PanResponder.create({
       onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => true,
       onMoveShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponderCapture: () => true,
       onPanResponderTerminationRequest: () => false,
-      onPanResponderGrant: (e) => { start.x = e.nativeEvent.locationX; start.y = e.nativeEvent.locationY; live.current.down(start.x, start.y, false); },
+      onShouldBlockNativeResponder: () => true,
+      onPanResponderGrant: (e) => { lockPageScroll(true); start.x = e.nativeEvent.locationX; start.y = e.nativeEvent.locationY; live.current.down(start.x, start.y, false); },
       onPanResponderMove: (_, g) => live.current.move(start.x + g.dx, start.y + g.dy),
-      onPanResponderRelease: () => live.current.up(),
-      onPanResponderTerminate: () => live.current.up(),
+      onPanResponderRelease: end,
+      onPanResponderTerminate: end,
     });
   }, []);
   return { ref, handlers: pan ? pan.panHandlers : {} };

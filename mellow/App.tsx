@@ -11,6 +11,7 @@ import { ModalHost } from './src/modals/Modals';
 import { ThemeToggle } from './src/components/ThemeToggle';
 import { DailyCheckin } from './src/components/DailyCheckin';
 import { MAX_W, SIDEBAR_W, useLayout } from './src/layout';
+import { onScrollLock, registerPageScroll } from './src/scrollLock';
 import Home from './src/screens/Home';
 import Campfire from './src/screens/Campfire';
 import Activities from './src/screens/Activities';
@@ -30,6 +31,9 @@ function Shell() {
   const { wide, pad } = useLayout();
   const insets = useSafeAreaInsets();
   const scroll = useRef<any>(null);
+  // A game board switches page scrolling off while a finger drags across it (see src/scrollLock.ts).
+  const [scrollLocked, setScrollLocked] = useState(false);
+  useEffect(() => onScrollLock(setScrollLocked), []);
   useEffect(() => { scroll.current?.scrollTo({ y: 0, animated: false }); }, [S.route]);
   useEffect(() => {
     // Android back button: a sub-page goes back to its tab instead of closing the app.
@@ -70,7 +74,7 @@ function Shell() {
             </View>
           </View>
         ) : null}
-        {full ? <View style={{ flex: 1 }}><Screen /></View> : <ScrollView ref={scroll} style={{ flex: 1, backgroundColor: C.night }} contentContainerStyle={{ paddingHorizontal: pad, paddingTop: wide ? 30 : 14, paddingBottom: wide ? 60 : 110 + insets.bottom }} keyboardShouldPersistTaps="handled">
+        {full ? <View style={{ flex: 1 }}><Screen /></View> : <ScrollView ref={(r) => { scroll.current = r; registerPageScroll(r); }} scrollEnabled={!scrollLocked} style={{ flex: 1, backgroundColor: C.night }} contentContainerStyle={{ paddingHorizontal: pad, paddingTop: wide ? 30 : 14, paddingBottom: wide ? 60 : 110 + insets.bottom }} keyboardShouldPersistTaps="handled">
           <View style={{ width: '100%', maxWidth: MAX_W, alignSelf: 'center' }}>
             {!wide ? (
               <View style={[st.mtop, { marginHorizontal: -pad, paddingHorizontal: pad }, (S.route === 'home' || S.route === 'journey') ? { marginBottom: 0 } : st.mtopRound]}>
