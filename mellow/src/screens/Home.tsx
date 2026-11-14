@@ -8,6 +8,7 @@ import { Btn, Eyebrow, H2, LinkBtn, Panel, T } from '../components/ui';
 import { useLayout } from '../layout';
 import { PLAN_DAYS, PlanTask } from '../checkin';
 import { LEVEL_UI, levelOf, SAM } from '../demo';
+import { hasBackend } from '../lib/supabase';
 
 // Games stay as they are for now (TBD); Today just links to them.
 
@@ -144,6 +145,12 @@ export default function Home() {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
           <Text style={st.resetT}>{'Signed in as ' + S.email + ' · ' + S.campfireName}</Text>
           <LinkBtn label="Sign out" onPress={() => S.signOut()} />
+        </View>
+      ) : hasBackend ? (
+        // Trying the demo: a way back to the log in / create account screen.
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+          <Text style={st.resetT}>You’re trying the demo</Text>
+          <LinkBtn label="Leave demo" onPress={() => S.signOut()} />
         </View>
       ) : null}
       <Text style={st.resetT}>Testing: reset the demo and replay the streak screen</Text>
