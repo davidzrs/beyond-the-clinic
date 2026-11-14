@@ -167,7 +167,6 @@ export function ModalHost() {
       <Sheet title="You don’t have to carry it alone" eyebrow="Support" onClose={close}>
         <View style={{ gap: 10 }}>
           <View style={st.sup}><Text style={st.supT}>If you’re in danger right now</Text><T style={{ color: C.creamDim, fontSize: 14 }}>Call your local emergency number. In Finland and across the EU that’s 112.</T></View>
-          <View style={st.sup}><Text style={st.supT}>Reach your trusted person</Text><T style={{ color: C.creamDim, fontSize: 14 }}>You chose Maria (sister) as your trusted person. Mellow can send her a short note asking her to check in on you.</T><Btn label="Ask Maria to check in" sm onPress={() => { S.toast('Prototype: Maria would get a gentle check-in note.'); close(); }} /></View>
           <View style={st.sup}><Text style={st.supT}>Your care team</Text><T style={{ color: C.creamDim, fontSize: 14 }}>Your clinic can see the check-ins you chose to share. You can ask them for a call.</T><Btn label="Request a call" kind="ghost" sm onPress={() => { S.toast('Prototype: your clinic would get a call request.'); close(); }} /></View>
           <View style={st.sup}><Text style={st.supT}>Something calming, right now</Text><Btn label="Breathe with the flame" kind="plum" sm onPress={() => S.setModal({ type: 'breathe' })} /></View>
           {S.uid ? (
