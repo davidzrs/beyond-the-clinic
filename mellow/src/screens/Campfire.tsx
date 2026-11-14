@@ -13,9 +13,25 @@ import { ThemeToggle } from '../components/ThemeToggle';
 type SheetKind = null | 'chat' | 'talk' | 'spark';
 
 // Slides up from the bottom over the fire; tap outside or the close button to go back to the scene.
-function BottomSheet({ visible, title, onClose, tall, children }: { visible: boolean; title: string; onClose: () => void; tall?: boolean; children: React.ReactNode }) {
+function BottomSheet({ visible, title, onClose, tall, corner, children }: { visible: boolean; title: string; onClose: () => void; tall?: boolean; corner?: boolean; children: React.ReactNode }) {
   const insets = useSafeAreaInsets();
   const { height, width } = useLayout();
+  // On wide screens a `corner` sheet is a floating panel in the bottom-right, so the fire and every
+  // marshmallow stay in view (and stay tappable). On phones it is a regular sheet from the bottom.
+  if (corner && width >= 760) {
+    if (!visible) return null;
+    return (
+      <KeyboardAvoidingView behavior="padding" pointerEvents="box-none" style={[StyleSheet.absoluteFill, { justifyContent: 'flex-end', alignItems: 'flex-end', padding: 20, paddingBottom: 20 + insets.bottom }]}>
+        <View style={[st.sheet, st.panel, { width: Math.min(400, width * 0.42), height: Math.min(600, height - 150) }]}>
+          <View style={st.sheetHead}>
+            <Text style={st.sheetT}>{title}</Text>
+            <IconBtn icon="close" label="Close" onPress={onClose} />
+          </View>
+          {children}
+        </View>
+      </KeyboardAvoidingView>
+    );
+  }
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close" />
@@ -50,6 +66,7 @@ function Chat() {
       <Text style={st.note}>Only the 4 of you can see this.</Text>
       <ScrollView ref={listRef} style={{ flex: 1 }} contentContainerStyle={{ gap: 10, paddingBottom: 4 }}>
         {S.chat.map((c) => {
+          if (c.kind === 'spark' && c.poll) return <SparkPoll key={c.id} id={c.id} question={c.text} poll={c.poll} time={c.time} />;
           const m = who(c.from); const me = c.from === 'me';
           return (
             <View key={c.id} style={[st.msg, me && { flexDirection: 'row-reverse' }]}>
@@ -89,11 +106,49 @@ function Chat() {
   );
 }
 
+// Ember's "this or that" poll, posted when the fire has been quiet for 2 days.
+// Ember always shows as an AI. Before you vote you see the two options; after, how the fire split.
+function SparkPoll({ id, question, poll, time }: { id: number; question: string; poll: { a: string; b: string }; time: string }) {
+  const S = useApp();
+  const v = S.votes[id] || {};
+  const mine = v.me;
+  const n = { a: 0, b: 0 };
+  Object.values(v).forEach((c) => { n[c] += 1; });
+  const total = n.a + n.b;
+  return (
+    <View style={st.msg}>
+      <View style={st.ember}><Icon name="ember" size={18} /></View>
+      <View style={[st.bub, st.sparkBub]}>
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+          <Text style={st.who}>Ember</Text>
+          <View style={st.aiTag}><Text style={st.aiTagT}>AI</Text></View>
+          <Text style={st.time}>{time}</Text>
+        </View>
+        <Text style={st.msgT}>{question}</Text>
+        <View style={{ gap: 6, marginTop: 4 }}>
+          {(['a', 'b'] as const).map((k) => {
+            const pct = total ? Math.round((n[k] / total) * 100) : 0;
+            return (
+              <Pressable key={k} onPress={() => S.castVote(id, k)} accessibilityRole="button" accessibilityState={{ selected: mine === k }}
+                accessibilityLabel={poll[k] + (mine ? `, ${n[k]} of ${total} votes` : '')} style={[st.opt, mine === k && st.optOn]}>
+                {mine ? <View style={[st.optFill, { width: (pct + '%') as any }]} /> : null}
+                <Text style={[st.optT, mine === k && { fontFamily: F.bodyBold }]}>{poll[k]}</Text>
+                {mine ? <Text style={st.optN}>{n[k]}</Text> : null}
+              </Pressable>
+            );
+          })}
+        </View>
+        <Text style={st.sparkNote}>{mine ? 'Tell the fire why you picked it.' : 'Pick one. The fire’s been quiet, so I’m asking.'}</Text>
+      </View>
+    </View>
+  );
+}
+
 // The fire fills the screen. Chat, Sunday Talk, games and invites are buttons on top of it.
 export default function Campfire() {
   const S = useApp();
   const insets = useSafeAreaInsets();
-  const { wide } = useLayout();
+  const { wide, width } = useLayout();
   const [sheet, setSheet] = useState<SheetKind>(S.chatDraft.startsWith('@') ? 'chat' : null);
   const close = () => setSheet(null);
   const [open, setOpen] = useState(false);
@@ -111,7 +166,7 @@ export default function Campfire() {
 
   return (
     <View style={{ flex: 1 }}>
-      <CampFull members={S.members} bubbles={S.bubbles} hopId={S.hopId} onPick={(m) => (m.id === 'me' ? S.go('wardrobe') : S.setModal({ type: 'member', m }))} />
+      <CampFull rightInset={sheet === 'chat' && width >= 760 ? Math.min(400, width * 0.42) + 20 : 0} members={S.members} bubbles={S.bubbles} hopId={S.hopId} onPick={(m) => (m.id === 'me' ? S.go('wardrobe') : S.setModal({ type: 'member', m }))} />
 
       <View style={[st.top, { paddingTop: insets.top + (wide ? 18 : 10) }]} pointerEvents="box-none">
         <View style={st.sign}>
@@ -145,7 +200,7 @@ export default function Campfire() {
         )) : null}
       </View>
 
-      <BottomSheet visible={sheet === 'chat'} title="Fireside chat" onClose={close} tall><Chat /></BottomSheet>
+      <BottomSheet visible={sheet === 'chat'} title="Fireside chat" onClose={close} tall corner><Chat /></BottomSheet>
       <BottomSheet visible={sheet === 'talk'} title="Sunday Talk" onClose={close}>
         <View style={{ gap: 10 }}>
           <Text style={st.when}>Sunday · 19:00 · about 30 min</Text>
@@ -183,6 +238,7 @@ const st = themed(() => StyleSheet.create({
   actionT: { fontFamily: F.displayMed, fontSize: 13, color: C.cream, backgroundColor: C.glass, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, overflow: 'hidden' },
   sheetWrap: { flex: 1, justifyContent: 'flex-end', alignItems: 'center' },
   sheet: { backgroundColor: C.night2, borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingHorizontal: 18, paddingTop: 8 },
+  panel: { borderRadius: 22, paddingTop: 14, paddingBottom: 14, borderWidth: 1, borderColor: C.line, boxShadow: '0px 12px 40px rgba(0,0,0,0.35)' } as any,
   grab: { alignSelf: 'center', width: 40, height: 5, borderRadius: 3, backgroundColor: C.line, marginBottom: 8 },
   sheetHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   sheetT: { fontFamily: F.display, fontSize: 20, color: C.cream },
@@ -196,6 +252,16 @@ const st = themed(() => StyleSheet.create({
   pchip: { borderRadius: 999, borderWidth: 1, borderColor: C.line, backgroundColor: C.night3, paddingHorizontal: 10, paddingVertical: 5 },
   pchipT: { fontFamily: F.body, fontSize: 12.5, color: C.creamDim },
   input: { flex: 1, minWidth: 0, backgroundColor: C.night, borderWidth: 1, borderColor: C.line, borderRadius: 10, color: C.cream, paddingHorizontal: 12, paddingVertical: 10, fontFamily: F.body, fontSize: 15 },
+  ember: { width: 32, height: 32, borderRadius: 16, backgroundColor: C.night3, alignItems: 'center', justifyContent: 'center' },
+  sparkBub: { flexGrow: 1, gap: 4, borderWidth: 1, borderColor: C.line },
+  aiTag: { backgroundColor: C.night4, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1 },
+  aiTagT: { fontFamily: F.bodyBold, fontSize: 11, color: C.creamDim, letterSpacing: 0.5 },
+  opt: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 10, borderWidth: 1, borderColor: C.lineHi, paddingHorizontal: 12, paddingVertical: 9, overflow: 'hidden' },
+  optOn: { borderColor: C.ember },
+  optFill: { position: 'absolute', left: 0, top: 0, bottom: 0, backgroundColor: C.navySoft },
+  optT: { fontFamily: F.body, fontSize: 14.5, color: C.cream },
+  optN: { fontFamily: F.bodyBold, fontSize: 13, color: C.creamDim },
+  sparkNote: { fontFamily: F.body, fontSize: 12.5, color: C.muted, marginTop: 2 },
   warn: { backgroundColor: C.amberSoft, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9 },
   warnT: { fontFamily: F.body, fontSize: 13.5, lineHeight: 19, color: C.amber },
   when: { fontFamily: F.display, fontSize: 15, color: C.forest },

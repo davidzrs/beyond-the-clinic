@@ -1,19 +1,36 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { DEMO_PATIENTS, patientFromRows, setPatients, TODAY_DAY, type MetricRow, type ProfileRow } from './data';
 import { supabase } from './supabase';
+import { exitPortal } from './exit';
 
-// ---------- tiny hash router: #/login, #/patients, #/patients/:id, #/calls ----------
+// ---------- tiny router on real paths: /care/login, /care/patients, /care/patients/:id, /care/calls, /care/report ----------
+// The care side lives under /care on the same website as the app. Pages inside it use short paths
+// ('/patients'); these helpers add and strip the /care prefix.
+export const CARE_BASE = '/care';
+export const careUrl = (path: string) => CARE_BASE + path;
+const readPath = () => {
+  const p = window.location.pathname.startsWith(CARE_BASE) ? window.location.pathname.slice(CARE_BASE.length) : '';
+  return (p && p !== '/' ? p : '/patients') + window.location.search;
+};
 export function useHashRoute() {
-  const read = () => (window.location.hash.replace(/^#/, '') || '/patients');
-  const [path, setPath] = useState(read);
+  const [path, setPath] = useState(readPath);
   useEffect(() => {
-    const on = () => setPath(read());
-    window.addEventListener('hashchange', on);
-    return () => window.removeEventListener('hashchange', on);
+    const on = () => setPath(readPath());
+    window.addEventListener('popstate', on);
+    return () => window.removeEventListener('popstate', on);
   }, []);
   return path;
 }
-export const go = (path: string) => { window.location.hash = path; window.scrollTo({ top: 0 }); };
+export const go = (path: string) => {
+  window.history.pushState(null, '', careUrl(path));
+  window.dispatchEvent(new PopStateEvent('popstate'));
+  document.querySelector('.care-root')?.scrollTo({ top: 0 });
+};
+// For <a> links: a real href (so "open in new tab" works) that navigates in place on a normal click.
+export const nav = (path: string) => ({
+  href: careUrl(path),
+  onClick: (e: { preventDefault: () => void; metaKey?: boolean; ctrlKey?: boolean }) => { if (e.metaKey || e.ctrlKey) return; e.preventDefault(); go(path); },
+});
 
 // ---------- persistence (per browser; demo only) ----------
 const load = <T,>(k: string, fallback: T): T => { try { const v = localStorage.getItem(k); return v ? (JSON.parse(v) as T) : fallback; } catch { return fallback; } };
@@ -23,8 +40,10 @@ const sessLoad = () => { try { const v = sessionStorage.getItem('mellowcare.sess
 export type Clinician = { name: string; role: string; email: string; clinic: string };
 export type Note = { id: string; patientId: string; text: string; at: number; author: string };
 export type Call = { id: string; patientId: string; when: string; reason: string; createdAt: number };
+// A chat message from this patient sounded like a crisis (they consented to this alert). Never includes the text.
+export type CrisisAlert = { id: string; patientId: string; at: number; seen: boolean };
 
-// Real Supabase accounts (created by scripts/seed.mjs). Any @pinehollow.fi account is care team.
+// Real Supabase accounts (created by mellow/scripts/seed-care.mjs). Any @pinehollow.fi account is care team.
 const CLINIC = 'Pinehollow Clinic · TMS maintenance';
 export const DEMO_PASSWORD = '123123123';
 export const DEMO_ACCOUNTS: (Clinician & { password: string })[] = [
@@ -38,6 +57,7 @@ type Store = {
   loading: boolean; live: boolean; refresh: () => Promise<void>;
   day: number; setDay: (d: number) => void;
   notes: Note[]; addNote: (patientId: string, text: string) => void;
+  alerts: CrisisAlert[]; markAlertSeen: (id: string) => void;
   calls: Call[]; addCall: (patientId: string, when: string, reason: string) => void; cancelCall: (id: string) => void;
   reviewed: Record<string, number>; markReviewed: (patientId: string) => void;
   toast: string | null; say: (m: string) => void;
@@ -63,6 +83,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [day, setDay] = useState<number>(() => load('mellowcare.day', TODAY_DAY));
   const [notes, setNotes] = useState<Note[]>(() => (supabase ? [] : load('mellowcare.notes', [])));
   const [calls, setCalls] = useState<Call[]>(() => (supabase ? [] : load('mellowcare.calls', [])));
+  const [alerts, setAlerts] = useState<CrisisAlert[]>([]);
   const [reviewed, setReviewed] = useState<Record<string, number>>(() => load('mellowcare.reviewed', {}));
   const [toast, setToast] = useState<string | null>(null);
 
@@ -76,7 +97,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // Everything a clinician can see: every patient's profile, daily summary, check-ins and questionnaires.
   const refresh = useCallback(async () => {
     if (!supabase) return;
-    const [profiles, metrics, checkins, qs, phq, noteRows, callRows] = await Promise.all([
+    const [profiles, metrics, checkins, qs, phq, noteRows, callRows, alertRows] = await Promise.all([
       all<ProfileRow & { role: string }>('profiles', 'id, name, role, weeks_since_tms'),
       all<MetricRow>('daily_metrics'),
       all<{ user_id: string; day: string; mood: string }>('checkins', 'user_id, day, mood'),
@@ -84,10 +105,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       all<{ user_id: string; created_at: string; score: number }>('phq9', 'user_id, created_at, score'),
       all<{ id: number; patient_id: string; text: string; created_at: string; author_name: string | null }>('care_notes'),
       all<{ id: number; patient_id: string; when_text: string; reason: string | null; created_at: string }>('care_calls'),
+      // Optional table (chat-care.sql): if it isn't there yet the portal still loads.
+      all<{ id: number; patient_id: string; created_at: string; seen_at: string | null }>('crisis_alerts').catch(() => []),
     ]);
     const by = <T extends { user_id: string }>(rows: T[], id: string) => rows.filter((r) => r.user_id === id);
     setPatients(profiles.filter((p) => p.role === 'patient').map((p) => patientFromRows(p, by(metrics, p.id), by(checkins, p.id), by(qs, p.id), by(phq, p.id))));
     setNotes(noteRows.map((n) => ({ id: String(n.id), patientId: n.patient_id, text: n.text, at: Date.parse(n.created_at), author: n.author_name || 'Care team' })).sort((a, b) => b.at - a.at));
+    setAlerts(alertRows.map((a) => ({ id: String(a.id), patientId: a.patient_id, at: Date.parse(a.created_at), seen: !!a.seen_at })).sort((a, b) => b.at - a.at));
     setCalls(callRows.map((c) => ({ id: String(c.id), patientId: c.patient_id, when: c.when_text, reason: c.reason || '', createdAt: Date.parse(c.created_at) })));
     setLive(true);
   }, []);
@@ -116,7 +140,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     let t: number | undefined;
     const soon = () => { window.clearTimeout(t); t = window.setTimeout(() => { refresh().catch(() => {}); }, 400); };
     // One channel per table, so a table that isn't enabled for live updates can't silence the others.
-    const chans = ['checkins', 'daily_metrics', 'questionnaires', 'phq9', 'care_notes', 'care_calls'].map((table) =>
+    const chans = ['checkins', 'daily_metrics', 'questionnaires', 'phq9', 'care_notes', 'care_calls', 'crisis_alerts'].map((table) =>
       supabase!.channel('care-live-' + table)
         .on('postgres_changes', { event: '*', schema: 'public', table }, soon)
         .subscribe((status) => { if (status === 'CHANNEL_ERROR') console.warn('[care-live] no live updates for', table); }));
@@ -140,11 +164,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try { return await enter(); } finally { setLoading(false); }
   }, [enter]);
+  // Signing out of the portal leaves it for the Mellow sign-in page (one website for everyone).
   const signOut = useCallback(() => {
     setUser(null); setLive(false); setPatients(DEMO_PATIENTS);
-    if (supabase) supabase.auth.signOut();
     try { sessionStorage.removeItem('mellowcare.session'); } catch { /* ignore */ }
-    go('/login');
+    exitPortal();
   }, []);
   const uid = () => Math.random().toString(36).slice(2, 9);
 
@@ -166,12 +190,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (supabase && /^\d+$/.test(id)) supabase.from('care_calls').delete().eq('id', Number(id)).then(({ error }) => { if (error) say('Couldn’t cancel: ' + error.message); });
   }, [say]);
 
+  const markAlertSeen = useCallback((id: string) => {
+    setAlerts((a) => a.map((x) => (x.id === id ? { ...x, seen: true } : x)));
+    if (supabase) supabase.from('crisis_alerts').update({ seen_at: new Date().toISOString() }).eq('id', Number(id))
+      .then(({ error }) => { if (error) say('Couldn’t update the alert: ' + error.message); });
+  }, [say]);
+
   const value = useMemo<Store>(() => ({
     user, signIn, signOut, loading, live, refresh, day, setDay,
-    notes, addNote, calls, addCall, cancelCall,
+    notes, addNote, alerts, markAlertSeen, calls, addCall, cancelCall,
     reviewed, markReviewed: (patientId) => setReviewed((r) => ({ ...r, [patientId]: Date.now() })),
     toast, say,
-  }), [user, signIn, signOut, loading, live, refresh, day, notes, addNote, calls, addCall, cancelCall, reviewed, toast, say]);
+  }), [user, signIn, signOut, loading, live, refresh, day, notes, addNote, alerts, markAlertSeen, calls, addCall, cancelCall, reviewed, toast, say]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 export const useStore = () => { const s = useContext(Ctx); if (!s) throw new Error('StoreProvider missing'); return s; };

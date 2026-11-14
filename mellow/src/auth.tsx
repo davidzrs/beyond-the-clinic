@@ -7,6 +7,7 @@ import type { Session } from '@supabase/supabase-js';
 import { hasBackend, supabase } from './lib/supabase';
 import { C, F, themed } from './theme';
 import { Mallow } from './components/Pixel';
+import { CarePortal } from './care/Portal';
 
 type AuthState = { session: Session | null; guest: boolean; signOut: () => Promise<void> };
 const Ctx = createContext<AuthState>({ session: null, guest: true, signOut: async () => {} });
@@ -15,22 +16,37 @@ export const useAuth = () => useContext(Ctx);
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null | undefined>(hasBackend ? undefined : null);
   const [guest, setGuest] = useState(!hasBackend);
+  // One website, two ways in: patients get the Mellow app, care team accounts get the clinician portal.
+  // The care team side lives under /care (e.g. /care/login, /care/patients) on the same website.
+  const [careTeam, setCareTeam] = useState(() => Platform.OS === 'web' && typeof window !== 'undefined' && !!window.location?.pathname?.startsWith('/care'));
+  const openCareTeam = () => {
+    if (Platform.OS === 'web') window.history.pushState(null, '', '/care/login');
+    setCareTeam(true);
+  };
+  const [role, setRole] = useState<string | null>(null);
   useEffect(() => {
     if (!supabase) return;
     supabase.auth.getSession().then(({ data }) => setSession(data.session)).catch(() => setSession(null));
     const { data } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
     return () => data.subscription.unsubscribe();
   }, []);
+  useEffect(() => {
+    const id = session?.user.id;
+    if (!supabase || !id) { setRole(null); return; }
+    supabase.from('profiles').select('role').eq('id', id).maybeSingle().then(({ data }) => setRole((data as any)?.role || 'patient'), () => setRole('patient'));
+  }, [session?.user.id]);
   const signOut = async () => { if (supabase) await supabase.auth.signOut(); setGuest(!hasBackend); };
 
-  if (session === undefined) return <View style={{ flex: 1, backgroundColor: C.night, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={C.ember} /></View>;
-  if (!session && !guest) return <AuthScreen onGuest={() => setGuest(true)} />;
+  if (careTeam) return <CarePortal />; // the portal handles its own sign-in and checks the account is care team
+  if (session === undefined || (session && !role)) return <View style={{ flex: 1, backgroundColor: C.night, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={C.ember} /></View>;
+  if (role === 'clinician') return <CarePortal />; // a clinician who signed in on the patient form
+  if (!session && !guest) return <AuthScreen onGuest={() => setGuest(true)} onCareTeam={openCareTeam} />;
   return <Ctx.Provider value={{ session: session || null, guest: !session, signOut }}>{children}</Ctx.Provider>;
 }
 
 const LOGO = { name: '', color: 'vanilla', face: 'happy', hat: 'beanie', glasses: 'none', acc: 'scarf', item: 'mug' };
 
-function AuthScreen({ onGuest }: { onGuest: () => void }) {
+function AuthScreen({ onGuest, onCareTeam }: { onGuest: () => void; onCareTeam: () => void }) {
   const insets = useSafeAreaInsets();
   const [mode, setMode] = useState<'up' | 'in'>('up');
   const [name, setName] = useState('');
@@ -84,6 +100,10 @@ function AuthScreen({ onGuest }: { onGuest: () => void }) {
         </View>
 
         <Pressable onPress={onGuest} style={{ alignSelf: 'center', padding: 10 }}><Text style={st.guest}>Just looking? Try the demo</Text></Pressable>
+        <Pressable onPress={onCareTeam} accessibilityRole="button" style={(p: any) => [st.careTeam, (p.hovered || p.pressed) && { borderColor: C.lineHi }]}>
+          <Text style={st.careTeamT}>Part of a care team?</Text>
+          <Text style={st.careTeamS}>Sign in as a clinician or therapist</Text>
+        </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -123,4 +143,7 @@ const st = themed(() => StyleSheet.create({
   go: { backgroundColor: C.ember, borderRadius: 999, minHeight: 50, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   goT: { fontFamily: F.bodyBold, fontSize: 16, color: C.emberInk },
   guest: { fontFamily: F.bodyBold, fontSize: 14.5, color: C.creamDim, textDecorationLine: 'underline' },
+  careTeam: { alignSelf: 'center', alignItems: 'center', gap: 2, paddingVertical: 10, paddingHorizontal: 22, minHeight: 44, borderRadius: 16, borderWidth: 1, borderColor: C.line },
+  careTeamT: { fontFamily: F.display, fontSize: 15, color: C.cream },
+  careTeamS: { fontFamily: F.body, fontSize: 12.5, color: C.muted },
 }));

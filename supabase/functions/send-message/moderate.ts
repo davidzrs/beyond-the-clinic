@@ -1,5 +1,6 @@
 // Asks Gemini whether one chat message breaks the campfire rules.
 // No Deno- or Node-specific code here, so the same file runs in the Edge Function and in check.ts.
+import { askJson, DEFAULT_MODEL } from '../_shared/gemini.ts';
 
 // The rules. Written for a peer-support group of people recovering from depression:
 // sadness and venting are what the chat is for, so they must never count as a violation.
@@ -26,71 +27,35 @@ NOT violations (allowed = true), even if the message is dark:
 - sharing your OWN phone number, social handle or similar so others can reach you
 - disagreeing politely, short or odd messages
 
-When unsure, allow it. Answer only with the JSON.`;
+When unsure, allow it.
 
-export type Verdict = { allowed: boolean; category: string; reason: string };
+Separately, set crisis = true when the WRITER seems to be in danger right now: wanting to die,
+thinking about suicide or hurting themselves, having a plan or the means, saying goodbye, or feeling
+unable to stay safe. A clear joke about everyday annoyances ("one more meeting and I'm jumping in the
+river lol") is not a crisis; plain sadness or a bad day is not a crisis either. When it reads as
+sincere, choose crisis = true: a wrong alarm costs much less than a missed one.
 
-// Gemini sometimes answers 503 "high demand" or 429 "rate limit". Then we wait a moment and retry,
-// and if the main model is still down we fall back to a lighter one. Other errors fail right away.
-const FALLBACK_MODEL = 'gemini-flash-lite-latest'; // a different model, in case the main one is overloaded
-const TIMEOUT_MS = 6000; // a slow answer counts as busy: retry instead of freezing the chat
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+Answer only with the JSON.`;
 
-export async function moderate(text: string, key: string, model = 'gemini-3.5-flash-lite'): Promise<Verdict> {
-  if (!key) throw new Error('GEMINI_API_KEY is not set');
-  const attempts = [model, model, FALLBACK_MODEL, FALLBACK_MODEL];
-  let last: unknown;
-  for (let i = 0; i < attempts.length; i++) {
-    try {
-      return await askGemini(text, key, attempts[i]);
-    } catch (e) {
-      last = e;
-      const timedOut = (e as any)?.name === 'TimeoutError';
-      if (!(e instanceof Busy) && !timedOut) throw e;
-      await sleep(400 * (i + 1));
-    }
-  }
-  throw last;
-}
+export type Verdict = { allowed: boolean; category: string; reason: string; crisis: boolean };
 
-class Busy extends Error {}
+const SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    allowed: { type: 'BOOLEAN' },
+    category: {
+      type: 'STRING',
+      enum: ['none', 'harassment', 'hate', 'sexual', 'threat', 'encouraging_self_harm', 'spam', 'personal_info'],
+    },
+    reason: { type: 'STRING', description: 'One short sentence, addressed to the sender, kind in tone.' },
+    crisis: { type: 'BOOLEAN', description: 'The writer seems to be in danger themselves.' },
+  },
+  required: ['allowed', 'category', 'reason', 'crisis'],
+};
 
-async function askGemini(text: string, key: string, model: string): Promise<Verdict> {
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-    signal: AbortSignal.timeout(TIMEOUT_MS),
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: RULES }] },
-      contents: [{ role: 'user', parts: [{ text: `Message:\n"""${text}"""` }] }],
-      generationConfig: {
-        temperature: 0,
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: 'OBJECT',
-          properties: {
-            allowed: { type: 'BOOLEAN' },
-            category: {
-              type: 'STRING',
-              enum: ['none', 'harassment', 'hate', 'sexual', 'threat', 'encouraging_self_harm', 'spam', 'personal_info'],
-            },
-            reason: { type: 'STRING', description: 'One short sentence, addressed to the sender, kind in tone.' },
-          },
-          required: ['allowed', 'category', 'reason'],
-        },
-      },
-      // Gemini's own filters would otherwise refuse to even read a toxic message, and we need its verdict.
-      safetySettings: [
-        'HARM_CATEGORY_HARASSMENT', 'HARM_CATEGORY_HATE_SPEECH',
-        'HARM_CATEGORY_SEXUALLY_EXPLICIT', 'HARM_CATEGORY_DANGEROUS_CONTENT',
-      ].map((category) => ({ category, threshold: 'BLOCK_NONE' })),
-    }),
-  });
-  if (res.status === 429 || res.status >= 500) throw new Busy(`Gemini ${model} ${res.status}`);
-  if (!res.ok) throw new Error(`Gemini ${res.status}: ${await res.text()}`);
-  const data = await res.json();
-  const out = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+export async function moderate(text: string, key: string, model = DEFAULT_MODEL): Promise<Verdict> {
+  // Gemini's own filters would otherwise refuse to even read a toxic message, and we need its verdict.
+  const v = await askJson<Verdict>({ system: RULES, prompt: `Message:\n"""${text}"""`, schema: SCHEMA, readToxic: true }, key, model);
   // No answer at all means Google blocked the prompt itself: treat that as a violation.
-  if (!out) return { allowed: false, category: 'blocked_by_provider', reason: 'This message can’t be shared at the campfire.' };
-  return JSON.parse(out) as Verdict;
+  return v ?? { allowed: false, category: 'blocked_by_provider', reason: 'This message can’t be shared at the campfire.', crisis: false };
 }

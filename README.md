@@ -2,8 +2,8 @@
 
 Mobile companion for staying well after depression treatment (Junction 2026 · Beyond the Clinic).
 
-- `mellow/` — the app (Expo / React Native)
-- `care-portal/` — the clinician website (React + Vite): log in and follow each patient's score
+- `mellow/` — the app (Expo / React Native) and the website. Patients sign in to the app; on the web,
+  "Part of a care team?" on the sign-in page (or `/care/login`) opens the clinician portal (`mellow/src/care/`)
 - `data-analysis/` — PHQ-9 dataset analysis
 - `RESEARCH.md` — the research behind our suggestions and the signals we track
 
@@ -38,25 +38,17 @@ On Windows, React Native's C++ build breaks when paths pass 260 characters. If t
 
 If something breaks: `npx expo-doctor`, then `npx expo install --fix`. Add libraries with `npx expo install <package>`, not `npm install`.
 
-## Run the clinician portal
+## The website (app + clinician portal)
+
+One website for everyone. Inside `mellow/`:
 
 ```bash
-cd care-portal
-npm install
-npm run dev        # http://localhost:5180
+npx expo start --web
 ```
 
-Demo sign-in: `laura.aalto@pinehollow.fi` / `mellow`. More in `care-portal/README.md`.
-
-### Ports
-
-| What | Port |
-|---|---|
-| Mellow app dev server (Expo / Metro) | 8081 |
-| Clinician portal (`npm run dev`) | 5180 |
-| Clinician portal (`npm run preview`, after a build) | 5181 |
-
-The portal ports are fixed (`strictPort`): if one is busy, Vite stops with an error instead of picking a random port. Close the old terminal and run it again.
+Open http://localhost:8081. Patients sign in (or "Try the demo"); clinicians and therapists click **"Part of a care team?"** or open http://localhost:8081/care/login.
+Demo accounts (password `123123123`): `laura.aalto@pinehollow.fi` for the care team, `aino.virtanen@mellow.test`
+and the other patients for the app. More in `mellow/src/care/README.md`.
 
 ## Campfire chat moderation (Gemini)
 
@@ -93,4 +85,36 @@ Try the prompt locally first (no deploy needed): copy `supabase/functions/.env.e
 
 ```bash
 node --env-file=supabase/functions/.env supabase/functions/send-message/check.ts
+```
+
+## Crisis support and Ember's sparks
+
+Built on the moderation above.
+
+- **Crisis:** when a chat message sounds like the writer may be in danger, it is held (friends never see it, no strike)
+  and the app opens crisis resources: 112, the MIELI crisis line, the care team and a breathing exercise.
+  If the person said yes to the question shown after sign-up, the care team gets an alert in the portal
+  ("Reach out today"). The alert says only *that* it happened and when, never what was written.
+  The answer can be changed anytime under Support.
+- **Sparks:** when a campfire has been quiet for 2 days, Ember (the campfire's AI) posts a "this or that" poll
+  to get people talking. At most one a day. Ember is always labelled as an AI and only asks light questions:
+  never health, never advice, never a diagnosis.
+
+Setup, after the moderation steps above:
+
+1. Supabase SQL Editor: run `supabase/chat-care.sql`.
+2. Deploy the updated send-message and the new spark function (same `GEMINI_API_KEY` secret):
+
+```bash
+npx supabase functions deploy send-message
+```
+
+```bash
+npx supabase functions deploy campfire-spark
+```
+
+Try Ember's polls locally:
+
+```bash
+node --env-file=supabase/functions/.env supabase/functions/campfire-spark/check.ts
 ```

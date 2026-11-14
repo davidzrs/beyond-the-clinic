@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { DEMO_ACCOUNTS, DEMO_PASSWORD, go, useStore } from '../store';
+import { exitPortal } from '../exit';
 import { Icon, Logo } from '../components/ui';
 
 export default function Login() {
@@ -50,6 +51,7 @@ export default function Login() {
             <span className="muted small">Password for both: <code>{DEMO_PASSWORD}</code></span>
           </div>
         </form>
+        <p className="center"><button type="button" className="link" onClick={exitPortal}>← Not a clinician? Back to Mellow</button></p>
         <p className="muted small center">Prototype for Junction 2026 · demo patients with synthetic data, stored in Supabase</p>
       </main>
     </div>

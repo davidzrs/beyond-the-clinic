@@ -124,6 +124,39 @@ export function ModalHost() {
         </Sheet>
       );
     }
+    // Asked once after sign-up (and to older accounts on their next visit). Closing it without answering
+    // leaves it unanswered, so it comes back next time.
+    case 'consent': return (
+      <Sheet title="One question before you sit down" eyebrow="Your safety" onClose={close}>
+        <View style={{ gap: 12 }}>
+          <T>If you ever write something in the campfire chat that sounds like you’re in danger, Mellow won’t share it with your friends. Instead it shows you who you can talk to right away.</T>
+          <T>It can also let your care team know, so someone can reach out. They’d only learn <Text style={{ fontFamily: F.bodyBold }}>that</Text> it happened and when, never what you wrote.</T>
+          <View style={st.sup}><Text style={st.supT}>May we tell your care team?</Text><T style={{ color: C.creamDim, fontSize: 14 }}>You can change this anytime under Support.</T></View>
+          <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
+            <Btn label="Yes, let them know" onPress={() => { S.answerConsent(true); close(); }} />
+            <Btn label="No, thanks" kind="ghost" onPress={() => { S.answerConsent(false); close(); }} />
+          </View>
+          <Text style={st.aiNote}>This check is done by an AI. It can be wrong, and it never diagnoses.</Text>
+        </View>
+      </Sheet>
+    );
+    // A chat message sounded like a crisis: it was held, and this opens instead.
+    case 'crisis': return (
+      <Sheet title="It sounds like things are really hard right now" eyebrow="Support" onClose={close}>
+        <View style={{ gap: 10 }}>
+          <T style={{ color: C.creamDim }}>I’m Mellow’s AI, so I can’t help the way a person can, and I won’t try to. But you deserve to talk to someone now. Your message stayed private: it wasn’t posted at the campfire.</T>
+          <View style={st.sup}><Text style={st.supT}>If you’re in danger right now</Text><T style={{ color: C.creamDim, fontSize: 14 }}>Call 112, the emergency number in Finland and across the EU.</T></View>
+          <View style={st.sup}><Text style={st.supT}>Talk to someone tonight</Text><T style={{ color: C.creamDim, fontSize: 14 }}>MIELI Crisis Helpline, open 24/7: 09 2525 0111.</T></View>
+          <View style={st.sup}>
+            <Text style={st.supT}>Your care team</Text>
+            {m.alerted
+              ? <T style={{ color: C.creamDim, fontSize: 14 }}>As you agreed, we’ve let your care team know, so someone can reach out. They don’t see what you wrote.</T>
+              : <><T style={{ color: C.creamDim, fontSize: 14 }}>Your care team hasn’t been told. You can still ask them for a call.</T><Btn label="Request a call" kind="ghost" sm onPress={() => { S.toast('Prototype: your clinic would get a call request.'); close(); }} /></>}
+          </View>
+          <View style={st.sup}><Text style={st.supT}>Something calming, right now</Text><Btn label="Breathe with the flame" kind="plum" sm onPress={() => S.setModal({ type: 'breathe' })} /></View>
+        </View>
+      </Sheet>
+    );
     case 'support': return (
       <Sheet title="You don’t have to carry it alone" eyebrow="Support" onClose={close}>
         <View style={{ gap: 10 }}>
@@ -131,6 +164,13 @@ export function ModalHost() {
           <View style={st.sup}><Text style={st.supT}>Reach your trusted person</Text><T style={{ color: C.creamDim, fontSize: 14 }}>You chose Maria (sister) as your trusted person. Mellow can send her a short note asking her to check in on you.</T><Btn label="Ask Maria to check in" sm onPress={() => { S.toast('Prototype: Maria would get a gentle check-in note.'); close(); }} /></View>
           <View style={st.sup}><Text style={st.supT}>Your care team</Text><T style={{ color: C.creamDim, fontSize: 14 }}>Your clinic can see the check-ins you chose to share. You can ask them for a call.</T><Btn label="Request a call" kind="ghost" sm onPress={() => { S.toast('Prototype: your clinic would get a call request.'); close(); }} /></View>
           <View style={st.sup}><Text style={st.supT}>Something calming, right now</Text><Btn label="Breathe with the flame" kind="plum" sm onPress={() => S.setModal({ type: 'breathe' })} /></View>
+          {S.uid ? (
+            <View style={st.sup}>
+              <Text style={st.supT}>Crisis alerts</Text>
+              <T style={{ color: C.creamDim, fontSize: 14 }}>{S.consent ? 'On: if a chat message sounds like a crisis, your care team is told that it happened (never what you wrote).' : 'Off: your care team isn’t told when a chat message sounds like a crisis.'}</T>
+              <Btn label={S.consent ? 'Turn off' : 'Turn on'} kind="ghost" sm onPress={() => S.answerConsent(!S.consent)} />
+            </View>
+          ) : null}
         </View>
       </Sheet>
     );
@@ -162,4 +202,5 @@ const st = themed(() => StyleSheet.create({
   campN: { fontFamily: F.display, fontSize: 17, color: C.cream },
   sup: { backgroundColor: C.night3, borderRadius: 14, padding: 14, gap: 6 },
   supT: { fontFamily: F.display, fontSize: 17, color: C.cream },
+  aiNote: { fontFamily: F.body, fontSize: 12.5, color: C.muted },
 }));

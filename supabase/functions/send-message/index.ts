@@ -3,7 +3,8 @@
 // 1. Who is sending? (the user's login token, sent automatically by supabase.functions.invoke)
 // 2. Already banned (3 strikes)? Refuse.
 // 3. Ask Gemini whether the text breaks the campfire rules.
-// 4. OK -> insert into messages. Not OK -> record a strike and tell the app.
+// 4. Sounds like a crisis? Hold it, and alert the care team if the person consented.
+// 5. OK -> insert into messages. Not OK -> record a strike and tell the app.
 //
 // Secrets (set once with `npx supabase secrets set GEMINI_API_KEY=...`):
 //   GEMINI_API_KEY   required
@@ -59,7 +60,19 @@ Deno.serve(async (req) => {
     return reply({ status: 'error', message: 'Couldn’t check your message right now. Try again in a moment.' }, 503);
   }
 
-  // 4a. Blocked: record a strike.
+  // 4. Crisis: hold the message (it doesn't reach the friends), no strike. The app shows crisis
+  //    resources. If the person agreed to it after sign-up, the care team gets an alert, without the text.
+  if (verdict.crisis) {
+    const { data: prof } = await admin.from('profiles').select('crisis_consent').eq('id', user.id).maybeSingle();
+    const alerted = prof?.crisis_consent === true;
+    if (alerted) {
+      const { error } = await admin.from('crisis_alerts').insert({ patient_id: user.id });
+      if (error) console.error(error);
+    }
+    return reply({ status: 'crisis', alerted, strikes });
+  }
+
+  // 5a. Blocked: record a strike.
   if (!verdict.allowed) {
     await admin.from('chat_strikes').insert({
       user_id: user.id, campfire_id: campfireId, text, category: verdict.category, reason: verdict.reason,
@@ -68,7 +81,7 @@ Deno.serve(async (req) => {
     return reply({ status: now >= MAX_STRIKES ? 'banned' : 'blocked', strikes: now, maxStrikes: MAX_STRIKES, reason: verdict.reason, category: verdict.category });
   }
 
-  // 4b. Allowed: post it.
+  // 5b. Allowed: post it.
   const { data: msg, error } = await admin.from('messages')
     .insert({ campfire_id: campfireId, user_id: user.id, text }).select('id, created_at').single();
   if (error) { console.error(error); return reply({ status: 'error', message: 'Couldn’t send. Try again.' }, 500); }
