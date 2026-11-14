@@ -164,7 +164,7 @@ export default function Journey() {
         <View style={[st.soft, st.row, { gap: 10 }]}>
           <Icon name="bulb" size={18} />
           <Text style={[st.sub2, { flex: 1 }]}>{sel.s.tip}</Text>
-          {sel.s.act ? <Btn label="Breathe" kind="ghost" sm onPress={() => S.setModal({ type: 'breathe' })} /> : null}
+          {sel.s.act ? <Btn label="Breathe" kind="ghost" sm style={{ alignSelf: "center" }} onPress={() => S.setModal({ type: 'breathe' })} /> : null}
         </View>
       </View>
     );
@@ -214,7 +214,7 @@ export default function Journey() {
         <View style={{ flexDirection: 'row', gap: 3 }}>{Array.from({ length: PLAN_DAYS }, (_, i) => <View key={i} style={{ flex: 1, height: 5, borderRadius: 3, backgroundColor: i <= S.planDay ? (S.checkinDue ? C.ember : C.moss) : C.night4 }} />)}</View>
         <View style={st.row}>
           <Text style={[st.sub, { flex: 1 }]}>{S.checkinDue ? 'Your next check-in is open.' : 'Next one opens ' + niceDate(S.nextCheckin) + ' (in ' + S.checkinIn + (S.checkinIn === 1 ? ' day)' : ' days)')}</Text>
-          {S.checkinDue ? <Btn label="Start" sm onPress={() => S.setModal({ type: 'phq' })} /> : <LinkBtn label="My 2 weeks" onPress={() => S.setModal({ type: 'plan' })} />}
+          {S.checkinDue ? <Btn label="Start" sm style={{ alignSelf: "center" }} onPress={() => S.setModal({ type: 'phq' })} /> : <LinkBtn label="My 2 weeks" onPress={() => S.setModal({ type: 'plan' })} />}
         </View>
       </View>
     </View>

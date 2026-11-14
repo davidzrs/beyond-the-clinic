@@ -210,7 +210,7 @@ export default function Home() {
         <Pressable onPress={() => S.setModal({ type: 'phq' })} style={[st.step, { borderColor: C.ember, backgroundColor: C.navySoft }]}>
           <View style={st.stepIco}><Icon name="clipboard" size={22} /></View>
           <View style={{ flex: 1 }}><Text style={st.title}>Your 2-week check-in</Text><Text style={st.sub}>9 questions · 2 minutes · it sets your next path</Text></View>
-          <Btn label="Start" sm onPress={() => S.setModal({ type: 'phq' })} />
+          <Btn label="Start" sm style={{ alignSelf: "center" }} onPress={() => S.setModal({ type: 'phq' })} />
         </Pressable>
       ) : null}
       {steps.length ? steps.map(({ t, key }) => {
@@ -224,8 +224,9 @@ export default function Home() {
                 <View style={st.tag}><Text style={st.tagT}>{t.area}</Text></View>
                 <Text style={st.sub}>{t.dur}</Text>
               </View>
+              {t.alt && !done ? <View style={[st.row, { gap: 6, marginTop: 6 }]}><Icon name="eye" size={13} /><Text style={[st.sub, { flex: 1 }]}>{t.alt}</Text></View> : null}
             </View>
-            {t.act && !done ? <Btn label="Start" kind="ghost" sm onPress={() => start(t)} /> : null}
+            {t.act && !done ? <Btn label="Start" kind="ghost" sm style={{ alignSelf: "center" }} onPress={() => start(t)} /> : null}
             <Pressable onPress={() => tick(key, t)} accessibilityRole="checkbox" accessibilityState={{ checked: done }} accessibilityLabel={'Done: ' + t.t} hitSlop={8}
               style={[st.tick, done && { backgroundColor: C.forest, borderColor: C.forest }]}>
               {done ? <Icon name="check" size={18} color={C.cream} /> : null}
@@ -332,7 +333,7 @@ export default function Home() {
         {pick.state === 'check' ? (
           <View style={st.row}>
             <Text style={[st.sub, { flex: 1 }]}>9 questions about the last 2 weeks. Your answers choose the next path.</Text>
-            {S.checkinDue ? <Btn label="Start" sm onPress={() => S.setModal({ type: 'phq' })} /> : <Text style={st.soon}>{'Opens in ' + S.checkinIn + (S.checkinIn === 1 ? ' day' : ' days')}</Text>}
+            {S.checkinDue ? <Btn label="Start" sm style={{ alignSelf: "center" }} onPress={() => S.setModal({ type: 'phq' })} /> : <Text style={st.soon}>{'Opens in ' + S.checkinIn + (S.checkinIn === 1 ? ' day' : ' days')}</Text>}
           </View>
         ) : pick.n === 0 ? <Text style={st.sub}>A rest day. Nothing planned, and that’s fine.</Text> : pick.real.map(({ t, key }) => {
           const done = !!S.planDone[key];
