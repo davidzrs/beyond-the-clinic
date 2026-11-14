@@ -153,6 +153,7 @@ export default function Home() {
           <LinkBtn label="Leave demo" onPress={() => S.signOut()} />
         </View>
       ) : null}
+      <LinkBtn label="Replay the sign-up onboarding" onPress={() => S.startOnboarding()} />
       <Text style={st.resetT}>Testing: reset the demo and replay the streak screen</Text>
       <View style={{ flexDirection: 'row', gap: 8 }}>
         {([['day', 'Day'], ['night', 'Night']] as const).map(([k, l]) => (

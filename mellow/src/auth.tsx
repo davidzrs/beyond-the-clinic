@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Session } from '@supabase/supabase-js';
 import { hasBackend, supabase } from './lib/supabase';
@@ -69,10 +70,15 @@ function AuthScreen({ onGuest, onCareTeam }: { onGuest: () => void; onCareTeam: 
     if (mode === 'up' && !name.trim()) return setError('What should your campfire call you?');
     if (mode === 'up' && !tos) return setError('Please accept the Terms of Service to join.');
     setBusy(true);
+    // A new account opens on the onboarding (see state.tsx). Noted before signing up, because the app
+    // switches to the new account as soon as the session arrives.
+    const pending = email.trim().toLowerCase();
+    if (mode === 'up') await AsyncStorage.setItem('mellow.onboard.pending', pending).catch(() => {});
     const res = mode === 'up'
       ? await supabase.auth.signUp({ email: email.trim(), password, options: { data: { name: name.trim(), crisis_consent: crisisOk, tos_accepted_at: new Date().toISOString(), tos_version: TERMS_VERSION } } })
       : await supabase.auth.signInWithPassword({ email: email.trim(), password });
     setBusy(false);
+    if (mode === 'up' && (res.error || !res.data.session)) AsyncStorage.removeItem('mellow.onboard.pending').catch(() => {});
     if (res.error) setError(friendly(res.error.message));
     else if (mode === 'up' && !res.data.session) setError('Almost there: check your email to confirm, then log in.');
   };
