@@ -55,7 +55,7 @@ function SyncGame({ members, onShare }: { members: Member[]; onShare: (t: string
       {pick ? (
         <Reply>
           <T><Text style={{ fontFamily: F.bodyBold }}>{matches.length ? 'In sync with ' + matches.map((m) => m.name).join(' and ') + '!' : 'A pick all your own.'}</Text> {matches.length ? 'Great minds. Tell them why in the chat?' : 'Different picks make the best conversations.'}</T>
-          <Btn label="Share in the chat" sm onPress={() => onShare('MindSync: I picked “' + pick + '” for a Sunday morning.')} />
+          <Btn label="Tell them why in the chat" sm onPress={() => onShare('MindSync: I picked “' + pick + '” for a Sunday morning because ')} />
         </Reply>
       ) : null}
     </View>
@@ -103,7 +103,7 @@ export function ModalHost() {
   if (!m) return null;
   const close = () => S.setModal(null);
   switch (m.type) {
-    case 'sync': return <Sheet title="MindSync" eyebrow="With Pinehollow" onClose={close}><SyncGame members={S.members} onShare={(t) => { S.sendChat(t); S.finishAct('sync', 'MindSync', 'sync'); close(); S.go('campfire'); }} /></Sheet>;
+    case 'sync': return <Sheet title="MindSync" eyebrow="With Pinehollow" onClose={close}><SyncGame members={S.members} onShare={(t) => { S.finishAct('sync', 'MindSync', 'sync'); close(); S.openChat(t); }} /></Sheet>;
     case 'breathe': return <BreatheScreen onClose={(breaths) => { if (breaths > 0) { if (m.quest) S.doQuest(m.quest); else S.finishAct('breathe', 'Breathe with the Flame', 'flame'); } close(); }} />;
     case 'phq': return <Sheet title="Your 2-week check-in" eyebrow="PHQ-9" onClose={close}><CheckinFlow /></Sheet>;
     case 'report': return <Sheet title="Your check-in" eyebrow={'PHQ-9 · ' + niceDate(fromYmd(m.c.date))} onClose={close}><Report c={m.c} /></Sheet>;
@@ -119,7 +119,7 @@ export function ModalHost() {
           </View>
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 18, flexWrap: 'wrap' }}>
             <Btn label="Wave" onPress={() => { S.wave(mem); close(); }} />
-            <Btn label="Message at the fire" kind="ghost" onPress={() => { S.setChatDraft('@' + mem.name + ' '); close(); S.go('campfire'); }} />
+            <Btn label="Message at the fire" kind="ghost" onPress={() => { close(); S.messageAt(mem.name); }} />
           </View>
         </Sheet>
       );

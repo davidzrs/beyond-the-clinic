@@ -61,6 +61,8 @@ function Chat() {
   useEffect(() => { setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80); }, [S.chat.length]);
   // The draft is only cleared once the message is really posted (it may be blocked by moderation).
   const submit = async () => { const t = text.trim(); if (!t || S.sending) return; if (await S.sendChat(t)) S.setChatDraft(''); };
+  // Opened with a message already started ("@Juno ", "I picked … because "): put the cursor at the end of it.
+  useEffect(() => { if (text) { const t = setTimeout(() => inputRef.current?.focus(), 350); return () => clearTimeout(t); } }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <View style={{ flex: 1, gap: 10 }}>
       <Text style={st.note}>Only the 4 of you can see this.</Text>
@@ -145,11 +147,14 @@ function SparkPoll({ id, question, poll, time }: { id: number; question: string;
 }
 
 // The fire fills the screen. Chat, Sunday Talk, games and invites are buttons on top of it.
+let handledChatOpen = 0; // last openChat() request already handled (survives leaving the tab)
 export default function Campfire() {
   const S = useApp();
   const insets = useSafeAreaInsets();
   const { wide } = useLayout();
-  const [sheet, setSheet] = useState<SheetKind>(S.chatDraft.startsWith('@') ? 'chat' : null);
+  const [sheet, setSheet] = useState<SheetKind>(null);
+  // openChat() (from "Message at the fire" or MindSync): open the chat, whether the campfire was already open or not.
+  useEffect(() => { if (S.chatOpenN > handledChatOpen) { handledChatOpen = S.chatOpenN; setSheet('chat'); } }, [S.chatOpenN]);
   const close = () => setSheet(null);
   const [open, setOpen] = useState(false);
   // New messages since you last opened the chat (the latest one also shows as a bubble at the fire).

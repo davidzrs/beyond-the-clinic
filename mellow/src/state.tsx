@@ -63,6 +63,8 @@ function useAppState() {
   const [hopId, setHop] = useState<string | null>(null);
   const [talkReminder, setTalkReminder] = useState(false);
   const [chatDraft, setChatDraft] = useState('');
+  // Bumped by openChat(): asks the campfire screen to open its chat sheet.
+  const [chatOpenN, setChatOpenN] = useState(0);
   // Chat moderation: strikes from blocked messages, and the last warning shown above the input.
   const [strikes, setStrikes] = useState(0);
   const [chatWarning, setChatWarning] = useState<string | null>(null);
@@ -184,6 +186,8 @@ function useAppState() {
     if (TABS.includes(r)) setLastTab(r);
     if (Platform.OS === 'web' && window.location.hash !== '#' + r) window.location.hash = r;
   };
+  // Open the campfire chat with a message already started ("@Juno ", "I picked … because ").
+  const openChat = (draft: string) => { setChatDraft(draft); setChatOpenN((n) => n + 1); go('campfire'); };
   const setAvatar = (a: Avatar) => {
     setAvatarS(a); AsyncStorage.setItem('mellow.avatar', JSON.stringify(a)).catch(() => {});
     if (uid) { const { name, ...look } = a; sync.saveProfile(uid, { name: name || 'Friend', avatar: look }); }
@@ -309,7 +313,7 @@ function useAppState() {
   const planDay = Math.max(0, dayIndex(plan));
   const checkinDue = planDay >= PLAN_DAYS - 1;
 
-  return { uid, email: session?.user.email || null, signOut, campfireId, campfireName, resetN, resetDemo, skyOverride, streak, streakCount, answerMood, showDaily, dismissDaily: () => setDailyDismissed(true), lastTab, back, backTo, checkins, saveCheckin, plan, adoptPlan, planDone, doTask, undoTask, planDay, checkinDue, route, go, avatar, setAvatar, mood, setMood, embers, coop, quests, questState, doQuest, swapQuest, actDone, finishAct, puzzleSolvedToday, puzzleCount, solvePuzzle, tutorials, tutorialsLoaded, markTutorialSeen, actLog, chat, chatPeople, votes, castVote, consent, answerConsent, sendChat, sending, strikes, chatBanned: strikes >= sync.MAX_STRIKES, chatWarning, bubbles, members, modal, setModal, toastMsg, toast, hopId, wave, talkReminder, setTalkReminder, chatDraft, setChatDraft, demoDay, setDemoDay };
+  return { uid, email: session?.user.email || null, signOut, campfireId, campfireName, resetN, resetDemo, skyOverride, streak, streakCount, answerMood, showDaily, dismissDaily: () => setDailyDismissed(true), lastTab, back, backTo, checkins, saveCheckin, plan, adoptPlan, planDone, doTask, undoTask, planDay, checkinDue, route, go, avatar, setAvatar, mood, setMood, embers, coop, quests, questState, doQuest, swapQuest, actDone, finishAct, puzzleSolvedToday, puzzleCount, solvePuzzle, tutorials, tutorialsLoaded, markTutorialSeen, actLog, chat, chatPeople, votes, castVote, consent, answerConsent, sendChat, sending, strikes, chatBanned: strikes >= sync.MAX_STRIKES, chatWarning, bubbles, members, modal, setModal, toastMsg, toast, hopId, wave, talkReminder, setTalkReminder, chatDraft, setChatDraft, chatOpenN, openChat, messageAt: (name: string) => openChat('@' + name + ' '), demoDay, setDemoDay };
 }
 
 export type AppState = ReturnType<typeof useAppState>;
