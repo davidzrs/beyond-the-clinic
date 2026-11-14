@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { LEVEL, type Level } from '../data';
 
 export function LevelPill({ level, big }: { level: Level; big?: boolean }) {
@@ -39,7 +39,7 @@ export function Card({ title, sub, right, children, className }: { title?: React
   );
 }
 
-export function Icon({ name, size = 18 }: { name: 'users' | 'phone' | 'logout' | 'search' | 'back' | 'next' | 'note' | 'check' | 'shield' | 'clock' | 'x'; size?: number }) {
+export function Icon({ name, size = 18 }: { name: 'users' | 'phone' | 'logout' | 'search' | 'back' | 'next' | 'note' | 'check' | 'shield' | 'clock' | 'x' | 'report' | 'download'; size?: number }) {
   const p = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.9, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true };
   switch (name) {
     case 'users': return <svg {...p}><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5" /><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18.5 14.8c1.7.8 2.7 2.5 3 5.2" /></svg>;
@@ -52,6 +52,8 @@ export function Icon({ name, size = 18 }: { name: 'users' | 'phone' | 'logout' |
     case 'check': return <svg {...p}><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>;
     case 'shield': return <svg {...p}><path d="M12 3 5 6v5c0 4.6 3 8.4 7 10 4-1.6 7-5.4 7-10V6z" /><path d="m9 12 2.2 2.2L15.5 10" /></svg>;
     case 'clock': return <svg {...p}><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></svg>;
+    case 'report': return <svg {...p}><path d="M6 3h9l4 4v14H6z" /><path d="M14 3v5h5M9.5 17v-3M12.5 17v-5M15.5 17v-2" /></svg>;
+    case 'download': return <svg {...p}><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14" /></svg>;
     case 'x': return <svg {...p}><path d="M6 6l12 12M18 6 6 18" /></svg>;
   }
 }
@@ -70,6 +72,20 @@ export function Logo() {
         <circle cx="21.8" cy="17.2" r="1.4" fill="#FF8FA3" opacity="0.75" />
       </svg>
       <span><b>Mellow</b> Care</span>
+    </span>
+  );
+}
+
+// Explanation that appears when the mouse is on something (or on keyboard focus). Optional delay in ms.
+export function Hint({ tip, children, className, style, delay = 0 }: { tip: ReactNode; children?: ReactNode; className?: string; style?: CSSProperties; delay?: number }) {
+  const [show, setShow] = useState(false);
+  const timer = useRef<number | undefined>(undefined);
+  const open = () => { window.clearTimeout(timer.current); if (delay <= 0) setShow(true); else timer.current = window.setTimeout(() => setShow(true), delay); };
+  const close = () => { window.clearTimeout(timer.current); setShow(false); };
+  return (
+    <span className={'hint ' + (className ?? '')} style={style} tabIndex={0} onMouseEnter={open} onMouseLeave={close} onFocus={() => setShow(true)} onBlur={close}>
+      {children}
+      {show && <span className="hint-pop" role="tooltip">{tip}</span>}
     </span>
   );
 }

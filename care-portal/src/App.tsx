@@ -6,6 +6,7 @@ import Login from './pages/Login';
 import Patients from './pages/Patients';
 import Patient from './pages/Patient';
 import Calls from './pages/Calls';
+import Report from './pages/Report';
 
 export default function App() {
   return <StoreProvider><Router /></StoreProvider>;
@@ -22,10 +23,11 @@ function Router() {
   const m = path.match(/^\/patients\/([\w-]+)/);
   if (m) { const p = byId(m[1]); page = p ? <Patient key={p.id} p={p} openCall={query === 'call=1'} /> : <NotFound />; }
   else if (path === '/calls') page = <Calls />;
-  return <Shell active={m ? 'patients' : path === '/calls' ? 'calls' : 'patients'}>{page}</Shell>;
+  else if (path === '/report') page = <Report />;
+  return <Shell active={m ? 'patients' : path === '/calls' ? 'calls' : path === '/report' ? 'report' : 'patients'}>{page}</Shell>;
 }
 
-function Shell({ active, children }: { active: 'patients' | 'calls'; children: ReactNode }) {
+function Shell({ active, children }: { active: 'patients' | 'calls' | 'report'; children: ReactNode }) {
   const S = useStore();
   const flagged = PATIENTS.filter((p) => S.day >= p.firstDay && levelOf(riskAt(p, S.day)) === 'high').length;
   return (
@@ -34,6 +36,7 @@ function Shell({ active, children }: { active: 'patients' | 'calls'; children: R
         <Logo />
         <a className={active === 'patients' ? 'on' : ''} href="#/patients"><Icon name="users" /> Patients {flagged > 0 && <span className="count">{flagged}</span>}</a>
         <a className={active === 'calls' ? 'on' : ''} href="#/calls"><Icon name="phone" /> Calls {S.calls.length > 0 && <span className="count soft">{S.calls.length}</span>}</a>
+        <a className={active === 'report' ? 'on' : ''} href="#/report"><Icon name="report" /> Biweekly report</a>
         <div className="side-foot">
           <div className="me"><span className="avatar me-av">{S.user!.name.split(' ').filter((w) => !w.endsWith('.')).map((w) => w[0]).join('')}</span><div><b>{S.user!.name}</b><span>{S.user!.role}</span></div></div>
           <button className="side-btn" onClick={S.signOut}><Icon name="logout" size={16} /> Sign out</button>

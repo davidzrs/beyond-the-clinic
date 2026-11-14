@@ -38,6 +38,9 @@ marks are kept in this browser's localStorage.
   with level, 0–100 score, the last 4 weeks and the top reasons. Filter by level or search by name.
 - **Patient page**: score over 90 days with the 30 / 55 thresholds, why the score moved this week,
   PHQ-9 and WHO-5 history, 8 signals against the person's usual range, notes and calls.
+- **Biweekly report**: a one-page summary of the last 14 days (who needs a call, level changes,
+  PHQ-9 results, check-in gaps) with a **Download PDF** button (A4, one page). The arrows step
+  back and forward one report at a time.
 - **View as of**: the slider in the top bar shows the whole portal as it was on any earlier day,
   so you can look back at someone's progression quickly. In the demo it covers the 90 days
   (for example day 63, when Sam's first "call suggested" alert fires).
