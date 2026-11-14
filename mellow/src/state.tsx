@@ -10,7 +10,9 @@ import * as sync from './lib/sync';
 
 export type Route = 'home' | 'campfire' | 'journey' | 'games' | 'nono' | 'sight' | 'hotel' | 'wardrobe' | 'clinic' | 'insights';
 export type Privacy = { sleep: boolean; steps: boolean; screen: boolean; care: boolean; code: string };
+// Real accounts start with everything off and opt in (onboarding or Support). Demo users start with everything on.
 const NO_PRIVACY: Privacy = { sleep: false, steps: false, screen: false, care: false, code: '' };
+const ALL_ON: Privacy = { sleep: true, steps: true, screen: true, care: true, code: '' };
 export type ModalState = null | { type: string; [k: string]: any };
 const ROUTES: Route[] = ['home', 'campfire', 'journey', 'games', 'nono', 'sight', 'hotel', 'wardrobe', 'clinic', 'insights'];
 export const TABS: Route[] = ['home', 'campfire', 'journey', 'games'];
@@ -56,6 +58,8 @@ function writeRoute(r: Route, push: boolean) {
 function useAppState() {
   const { session, signOut } = useAuth();
   const uid = session?.user.id || null;
+  // Demo users: "Try the demo", or the seeded demo accounts (scripts/seed-care.mjs, @mellow.test).
+  const demoUser = !uid || /@mellow\.test$/i.test(session?.user.email || '');
   // Signed in, a person sits at one or more campfires; campfireId is the one on screen (remembered on
   // this device). The demo has a single made-up Pinehollow.
   const [fires, setFires] = useState<sync.Fire[]>([]);
@@ -168,7 +172,9 @@ function useAppState() {
         // time we see the profile, copy it there so the send-message function can read it.
         // Older accounts that never answered count as "no" until they turn it on under Support.
         const fromSignUp = (session?.user.user_metadata as any)?.crisis_consent;
-        if (p.crisis_consent == null && typeof fromSignUp === 'boolean') { setConsent(fromSignUp); sync.saveCrisisConsent(uid, fromSignUp); }
+        // Demo accounts that never answered count as yes; real accounts stay off until they turn it on.
+        const first = typeof fromSignUp === 'boolean' ? fromSignUp : demoUser ? true : null;
+        if (p.crisis_consent == null && first !== null) { setConsent(first); sync.saveCrisisConsent(uid, first); }
         else setConsent(p.crisis_consent ?? null);
       }
       if (m) setMood(m);
@@ -188,13 +194,14 @@ function useAppState() {
     if (uid) sync.vote(messageId, choice);
   };
   // Crisis alerts to the care team: null = not asked yet, then the person's answer.
-  const [consent, setConsent] = useState<boolean | null>(null);
+  const [consent, setConsent] = useState<boolean | null>(demoUser ? true : null);
   const answerConsent = (yes: boolean) => { setConsent(yes); if (uid) sync.saveCrisisConsent(uid, yes); };
   // What Mellow may read (sleep, steps, screen time) and the clinic summary: asked in the onboarding,
   // changed under Support. Kept on this device for now.
-  const [privacy, setPrivacyS] = useState<Privacy>(NO_PRIVACY);
-  useEffect(() => { AsyncStorage.getItem('mellow.privacy').then((v) => { if (v) { try { setPrivacyS({ ...NO_PRIVACY, ...JSON.parse(v) }); } catch {} } }).catch(() => {}); }, []);
-  const setPrivacy = (p: Partial<Privacy>) => setPrivacyS((prev) => { const n = { ...prev, ...p }; AsyncStorage.setItem('mellow.privacy', JSON.stringify(n)).catch(() => {}); return n; });
+  const privacyKey = 'mellow.privacy.' + (uid || 'demo'); // per account, so a demo on this phone doesn't carry over
+  const [privacy, setPrivacyS] = useState<Privacy>(demoUser ? ALL_ON : NO_PRIVACY);
+  useEffect(() => { AsyncStorage.getItem(privacyKey).then((v) => { if (v) { try { setPrivacyS((d) => ({ ...d, ...JSON.parse(v) })); } catch {} } }).catch(() => {}); }, []);
+  const setPrivacy = (p: Partial<Privacy>) => setPrivacyS((prev) => { const n = { ...prev, ...p }; AsyncStorage.setItem(privacyKey, JSON.stringify(n)).catch(() => {}); return n; });
 
   // Signed in: the campfire chat is the real one, read from Supabase and kept live.
   const [chatPeople, setChatPeople] = useState<Record<string, { name: string; a: Avatar }>>({});
