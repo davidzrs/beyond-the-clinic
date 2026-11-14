@@ -140,7 +140,10 @@ function Check({ checked, onToggle, label, children }: { checked: boolean; onTog
   return (
     <Pressable onPress={onToggle} hitSlop={8} accessibilityRole="checkbox" accessibilityState={{ checked }} aria-checked={checked} accessibilityLabel={label} style={st.check}>
       {/* As tall as one line of text, so the box sits centred on the first line (one-line or several). */}
-      <View style={st.box}><Ionicons name={checked ? 'checkbox' : 'square-outline'} size={24} color={checked ? C.ember : C.muted} /></View>
+      {/* Drawn with a View (not an icon glyph): the glyph was clipped at the bottom on Android. */}
+      <View style={st.box}>
+        <View style={[st.boxIn, checked && { backgroundColor: C.ember, borderColor: C.ember }]}>{checked ? <Ionicons name="checkmark" size={14} color={C.emberInk} /> : null}</View>
+      </View>
       <View style={{ flex: 1, gap: 3 }}>{children}</View>
     </Pressable>
   );
@@ -213,7 +216,8 @@ const st = themed(() => StyleSheet.create({
   go: { backgroundColor: C.ember, borderRadius: 999, minHeight: 50, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   goT: { fontFamily: F.bodyBold, fontSize: 16, color: C.emberInk },
   check: { flexDirection: 'row', gap: 10, alignItems: 'flex-start', paddingVertical: 4 },
-  box: { height: 20, width: 24, alignItems: 'center', justifyContent: 'center', overflow: 'visible' },
+  box: { height: 20, width: 22, alignItems: 'center', justifyContent: 'center' },
+  boxIn: { width: 19, height: 19, borderRadius: 5, borderWidth: 2, borderColor: C.muted, alignItems: 'center', justifyContent: 'center' },
   checkT: { fontFamily: F.body, fontSize: 14.5, lineHeight: 20, color: C.cream },
   checkS: { fontFamily: F.body, fontSize: 12.5, lineHeight: 17, color: C.muted },
   link: { fontFamily: F.bodyBold, color: C.emberHi, textDecorationLine: 'underline' },
