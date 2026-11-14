@@ -11,6 +11,7 @@ import { ModalHost } from './src/modals/Modals';
 import { ThemeToggle } from './src/components/ThemeToggle';
 import { DailyCheckin } from './src/components/DailyCheckin';
 import { MAX_W, SIDEBAR_W, useLayout } from './src/layout';
+import { onScrollLock, registerPageScroll } from './src/scrollLock';
 import Home from './src/screens/Home';
 import Campfire from './src/screens/Campfire';
 import Activities from './src/screens/Activities';
@@ -18,9 +19,11 @@ import Journey from './src/screens/Journey';
 import Wardrobe from './src/screens/Wardrobe';
 import Clinic from './src/screens/Clinic';
 import Insights from './src/screens/Insights';
+import Games from './src/screens/Games';
+import GameScreen from './src/screens/GameScreen';
 
-// Three tabs. Games, the wardrobe, insights and the care-team view are sub-pages with a back link.
-const NAV: [Route, string, string][] = [['home', 'Today', 'home'], ['campfire', 'Campfire', 'flame'], ['journey', 'Journey', 'leaf']];
+// Four tabs. Activities, the wardrobe, insights and the care-team view are sub-pages with a back link.
+const NAV: [Route, string, string][] = [['home', 'Today', 'home'], ['campfire', 'Campfire', 'flame'], ['journey', 'Journey', 'leaf'], ['games', 'Games', 'play']];
 const LOGO = { name: '', color: 'vanilla', face: 'happy', hat: 'none', glasses: 'none', acc: 'none', item: 'none' };
 
 function Shell() {
@@ -28,6 +31,9 @@ function Shell() {
   const { wide, pad } = useLayout();
   const insets = useSafeAreaInsets();
   const scroll = useRef<any>(null);
+  // A game board switches page scrolling off while a finger drags across it (see src/scrollLock.ts).
+  const [scrollLocked, setScrollLocked] = useState(false);
+  useEffect(() => onScrollLock(setScrollLocked), []);
   useEffect(() => { scroll.current?.scrollTo({ y: 0, animated: false }); }, [S.route]);
   useEffect(() => {
     // Android back button: a sub-page goes back to its tab instead of closing the app.
@@ -38,7 +44,7 @@ function Shell() {
     return () => sub.remove();
   }, [S.route, S.lastTab]);
   const full = S.route === 'campfire'; // the campfire scene fills the screen
-  const Screen = { home: Home, campfire: Campfire, activities: Activities, journey: Journey, wardrobe: Wardrobe, clinic: Clinic, insights: Insights }[S.route];
+  const Screen = { home: Home, campfire: Campfire, activities: Activities, journey: Journey, games: Games, nono: GameScreen, sight: GameScreen, hotel: GameScreen, wardrobe: Wardrobe, clinic: Clinic, insights: Insights }[S.route];
 
   return (
     <View style={[st.root, { paddingTop: full && !wide ? 0 : insets.top }, !wide && !full && { backgroundColor: C.navyDeep }]}>
@@ -49,7 +55,7 @@ function Shell() {
             <View style={st.brand}><Mallow a={LOGO} size={40} anim={false} /><View><Text style={st.brandT}>Mellow</Text><Text style={st.brandS}>A cozy fire for hard days</Text></View></View>
             <View style={{ gap: 6 }}>
               {NAV.map(([k, l, ic]) => {
-                const on = S.route === k || (S.lastTab === k && !NAV.some(([n]) => n === S.route));
+                const on = S.route === k || (S.backTo === k && !NAV.some(([n]) => n === S.route));
                 return (
                   <Pressable key={k} onPress={() => S.go(k)} style={(p: any) => [st.nav, on && { backgroundColor: C.night4 }, p.hovered && !on && { backgroundColor: C.night3 }]}>
                     <Icon name={ic} size={20} color={on ? C.emberHi : C.muted} /><Text style={[st.navT, on && { color: C.cream }]}>{l}</Text>
@@ -68,7 +74,7 @@ function Shell() {
             </View>
           </View>
         ) : null}
-        {full ? <View style={{ flex: 1 }}><Screen /></View> : <ScrollView ref={scroll} style={{ flex: 1, backgroundColor: C.night }} contentContainerStyle={{ paddingHorizontal: pad, paddingTop: wide ? 30 : 14, paddingBottom: wide ? 60 : 110 + insets.bottom }} keyboardShouldPersistTaps="handled">
+        {full ? <View style={{ flex: 1 }}><Screen /></View> : <ScrollView ref={(r) => { scroll.current = r; registerPageScroll(r); }} scrollEnabled={!scrollLocked} style={{ flex: 1, backgroundColor: C.night }} contentContainerStyle={{ paddingHorizontal: pad, paddingTop: wide ? 30 : 14, paddingBottom: wide ? 60 : 110 + insets.bottom }} keyboardShouldPersistTaps="handled">
           <View style={{ width: '100%', maxWidth: MAX_W, alignSelf: 'center' }}>
             {!wide ? (
               <View style={[st.mtop, { marginHorizontal: -pad, paddingHorizontal: pad }, (S.route === 'home' || S.route === 'journey') ? { marginBottom: 0 } : st.mtopRound]}>
@@ -88,7 +94,7 @@ function Shell() {
           {/* Soft fade so content melts into the bar instead of stopping at a hard line */}
           {!full ? <View pointerEvents="none" style={st.fade}>{[0.15, 0.35, 0.55, 0.75, 0.9].map((o) => <View key={o} style={{ flex: 1, backgroundColor: C.night, opacity: o }} />)}</View> : null}
           {NAV.map(([k, l, ic]) => {
-            const on = S.route === k || (S.lastTab === k && !NAV.some(([n]) => n === S.route));
+            const on = S.route === k || (S.backTo === k && !NAV.some(([n]) => n === S.route));
             const fg = full ? (on ? '#FFFFFF' : 'rgba(255,255,255,.75)') : on ? C.emberHi : C.muted;
             return (
               <Pressable key={k} onPress={() => S.go(k)} style={[st.bbtn, on && (full ? st.bbtnOnOver : st.bbtnOn)]} accessibilityRole="tab" accessibilityState={{ selected: on }}>
@@ -152,7 +158,7 @@ const st = themed(() => StyleSheet.create({
   bnav: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', justifyContent: 'space-around', paddingTop: 6, paddingHorizontal: 12, backgroundColor: C.night },
   bnavOver: { backgroundColor: 'rgba(8,12,30,.28)' },
   fade: { position: 'absolute', left: 0, right: 0, top: -18, height: 18 },
-  bbtn: { alignItems: 'center', gap: 2, paddingVertical: 6, paddingHorizontal: 18, borderRadius: 16 },
+  bbtn: { alignItems: 'center', gap: 2, paddingVertical: 6, paddingHorizontal: 14, borderRadius: 16 },
   bbtnOn: { backgroundColor: C.navySoft },
   bbtnOnOver: { backgroundColor: 'rgba(255,255,255,.2)' },
   bT: { fontFamily: F.displayMed, fontSize: 12, color: C.muted },
