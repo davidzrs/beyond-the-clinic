@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../state';
-import { COOP_GOAL } from '../data';
+import { COOP_GOAL, ME_DEFAULT, MEMBERS } from '../data';
+import type { Avatar } from '../pixel/sprites';
 import { C, F, themed } from '../theme';
 import { CampFull, Icon, Mallow } from '../components/Pixel';
 import { Btn, IconBtn, T } from '../components/ui';
@@ -37,7 +38,10 @@ function Chat() {
   const listRef = useRef<any>(null);
   const inputRef = useRef<any>(null);
   const text = S.chatDraft;
-  const byId = Object.fromEntries(S.members.map((m) => [m.id, m]));
+  // Anyone who ever wrote here: current seats first, then the demo friends, then a plain fallback,
+  // so a message from someone who isn't sitting at the fire right now can never crash the chat.
+  const byId: Record<string, { name: string; a: Avatar }> = { ...Object.fromEntries(MEMBERS.map((m) => [m.id, m])), ...Object.fromEntries(S.members.map((m) => [m.id, m])), ...S.chatPeople };
+  const who = (id: string) => byId[id] || { name: 'Friend', a: ME_DEFAULT };
   useEffect(() => { setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80); }, [S.chat.length]);
   // The draft is only cleared once the message is really posted (it may be blocked by moderation).
   const submit = async () => { const t = text.trim(); if (!t || S.sending) return; if (await S.sendChat(t)) S.setChatDraft(''); };
@@ -46,7 +50,7 @@ function Chat() {
       <Text style={st.note}>Only the 4 of you can see this.</Text>
       <ScrollView ref={listRef} style={{ flex: 1 }} contentContainerStyle={{ gap: 10, paddingBottom: 4 }}>
         {S.chat.map((c) => {
-          const m = byId[c.from]; const me = c.from === 'me';
+          const m = who(c.from); const me = c.from === 'me';
           return (
             <View key={c.id} style={[st.msg, me && { flexDirection: 'row-reverse' }]}>
               <Mallow a={m.a} size={32} anim={false} />

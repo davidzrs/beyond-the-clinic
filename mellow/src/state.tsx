@@ -101,6 +101,31 @@ function useAppState() {
     })();
   }, [uid]);
 
+  // Signed in: the campfire chat is the real one, read from Supabase and kept live.
+  const [chatPeople, setChatPeople] = useState<Record<string, { name: string; a: Avatar }>>({});
+  useEffect(() => {
+    if (!uid || !campfireId) return;
+    let alive = true;
+    const toMsg = (r: sync.ChatRow): Msg => {
+      const d = new Date(r.created_at);
+      return { id: r.id, from: r.user_id === uid ? 'me' : r.user_id, text: r.text, time: String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') };
+    };
+    const learn = async (ids: string[]) => {
+      const people = await sync.peopleById([...new Set(ids)].filter((x) => x !== uid));
+      if (alive && people.length) setChatPeople((p) => ({ ...p, ...Object.fromEntries(people.map((m) => [m.id, { name: m.name, a: { ...ME_DEFAULT, ...(m.avatar || {}), name: m.name } as Avatar }])) }));
+    };
+    sync.loadMessages(campfireId).then((rows) => {
+      if (!alive) return;
+      setChat(rows.map(toMsg)); // an empty campfire starts empty: no made-up messages for real people
+      learn(rows.map((r) => r.user_id));
+    });
+    const off = sync.onMessages(campfireId, (r) => {
+      setChat((c) => (c.some((x) => x.id === r.id) ? c : [...c, toMsg(r)]));
+      if (r.user_id !== uid) { learn([r.user_id]); bubble(r.user_id, r.text); }
+    });
+    return () => { alive = false; off(); };
+  }, [uid, campfireId]);
+
   useEffect(() => {
     if (uid) return; // demo mode below keeps everything on this device
     AsyncStorage.getItem('mellow.avatar').then((v) => { if (v) { try { setAvatarS({ ...ME_DEFAULT, ...JSON.parse(v) }); } catch {} } }).catch(() => {});
@@ -171,6 +196,11 @@ function useAppState() {
       }
       if (r.status === 'banned') { setChatWarning(null); return false; }
       setChatWarning(null);
+      // Real chat: show it now under its database id; the live update for the same message is then skipped.
+      const id = (r.status === 'sent' && r.id) || Date.now() + Math.random();
+      setChat((c) => (c.some((x) => x.id === id) ? c : [...c, { id, from: 'me', text, time: nowTime() }]));
+      bubble('me', text);
+      return true;
     }
     setChat((c) => [...c, { id: Date.now() + Math.random(), from, text, time: nowTime() }]);
     bubble(from, text);
@@ -257,7 +287,7 @@ function useAppState() {
   const planDay = Math.max(0, dayIndex(plan));
   const checkinDue = planDay >= PLAN_DAYS - 1;
 
-  return { uid, email: session?.user.email || null, signOut, campfireId, campfireName, resetN, resetDemo, skyOverride, streak, streakCount, answerMood, showDaily, dismissDaily: () => setDailyDismissed(true), lastTab, back, backTo, checkins, saveCheckin, plan, adoptPlan, planDone, doTask, undoTask, planDay, checkinDue, route, go, avatar, setAvatar, mood, setMood, embers, coop, quests, questState, doQuest, swapQuest, actDone, doActivity, finishAct, puzzleSolvedToday, puzzleCount, solvePuzzle, tutorials, tutorialsLoaded, markTutorialSeen, actLog, chat, sendChat, sending, strikes, chatBanned: strikes >= sync.MAX_STRIKES, chatWarning, bubbles, members, modal, setModal, toastMsg, toast, hopId, wave, talkReminder, setTalkReminder, chatDraft, setChatDraft, demoDay, setDemoDay };
+  return { uid, email: session?.user.email || null, signOut, campfireId, campfireName, resetN, resetDemo, skyOverride, streak, streakCount, answerMood, showDaily, dismissDaily: () => setDailyDismissed(true), lastTab, back, backTo, checkins, saveCheckin, plan, adoptPlan, planDone, doTask, undoTask, planDay, checkinDue, route, go, avatar, setAvatar, mood, setMood, embers, coop, quests, questState, doQuest, swapQuest, actDone, doActivity, finishAct, puzzleSolvedToday, puzzleCount, solvePuzzle, tutorials, tutorialsLoaded, markTutorialSeen, actLog, chat, chatPeople, sendChat, sending, strikes, chatBanned: strikes >= sync.MAX_STRIKES, chatWarning, bubbles, members, modal, setModal, toastMsg, toast, hopId, wave, talkReminder, setTalkReminder, chatDraft, setChatDraft, demoDay, setDemoDay };
 }
 
 export type AppState = ReturnType<typeof useAppState>;
