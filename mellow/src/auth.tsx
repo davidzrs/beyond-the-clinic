@@ -49,7 +49,7 @@ const LOGO = { name: '', color: 'vanilla', face: 'happy', hat: 'beanie', glasses
 
 function AuthScreen({ onGuest, onCareTeam }: { onGuest: () => void; onCareTeam: () => void }) {
   const insets = useSafeAreaInsets();
-  const [mode, setMode] = useState<'up' | 'in'>('up');
+  const [mode, setMode] = useState<'up' | 'in'>('in');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -87,7 +87,7 @@ function AuthScreen({ onGuest, onCareTeam }: { onGuest: () => void; onCareTeam: 
 
         <View style={st.card}>
           <View style={st.tabs}>
-            {([['up', 'Create account'], ['in', 'Log in']] as const).map(([k, l]) => (
+            {([['in', 'Log in'], ['up', 'Create account']] as const).map(([k, l]) => (
               <Pressable key={k} onPress={() => { setMode(k); setError(null); }} accessibilityRole="tab" accessibilityState={{ selected: mode === k }} style={[st.tab, mode === k && st.tabOn]}>
                 <Text style={[st.tabT, mode === k && st.tabTOn]}>{l}</Text>
               </Pressable>
