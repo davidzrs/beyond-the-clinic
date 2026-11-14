@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useRef, useState } from 'r
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Avatar } from './pixel/sprites';
-import { CHAT0, COOP_GOAL, ME_DEFAULT, Member, MEMBERS, MoodKey, Msg, QUEST_POOL, Quest, REPLIES } from './data';
+import { CHAT0, COOP_GOAL, ME_DEFAULT, Member, MEMBERS, MoodKey, Msg, profileLook, QUEST_POOL, Quest, REPLIES } from './data';
 import { addDays, buildPlan, Checkin, dayIndex, fromYmd, Plan, PlanTask, PLAN_DAYS, phqScore, ymd } from './checkin';
 import { SAM } from './demo';
 import { useAuth } from './auth';
@@ -160,7 +160,7 @@ function useAppState() {
       ]);
       setStrikes(k);
       if (p) {
-        setAvatarS({ ...ME_DEFAULT, ...(p.avatar || {}), name: p.name });
+        setAvatarS(profileLook(p.id, p.avatar, p.name));
         setStreak({ count: p.streak_count || 0, last: p.streak_last || '' });
         // Crisis alerts: answered with a checkbox at sign-up (kept in the account's metadata). The first
         // time we see the profile, copy it there so the send-message function can read it.
@@ -205,7 +205,7 @@ function useAppState() {
     };
     const learn = async (ids: (string | null)[]) => {
       const people = await sync.peopleById([...new Set(ids)].filter((x): x is string => !!x && x !== uid));
-      if (alive && people.length) setChatPeople((p) => ({ ...p, ...Object.fromEntries(people.map((m) => [m.id, { name: m.name, a: { ...ME_DEFAULT, ...(m.avatar || {}), name: m.name } as Avatar }])) }));
+      if (alive && people.length) setChatPeople((p) => ({ ...p, ...Object.fromEntries(people.map((m) => [m.id, { name: m.name, a: profileLook(m.id, m.avatar, m.name) }])) }));
     };
     sync.loadMessages(campfireId).then((rows) => {
       if (!alive) return;
@@ -264,7 +264,7 @@ function useAppState() {
   const toast = (m: string) => { setToastMsg(m); clearTimeout(toastT.current); toastT.current = setTimeout(() => setToastMsg(null), 2800); };
   // Seats: real campfire friends first, demo friends fill any empty seats; you always sit front-left.
   const others: Member[] = [
-    ...mates.map((m) => ({ id: m.id, name: m.name, a: { ...ME_DEFAULT, ...(m.avatar || {}), name: m.name } as Avatar })),
+    ...mates.map((m) => ({ id: m.id, name: m.name, a: profileLook(m.id, m.avatar, m.name) })),
     ...MEMBERS.filter((m) => m.id !== 'me'),
   ].slice(0, 3);
   const me: Member = { id: 'me', name: avatar.name || 'You', a: avatar };

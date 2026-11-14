@@ -2,6 +2,28 @@ import { Avatar } from './pixel/sprites';
 
 export const ME_DEFAULT: Avatar = { name: 'Sam', color: 'vanilla', face: 'content', hat: 'beanie', glasses: 'none', acc: 'scarf', item: 'mug' };
 
+// Accounts that never customised their marshmallow get their own look, worked out from their account id,
+// so everyone looks different at the fire and the same person always looks the same on every device.
+// A look someone picked in the wardrobe is saved to their profile and always wins over this.
+const LOOK = {
+  color: ['vanilla', 'strawberry', 'mint', 'lavender', 'toasted', 'blueberry'],
+  face: ['content', 'happy', 'calm', 'wink', 'excited'],
+  hat: ['none', 'beanie', 'cap', 'sprout', 'bucket', 'crown', 'none', 'beanie'],
+  glasses: ['none', 'none', 'none', 'round', 'sunnies', 'hearts'],
+  acc: ['none', 'scarf', 'bow', 'bowtie', 'flower', 'scarf'],
+  item: ['none', 'mug', 'lantern', 'book', 'plant', 'mug'],
+};
+export function lookFor(id: string): Omit<Avatar, 'name'> {
+  let h = 2166136261; // FNV-1a hash of the id
+  for (let i = 0; i < id.length; i++) { h ^= id.charCodeAt(i); h = Math.imul(h, 16777619); }
+  const pick = <T,>(list: T[], salt: number) => list[(((h ^ Math.imul(salt, 0x9e3779b1)) >>> 0) % 997) % list.length];
+  return { color: pick(LOOK.color, 1), face: pick(LOOK.face, 2), hat: pick(LOOK.hat, 3), glasses: pick(LOOK.glasses, 4), acc: pick(LOOK.acc, 5), item: pick(LOOK.item, 6) };
+}
+// A profile's marshmallow: its own look on top of the one worked out from its id.
+export function profileLook(id: string, saved: Partial<Avatar> | null | undefined, name: string): Avatar {
+  return { ...ME_DEFAULT, ...lookFor(id), ...(saved || {}), name };
+}
+
 export type Member = { id: string; name: string; since?: string; likes?: string; a: Avatar };
 export const MEMBERS: Member[] = [
   { id: 'juno', name: 'Juno', since: 'Oct 4', likes: 'Rainy-day jazz, crosswords', a: { name: 'Juno', color: 'lavender', face: 'happy', hat: 'sprout', glasses: 'round', acc: 'none', item: 'book' } },
