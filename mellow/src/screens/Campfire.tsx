@@ -180,8 +180,8 @@ export default function Campfire() {
 
       <View style={[st.top, { paddingTop: insets.top + (wide ? 18 : 10) }]} pointerEvents="box-none">
         <View style={st.sign}>
-          <Text style={st.signT}>Pinehollow</Text>
-          <Text style={st.signS}>4 at the fire</Text>
+          <Text style={st.signT}>{S.campfireName}</Text>
+          <Text style={st.signS}>{S.fireCount + ' at the fire'}</Text>
         </View>
         <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
         <ThemeToggle bg={C.glass} color={C.emberHi} />

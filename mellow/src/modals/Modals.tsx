@@ -8,6 +8,7 @@ import { Icon, Mallow } from '../components/Pixel';
 import { Btn, Eyebrow, H2, IconBtn, Reply, T, Tab } from '../components/ui';
 import { BreatheScreen } from '../components/BreatheScreen';
 import { useLayout } from '../layout';
+import { JoinWithCode } from '../components/JoinWithCode';
 import { CheckinFlow, PlanCalendar, Report } from './Checkin';
 import { fromYmd, niceDate } from '../checkin';
 
@@ -62,21 +63,29 @@ function SyncGame({ members, onShare }: { members: Member[]; onShare: (t: string
   );
 }
 
-function InviteBody() {
+function InviteBody({ onJoined }: { onJoined: () => void }) {
   const S = useApp();
-  const [tab, setTab] = useState<'invite' | 'meet'>('invite');
-  const code = 'PINE-7K2Q';
+  const [tab, setTab] = useState<'invite' | 'join' | 'meet'>('invite');
+  // Signed in: this fire's real code (campfire-invites.sql). The demo shows a sample one.
+  const code = S.uid ? S.campfireCode : 'PINE-7K2Q';
   return (
     <View>
-      <View style={{ flexDirection: 'row', gap: 4, marginBottom: 14 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 14 }}>
         <Tab label="Invite a friend" on={tab === 'invite'} onPress={() => setTab('invite')} />
+        <Tab label="Join with a code" on={tab === 'join'} onPress={() => setTab('join')} />
         <Tab label="Meet other fires" on={tab === 'meet'} onPress={() => setTab('meet')} />
       </View>
-      {tab === 'invite' ? (
+      {tab === 'join' ? (
+        <View style={{ gap: 12 }}>
+          <T style={{ color: C.creamDim }}>Got a code from a friend? Type it here to sit at their fire.</T>
+          <JoinWithCode askToLeave onJoined={onJoined} />
+        </View>
+      ) : tab === 'invite' ? (
         <View style={{ gap: 12 }}>
           <T style={{ color: C.creamDim }}>Bring someone you trust. They get their own marshmallow and a seat at a fire, and you can always wave to each other.</T>
-          <View style={st.code}><Text selectable style={st.codeT}>{code}</Text></View>
-          <Btn label="Copy invite code" onPress={() => { Clipboard.setStringAsync(code).then(() => S.toast('Invite code copied.'), () => S.toast('Select the code to copy it.')); }} />
+          <View style={st.code}><Text selectable style={st.codeT}>{code || '…'}</Text></View>
+          <Btn label="Copy invite code" disabled={!code} onPress={() => { if (code) Clipboard.setStringAsync(code).then(() => S.toast('Invite code copied.'), () => S.toast('Select the code to copy it.')); }} />
+          <T muted style={{ fontSize: 13 }}>{'They type it under Join with a code. ' + S.campfireName + ' has room for 4.'}</T>
           <T muted style={{ fontSize: 13 }}>Friends can join as supporters too. Nobody sees your check-ins unless you share them.</T>
         </View>
       ) : (
@@ -103,7 +112,7 @@ export function ModalHost() {
   if (!m) return null;
   const close = () => S.setModal(null);
   switch (m.type) {
-    case 'sync': return <Sheet title="MindSync" eyebrow="With Pinehollow" onClose={close}><SyncGame members={S.members} onShare={(t) => { S.finishAct('sync', 'MindSync', 'sync'); close(); S.openChat(t); }} /></Sheet>;
+    case 'sync': return <Sheet title="MindSync" eyebrow={'With ' + S.campfireName} onClose={close}><SyncGame members={S.members} onShare={(t) => { S.finishAct('sync', 'MindSync', 'sync'); close(); S.openChat(t); }} /></Sheet>;
     case 'breathe': return <BreatheScreen onClose={(breaths) => { if (breaths > 0) { if (m.quest) S.doQuest(m.quest); else S.finishAct('breathe', 'Breathe with the Flame', 'flame'); } close(); }} />;
     case 'phq': return (
       <Sheet title="Your 2-week check-in" eyebrow="PHQ-9" onClose={close}>
@@ -119,11 +128,11 @@ export function ModalHost() {
     );
     case 'report': return <Sheet title="Your check-in" eyebrow={'PHQ-9 · ' + niceDate(fromYmd(m.c.date))} onClose={close}><Report c={m.c} /></Sheet>;
     case 'plan': return <Sheet title="Your next 2 weeks" eyebrow="Your plan" onClose={close}><PlanCalendar /></Sheet>;
-    case 'invite': return <Sheet title="Invite or meet others" eyebrow="Pinehollow" onClose={close}><InviteBody /></Sheet>;
+    case 'invite': return <Sheet title="Invite or meet others" eyebrow={S.campfireName} onClose={close}><InviteBody onJoined={() => { close(); S.go('campfire'); }} /></Sheet>;
     case 'member': {
       const mem: Member = m.m;
       return (
-        <Sheet title={mem.name} eyebrow={'At Pinehollow since ' + mem.since} onClose={close}>
+        <Sheet title={mem.name} eyebrow={'At ' + S.campfireName + (mem.since ? ' since ' + mem.since : '')} onClose={close}>
           <View style={{ flexDirection: 'row', gap: 18, alignItems: 'center' }}>
             <View style={{ backgroundColor: C.night3, borderRadius: 14, padding: 8 }}><Mallow a={mem.a} size={104} /></View>
             <View style={{ flex: 1, gap: 6 }}><Eyebrow>Likes</Eyebrow><T>{mem.likes}</T><T muted style={{ fontSize: 13 }}>Played today’s Ember Words</T></View>

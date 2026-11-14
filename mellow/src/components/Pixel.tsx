@@ -92,7 +92,7 @@ function useWorld(L: Layout) {
 
 export type SceneMember = { id: string; name: string; a: Avatar };
 
-export function CampScene({ members, bubbles, onPick, compact, hopId }: { members: SceneMember[]; bubbles?: Record<string, string>; onPick?: (m: SceneMember) => void; compact?: boolean; hopId?: string | null }) {
+export function CampScene({ members, bubbles, onPick, compact, hopId, fireName = 'Pinehollow', fireCount = 4 }: { members: SceneMember[]; bubbles?: Record<string, string>; onPick?: (m: SceneMember) => void; compact?: boolean; hopId?: string | null; fireName?: string; fireCount?: number }) {
   const [w, setW] = useState(0);
   const onLayout = (e: LayoutChangeEvent) => setW(Math.round(e.nativeEvent.layout.width));
   const L = !compact && w > 0 && w < 560 ? LAYOUTS.tall : LAYOUTS.wide;
@@ -101,7 +101,7 @@ export function CampScene({ members, bubbles, onPick, compact, hopId }: { member
     <View onLayout={onLayout} style={{ width: '100%', height: h || undefined, aspectRatio: w ? undefined : L.W / L.H, backgroundColor: '#0a0e22', overflow: 'hidden' }}>
       {w > 0 && <WorldCanvas key={L.key} L={L} w={w} h={h} />}
       {w > 0 && !compact && (
-        <View style={st.sign}><Text style={st.signT}>Pinehollow</Text><Text style={st.signS}>4 at the fire</Text></View>
+        <View style={st.sign}><Text style={st.signT}>{fireName}</Text><Text style={st.signS}>{fireCount + ' at the fire'}</Text></View>
       )}
       {w > 0 && members.map((m, i) => {
         const s = L.seats![i];

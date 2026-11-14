@@ -11,6 +11,7 @@ import { useApp } from '../state';
 import { C, F, themed, themeMode } from '../theme';
 import { CampScene, Icon, Mallow } from './Pixel';
 import { ThemeToggle } from './ThemeToggle';
+import { JoinWithCode } from './JoinWithCode';
 import { addDays, AREAS, buildPlan } from '../checkin';
 import { Avatar, COLORS } from '../pixel/sprites';
 
@@ -332,6 +333,16 @@ function Flow() {
             <Text style={st.optS}>Sundays at 19:00 · 30 minutes, with a guide. Come whenever you like.</Text>
           </View>
         </View>
+        {/* A friend already at a fire? Their invite code seats you there instead (the card above updates). */}
+        {S.uid ? (
+          <View style={[st.card, { gap: 10 }]}>
+            <View style={{ gap: 2 }}>
+              <Text style={st.optT}>Got an invite code from a friend?</Text>
+              <Text style={st.optS}>Type it to sit at their fire instead. Optional.</Text>
+            </View>
+            <JoinWithCode />
+          </View>
+        ) : null}
       </>
     );
   } else if (step === 'plan') {
