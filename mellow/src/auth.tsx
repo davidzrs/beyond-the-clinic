@@ -1,7 +1,7 @@
 // Sign-up / log-in with Supabase (email + password, no email confirmation).
 // If no backend is configured, or you choose "Try the demo", the app runs locally as before.
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Session } from '@supabase/supabase-js';
@@ -49,6 +49,7 @@ const LOGO = { name: '', color: 'vanilla', face: 'happy', hat: 'beanie', glasses
 
 function AuthScreen({ onGuest, onCareTeam }: { onGuest: () => void; onCareTeam: () => void }) {
   const insets = useSafeAreaInsets();
+  const short = useWindowDimensions().height < 760; // laptops and small phones: tighter, so everything fits without scrolling
   const [mode, setMode] = useState<'up' | 'in'>('in');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -78,9 +79,9 @@ function AuthScreen({ onGuest, onCareTeam }: { onGuest: () => void; onCareTeam: 
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: C.night }}>
-      <ScrollView contentContainerStyle={[st.wrap, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 30 }]} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[st.wrap, { paddingTop: insets.top + (short ? 12 : 24), paddingBottom: insets.bottom + (short ? 12 : 24) }, short && { gap: 14 }]} keyboardShouldPersistTaps="handled">
         <View style={{ alignItems: 'center', gap: 6 }}>
-          <Mallow a={LOGO} size={96} />
+          <Mallow a={LOGO} size={short ? 68 : 96} />
           <Text style={st.title}>Mellow</Text>
           <Text style={st.sub}>A cozy fire for hard days</Text>
         </View>
@@ -117,11 +118,17 @@ function AuthScreen({ onGuest, onCareTeam }: { onGuest: () => void; onCareTeam: 
           </Pressable>
         </View>
 
-        <Pressable onPress={onGuest} style={{ alignSelf: 'center', padding: 10 }}><Text style={st.guest}>Just looking? Try the demo</Text></Pressable>
-        <Pressable onPress={onCareTeam} accessibilityRole="button" style={(p: any) => [st.careTeam, (p.hovered || p.pressed) && { borderColor: C.lineHi }]}>
-          <Text style={st.careTeamT}>Part of a care team?</Text>
-          <Text style={st.careTeamS}>Sign in as a clinician or therapist</Text>
-        </Pressable>
+        {/* The two other ways in, side by side so both fit on a laptop screen without scrolling. */}
+        <View style={st.others}>
+          <Pressable onPress={onGuest} accessibilityRole="button" style={(p: any) => [st.careTeam, (p.hovered || p.pressed) && { borderColor: C.lineHi }]}>
+            <Text style={st.careTeamT}>Just looking?</Text>
+            <Text style={st.careTeamS}>Try the demo</Text>
+          </Pressable>
+          <Pressable onPress={onCareTeam} accessibilityRole="button" style={(p: any) => [st.careTeam, (p.hovered || p.pressed) && { borderColor: C.lineHi }]}>
+            <Text style={st.careTeamT}>Part of a care team?</Text>
+            <Text style={st.careTeamS}>Clinician or therapist sign-in</Text>
+          </Pressable>
+        </View>
       </ScrollView>
       <Terms visible={showTerms} onClose={() => setShowTerms(false)} />
     </KeyboardAvoidingView>
@@ -191,7 +198,7 @@ function friendly(m: string) {
 }
 
 const st = themed(() => StyleSheet.create({
-  wrap: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 20, gap: 24, width: '100%', maxWidth: 460, alignSelf: 'center' },
+  wrap: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 20, gap: 20, width: '100%', maxWidth: 460, alignSelf: 'center' },
   title: { fontFamily: F.displayBold, fontSize: 34, color: C.cream },
   sub: { fontFamily: F.body, fontSize: 15, color: C.creamDim },
   card: { backgroundColor: C.night2, borderRadius: 24, padding: 18, gap: 14, borderWidth: 1, borderColor: C.line },
@@ -205,7 +212,6 @@ const st = themed(() => StyleSheet.create({
   error: { fontFamily: F.bodyBold, fontSize: 13.5, color: C.rose },
   go: { backgroundColor: C.ember, borderRadius: 999, minHeight: 50, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   goT: { fontFamily: F.bodyBold, fontSize: 16, color: C.emberInk },
-  guest: { fontFamily: F.bodyBold, fontSize: 14.5, color: C.creamDim, textDecorationLine: 'underline' },
   check: { flexDirection: 'row', gap: 10, alignItems: 'flex-start', paddingVertical: 4 },
   box: { height: 20, width: 24, alignItems: 'center', justifyContent: 'center', overflow: 'visible' },
   checkT: { fontFamily: F.body, fontSize: 14.5, lineHeight: 20, color: C.cream },
@@ -216,7 +222,8 @@ const st = themed(() => StyleSheet.create({
   termsH: { fontFamily: F.displayBold, fontSize: 24, color: C.cream },
   termsT: { fontFamily: F.display, fontSize: 16, color: C.cream },
   termsP: { fontFamily: F.body, fontSize: 14.5, lineHeight: 21, color: C.creamDim },
-  careTeam: { alignSelf: 'center', alignItems: 'center', gap: 2, paddingVertical: 10, paddingHorizontal: 22, minHeight: 44, borderRadius: 16, borderWidth: 1, borderColor: C.line },
+  others: { flexDirection: 'row', gap: 10 },
+  careTeam: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2, paddingVertical: 10, paddingHorizontal: 12, minHeight: 56, borderRadius: 16, borderWidth: 1, borderColor: C.line },
   careTeamT: { fontFamily: F.display, fontSize: 15, color: C.cream },
-  careTeamS: { fontFamily: F.body, fontSize: 12.5, color: C.muted },
+  careTeamS: { fontFamily: F.body, fontSize: 12.5, color: C.muted, textAlign: 'center' },
 }));
