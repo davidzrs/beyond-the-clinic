@@ -40,9 +40,13 @@ function readHash(): Route { if (Platform.OS !== 'web') return 'home'; const h =
 function useAppState() {
   const { session, signOut } = useAuth();
   const uid = session?.user.id || null;
+  // Signed in, a person sits at one or more campfires; campfireId is the one on screen (remembered on
+  // this device). The demo has a single made-up Pinehollow.
+  const [fires, setFires] = useState<sync.Fire[]>([]);
   const [campfireId, setCampfireId] = useState<string | null>(null);
-  const [campfireName, setCampfireName] = useState('Pinehollow');
-  const [campfireCode, setCampfireCode] = useState<string | null>(null); // the real invite code, signed in
+  const fire = fires.find((f) => f.id === campfireId);
+  const campfireName = fire?.name || 'Pinehollow';
+  const campfireCode = fire?.code || null;
   const [mates, setMates] = useState<sync.Mate[]>([]);
   const [route, setRoute] = useState<Route>(readHash);
   const [avatar, setAvatarS] = useState<Avatar>(ME_DEFAULT);
@@ -118,6 +122,16 @@ function useAppState() {
       .catch(() => {}).finally(() => setObLoaded(true));
   }, []);
 
+  const loadFires = async () => { if (!uid) return [] as sync.Fire[]; const list = await sync.myFires(uid); setFires(list); return list; };
+  // Who sits at the fire on screen.
+  useEffect(() => {
+    setMates([]);
+    if (!uid || !campfireId) return;
+    let alive = true;
+    sync.firemates(campfireId, uid).then((m) => { if (alive) setMates(m); });
+    return () => { alive = false; };
+  }, [uid, campfireId]);
+
   // Signed in: profile, streak, today's mood and campfire come from Supabase.
   useEffect(() => {
     if (!uid) return;
@@ -126,7 +140,7 @@ function useAppState() {
       const [p, m, fire, k] = await Promise.all([
         sync.loadProfile(uid, (session?.user.user_metadata as any)?.name || 'Friend'),
         sync.todaysMood(uid, today),
-        sync.myCampfire(uid),
+        sync.ensureCampfire().then(() => loadFires()),
         sync.myStrikes(uid),
       ]);
       setStrikes(k);
@@ -141,7 +155,10 @@ function useAppState() {
         else setConsent(p.crisis_consent ?? null);
       }
       if (m) setMood(m);
-      if (fire) { setCampfireId(fire.id); setCampfireName(fire.name); setCampfireCode(fire.code); setMates(fire.mates); }
+      if (fire.length) {
+        const saved = await AsyncStorage.getItem('mellow.v2.fire').catch(() => null);
+        setCampfireId(fire.find((f) => f.id === saved)?.id || fire[0].id);
+      }
       setMoodLoaded(true);
     })().catch(() => {}).finally(() => setMoodLoaded(true)); // never leave the start screen covered if loading fails
   }, [uid]);
@@ -342,13 +359,27 @@ function useAppState() {
   const startOnboarding = () => { setModal(null); setObReplay(true); setOnboarding(true); };
   // Answers stay on this device for now. A real sign-up also gets the 2-week plan built from them.
   // Sit at a friend's fire with their invite code. The chat, seats and code follow the new campfire id.
+  // Switch the fire on screen; the seats, chat and code follow campfireId.
+  const selectFire = (id: string) => { setCampfireId(id); AsyncStorage.setItem('mellow.v2.fire', id).catch(() => {}); };
+  // Take a seat at a friend's fire with their code, and go there (the other fires stay).
   const joinCampfire = async (code: string): Promise<sync.Joined> => {
     if (!uid) return { status: 'error' };
     const r = await sync.joinByCode(code);
-    if (r.status === 'joined' || r.status === 'already') {
-      const fire = await sync.myCampfire(uid);
-      if (fire) { setCampfireId(fire.id); setCampfireName(fire.name); setCampfireCode(fire.code); setMates(fire.mates); }
-    }
+    if (r.status === 'joined' || r.status === 'already') { await loadFires(); selectFire(r.id); }
+    return r;
+  };
+  // Start a new fire and go there; its invite code is ready to share.
+  const createFire = async (name: string): Promise<sync.Created> => {
+    if (!uid) return { status: 'error' };
+    const r = await sync.createCampfire(name);
+    if (r.status === 'created') { await loadFires(); selectFire(r.id); }
+    return r;
+  };
+  // Leave a fire (never the last one) and move to another.
+  const leaveFire = async (id: string): Promise<'left' | 'last' | 'not_member' | 'error'> => {
+    if (!uid) return 'error';
+    const r = await sync.leaveCampfire(id);
+    if (r === 'left') { const list = await loadFires(); if (id === campfireId && list.length) selectFire(list[0].id); }
     return r;
   };
   const finishOnboarding = (o: { answers: any; plan?: Plan }) => {
@@ -375,7 +406,7 @@ function useAppState() {
   const nextCheckin = addDays(fromYmd(plan.start), PLAN_DAYS - 1);
   const checkinIn = Math.max(0, PLAN_DAYS - 1 - planDay);
 
-  return { uid, email: session?.user.email || null, signOut, campfireId, campfireName, campfireCode, fireCount: uid ? mates.length + 1 : 4, joinCampfire, resetN, resetDemo, skyOverride, streak, streakCount, answerMood, showDaily, moodLoaded: moodLoaded && obLoaded, onboarding, startOnboarding, finishOnboarding, dismissDaily: () => setDailyDismissed(true), lastTab, back, backTo, checkins, saveCheckin, plan, adoptPlan, planDone, doTask, undoTask, planDay, checkinDue, nextCheckin, checkinIn, route, go, avatar, setAvatar, mood, setMood, embers, coop, quests, questState, doQuest, swapQuest, actDone, finishAct, puzzleSolvedToday, puzzleCount, solvePuzzle, tutorials, tutorialsLoaded, markTutorialSeen, actLog, chat, chatPeople, votes, castVote, consent, answerConsent, sendChat, sending, strikes, chatBanned: strikes >= sync.MAX_STRIKES, chatWarning, bubbles, members, modal, setModal, toastMsg, toast, hopId, wave, talkReminder, setTalkReminder, chatDraft, setChatDraft, chatOpenN, openChat, messageAt: (name: string) => openChat('@' + name + ' '), demoDay, setDemoDay };
+  return { uid, email: session?.user.email || null, signOut, campfireId, campfireName, campfireCode, fireCount: uid ? mates.length + 1 : 4, fires, selectFire, joinCampfire, createFire, leaveFire, resetN, resetDemo, skyOverride, streak, streakCount, answerMood, showDaily, moodLoaded: moodLoaded && obLoaded, onboarding, startOnboarding, finishOnboarding, dismissDaily: () => setDailyDismissed(true), lastTab, back, backTo, checkins, saveCheckin, plan, adoptPlan, planDone, doTask, undoTask, planDay, checkinDue, nextCheckin, checkinIn, route, go, avatar, setAvatar, mood, setMood, embers, coop, quests, questState, doQuest, swapQuest, actDone, finishAct, puzzleSolvedToday, puzzleCount, solvePuzzle, tutorials, tutorialsLoaded, markTutorialSeen, actLog, chat, chatPeople, votes, castVote, consent, answerConsent, sendChat, sending, strikes, chatBanned: strikes >= sync.MAX_STRIKES, chatWarning, bubbles, members, modal, setModal, toastMsg, toast, hopId, wave, talkReminder, setTalkReminder, chatDraft, setChatDraft, chatOpenN, openChat, messageAt: (name: string) => openChat('@' + name + ' '), demoDay, setDemoDay };
 }
 
 export type AppState = ReturnType<typeof useAppState>;

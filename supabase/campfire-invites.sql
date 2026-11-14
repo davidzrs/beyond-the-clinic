@@ -1,8 +1,9 @@
--- Invite codes: every campfire gets its own code (like PINE-7K2Q), and a friend can use it to sit
--- at that fire. Run AFTER schema.sql (SQL Editor > New query > Run). Safe to run again.
+-- Several campfires per person, invite codes, creating and leaving fires.
+-- Run AFTER schema.sql (SQL Editor > New query > Run). Safe to run again.
 --
--- Each person sits at one campfire. Joining with a code moves you: you leave your current fire
--- (the app asks first) and take a seat at the new one, if it has fewer than 4 people.
+-- Every campfire gets its own code (like PINE-7K2Q). A friend uses it to take a seat there too:
+-- you keep your other fires. A fire holds 4 people; a person can sit at up to MAX_FIRES fires.
+-- New accounts are still seated automatically (join_campfire in schema.sql), so nobody starts alone.
 
 alter table public.campfires add column if not exists invite_code text;
 
@@ -63,8 +64,11 @@ begin
 end;
 $$;
 
--- Sit at the fire with this code, leaving the one you're at now.
--- Returns {status: 'joined' | 'already' | 'full' | 'not_found', id, name}.
+-- How many fires one person can sit at, so nobody (or no script) fills the app with empty fires.
+create or replace function public.max_fires() returns int language sql immutable as $$ select 6 $$;
+
+-- Take a seat at the fire with this code (your other fires stay).
+-- Returns {status: 'joined' | 'already' | 'full' | 'too_many' | 'not_found', id, name}.
 create or replace function public.join_campfire_by_code(code text) returns json
 language plpgsql security definer set search_path = public as $$
 declare f campfires;
@@ -78,11 +82,47 @@ begin
   if (select count(*) from campfire_members where campfire_id = f.id) >= 4 then
     return json_build_object('status', 'full', 'name', f.name);
   end if;
-  delete from campfire_members where user_id = auth.uid();
+  if (select count(*) from campfire_members where user_id = auth.uid()) >= max_fires() then
+    return json_build_object('status', 'too_many');
+  end if;
   insert into campfire_members (campfire_id, user_id) values (f.id, auth.uid());
   return json_build_object('status', 'joined', 'id', f.id, 'name', f.name);
 end;
 $$;
 
+-- Start a new fire with this name and sit at it. Returns {status: 'created' | 'too_many' | 'bad_name', id, name, code}.
+create or replace function public.create_campfire(fire_name text) returns json
+language plpgsql security definer set search_path = public as $$
+declare n text := btrim(regexp_replace(coalesce(fire_name, ''), '\s+', ' ', 'g')); f campfires;
+begin
+  if auth.uid() is null then raise exception 'Not signed in'; end if;
+  if char_length(n) < 2 or char_length(n) > 30 then return json_build_object('status', 'bad_name'); end if;
+  if (select count(*) from campfire_members where user_id = auth.uid()) >= max_fires() then
+    return json_build_object('status', 'too_many');
+  end if;
+  insert into campfires (name) values (n) returning * into f;
+  insert into campfire_members (campfire_id, user_id) values (f.id, auth.uid());
+  return json_build_object('status', 'created', 'id', f.id, 'name', f.name, 'code', f.invite_code);
+end;
+$$;
+
+-- Leave a fire. Never your last one. Returns {status: 'left' | 'last' | 'not_member'}.
+create or replace function public.leave_campfire(fire uuid) returns json
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'Not signed in'; end if;
+  if not exists (select 1 from campfire_members where campfire_id = fire and user_id = auth.uid()) then
+    return json_build_object('status', 'not_member');
+  end if;
+  if (select count(*) from campfire_members where user_id = auth.uid()) <= 1 then
+    return json_build_object('status', 'last');
+  end if;
+  delete from campfire_members where campfire_id = fire and user_id = auth.uid();
+  return json_build_object('status', 'left');
+end;
+$$;
+
 revoke execute on function public.peek_campfire(text) from anon;
 revoke execute on function public.join_campfire_by_code(text) from anon;
+revoke execute on function public.create_campfire(text) from anon;
+revoke execute on function public.leave_campfire(uuid) from anon;

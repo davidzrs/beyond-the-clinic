@@ -9,6 +9,7 @@ import { Btn, Eyebrow, H2, IconBtn, Reply, T, Tab } from '../components/ui';
 import { BreatheScreen } from '../components/BreatheScreen';
 import { useLayout } from '../layout';
 import { JoinWithCode } from '../components/JoinWithCode';
+import { FiresList } from '../components/FiresList';
 import { CheckinFlow, PlanCalendar, Report } from './Checkin';
 import { fromYmd, niceDate } from '../checkin';
 
@@ -78,7 +79,7 @@ function InviteBody({ onJoined }: { onJoined: () => void }) {
       {tab === 'join' ? (
         <View style={{ gap: 12 }}>
           <T style={{ color: C.creamDim }}>Got a code from a friend? Type it here to sit at their fire.</T>
-          <JoinWithCode askToLeave onJoined={onJoined} />
+          <JoinWithCode onJoined={onJoined} />
         </View>
       ) : tab === 'invite' ? (
         <View style={{ gap: 12 }}>
@@ -128,6 +129,7 @@ export function ModalHost() {
     );
     case 'report': return <Sheet title="Your check-in" eyebrow={'PHQ-9 · ' + niceDate(fromYmd(m.c.date))} onClose={close}><Report c={m.c} /></Sheet>;
     case 'plan': return <Sheet title="Your next 2 weeks" eyebrow="Your plan" onClose={close}><PlanCalendar /></Sheet>;
+    case 'fires': return <Sheet title="Your campfires" eyebrow={S.campfireName} onClose={close}><FiresList onDone={() => { close(); S.go('campfire'); }} /></Sheet>;
     case 'invite': return <Sheet title="Invite or meet others" eyebrow={S.campfireName} onClose={close}><InviteBody onJoined={() => { close(); S.go('campfire'); }} /></Sheet>;
     case 'member': {
       const mem: Member = m.m;

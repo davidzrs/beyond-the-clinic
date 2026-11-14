@@ -58,25 +58,60 @@ export async function submitCheckin(uid: string, day: string, mood: MoodKey, str
   await saveProfile(uid, { streak_count: streak.count, streak_last: streak.last });
 }
 
-// Join (or find) my campfire and who else is there.
-export async function myCampfire(uid: string): Promise<{ id: string; name: string; code: string | null; mates: Mate[] } | null> {
+// Campfires. A person can sit at several (supabase/campfire-invites.sql); new accounts are seated
+// at one automatically, so this list is never empty once ensureCampfire() has run.
+export type Fire = { id: string; name: string; code: string | null; count: number };
+
+// Make sure I sit at a fire (seats a new account), and return one of my fire ids.
+export async function ensureCampfire(): Promise<string | null> {
   if (!supabase) return null;
-  const { data: id, error } = await supabase.rpc('join_campfire');
-  if (error || !id) { warn('join campfire', error); return null; }
-  const [{ data: withCode, error: e2 }, { data: members }] = await Promise.all([
-    supabase.from('campfires').select('name, invite_code').eq('id', id).maybeSingle(),
-    supabase.from('campfire_members').select('user_id, joined_at').eq('campfire_id', id).order('joined_at'),
-  ]);
-  // Before campfire-invites.sql runs there is no invite_code column: still load the name.
-  const fire = e2 ? (await supabase.from('campfires').select('name').eq('id', id).maybeSingle()).data : withCode;
+  const { data, error } = await supabase.rpc('join_campfire');
+  warn('join campfire', error);
+  return (data as string) || null;
+}
+
+// Every fire I sit at, oldest first, with how many people are there.
+export async function myFires(uid: string): Promise<Fire[]> {
+  if (!supabase) return [];
+  const { data: mine, error } = await supabase.from('campfire_members').select('campfire_id, joined_at').eq('user_id', uid).order('joined_at');
+  if (error || !mine?.length) { warn('load my campfires', error); return []; }
+  const ids = mine.map((m: any) => m.campfire_id as string);
+  // Before campfire-invites.sql runs there is no invite_code column: still load the names.
+  const withCode = await supabase.from('campfires').select('id, name, invite_code').in('id', ids);
+  const fires: any[] | null = withCode.error ? (await supabase.from('campfires').select('id, name').in('id', ids)).data : withCode.data;
+  const { data: seats } = await supabase.from('campfire_members').select('campfire_id').in('campfire_id', ids);
+  return ids.map((id) => {
+    const f: any = (fires || []).find((x: any) => x.id === id);
+    return { id, name: f?.name || 'Your campfire', code: f?.invite_code || null, count: (seats || []).filter((x: any) => x.campfire_id === id).length };
+  });
+}
+
+// Who else sits at this fire.
+export async function firemates(fireId: string, uid: string): Promise<Mate[]> {
+  if (!supabase) return [];
+  const { data: members } = await supabase.from('campfire_members').select('user_id, joined_at').eq('campfire_id', fireId).order('joined_at');
   const ids = (members || []).map((m: any) => m.user_id).filter((x: string) => x !== uid);
-  let mates: Mate[] = [];
-  if (ids.length) {
-    const { data: profs, error: e3 } = await supabase.from('profiles').select('id, name, avatar').in('id', ids);
-    warn('load campfire friends', e3);
-    mates = (profs || []) as Mate[];
-  }
-  return { id: id as string, name: fire?.name || 'Your campfire', code: (fire as any)?.invite_code || null, mates };
+  if (!ids.length) return [];
+  const { data: profs, error } = await supabase.from('profiles').select('id, name, avatar').in('id', ids);
+  warn('load campfire friends', error);
+  return (profs || []) as Mate[];
+}
+
+// Start a new fire and sit at it.
+export type Created = { status: 'created'; id: string; name: string; code: string } | { status: 'too_many' | 'bad_name' | 'error' };
+export async function createCampfire(name: string): Promise<Created> {
+  if (!supabase) return { status: 'error' };
+  const { data, error } = await supabase.rpc('create_campfire', { fire_name: name });
+  if (error) { warn('create campfire', error); return { status: 'error' }; }
+  return data as Created;
+}
+
+// Leave a fire (never the last one).
+export async function leaveCampfire(fireId: string): Promise<'left' | 'last' | 'not_member' | 'error'> {
+  if (!supabase) return 'error';
+  const { data, error } = await supabase.rpc('leave_campfire', { fire: fireId });
+  if (error) { warn('leave campfire', error); return 'error'; }
+  return (data as any)?.status || 'error';
 }
 
 // Chat messages go through the send-message Edge Function, which asks Gemini first (supabase/functions).
@@ -183,8 +218,8 @@ export async function peekCampfire(code: string): Promise<Peek> {
   return data as Peek;
 }
 
-// Sit at the fire with this code (leaving the current one).
-export type Joined = { status: 'joined' | 'already'; id: string; name: string } | { status: 'full'; name: string } | { status: 'not_found' } | { status: 'error' };
+// Take a seat at the fire with this code (my other fires stay).
+export type Joined = { status: 'joined' | 'already'; id: string; name: string } | { status: 'full'; name: string } | { status: 'too_many' | 'not_found' | 'error' };
 export async function joinByCode(code: string): Promise<Joined> {
   if (!supabase) return { status: 'error' };
   const { data, error } = await supabase.rpc('join_campfire_by_code', { code });
