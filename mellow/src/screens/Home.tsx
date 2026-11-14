@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { PixelCtx } from '../pixel/raster';
 import { PixelImage } from '../pixel/PixelImage';
 import { buildHome, drawHome, homeLayout } from '../pixel/home';
 import { useApp } from '../state';
 import { COOP_GOAL, MOOD_KEYS, MOODS, MoodKey } from '../data';
 import { C, F, themed, themeMode } from '../theme';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { CampScene, Icon, Mallow } from '../components/Pixel';
 import { Btn, LinkBtn } from '../components/ui';
 import { useLayout } from '../layout';
@@ -14,6 +15,41 @@ import { AREAS, fromYmd, KEEP_UP_AREA, KEEP_UP_BASIS, niceDate, PLAN_DAYS, PlanT
 import { LEVEL_UI, levelOf, SAM } from '../demo';
 
 // Today: your marshmallow at the centre.
+
+// Mellow Shield downloads. The zips live in mellow/public/extension, so the website serves them as /extension/<file>.
+const SHIELD_ICON = require('../../assets/shield-icon.png'); // the extension's own icon
+const SHIELD = [
+  { key: 'chrome', name: 'Chrome', kind: 'Chrome extension', logo: 'logo-chrome', color: '#4285F4', file: 'mellow-shield-0.1.0-chrome.zip', also: 'Also works in Edge, Brave and Opera · .zip',
+    steps: ['Unzip it into a folder you’ll keep.', 'Open chrome://extensions and turn on Developer mode.', 'Click “Load unpacked” and pick the mellow-shield-chrome folder.', 'Pin the marshmallow to your toolbar.'],
+    note: 'Keep the folder: the browser loads the extension from it.' },
+  { key: 'firefox', name: 'Firefox', kind: 'Firefox add-on', logo: 'logo-firefox', color: '#FF7139', file: 'mellow-shield-0.1.0-firefox.zip', also: 'Firefox 121 or newer · .zip',
+    steps: ['Open about:debugging and choose “This Firefox”.', 'Click “Load Temporary Add-on…” and pick the zip.', 'In the Mellow popup, allow it on all sites if asked.'],
+    note: 'For now Firefox removes it when you close the browser. Once it’s published on addons.mozilla.org it will stay.' },
+];
+// Chrome's mark in its own colours: red, yellow and green around a blue centre. Plain SVG, so web only
+// (the Mellow Shield card is only shown on the web).
+const CHROME_SECTORS: [string, string][] = [
+  ['#DB4437', 'M12 12 L2.47 6.5 A11 11 0 0 1 21.53 6.5 Z'],
+  ['#F4B400', 'M12 12 L21.53 6.5 A11 11 0 0 1 12 23 Z'],
+  ['#0F9D58', 'M12 12 L12 23 A11 11 0 0 1 2.47 6.5 Z'],
+];
+function ChromeLogo({ size }: { size: number }) {
+  const h = React.createElement;
+  return h('svg', { width: size, height: size, viewBox: '0 0 24 24', 'aria-hidden': true },
+    ...CHROME_SECTORS.map(([fill, d]) => h('path', { key: fill, d, fill })),
+    h('circle', { key: 'ring', cx: 12, cy: 12, r: 5.4, fill: '#FFFFFF' }),
+    h('circle', { key: 'core', cx: 12, cy: 12, r: 4.2, fill: '#4285F4' }));
+}
+function BrowserLogo({ b, size }: { b: (typeof SHIELD)[number]; size: number }) {
+  return b.key === 'chrome' ? <ChromeLogo size={size} /> : <Ionicons name={b.logo as any} size={size} color={b.color} />;
+}
+// Start a download of a file the website serves (web only).
+function downloadFile(file: string) {
+  if (Platform.OS !== 'web') return;
+  const a = document.createElement('a');
+  a.href = '/extension/' + file; a.download = file; a.rel = 'noopener';
+  document.body.appendChild(a); a.click(); a.remove();
+}
 // The loop: say how you feel → do today's small steps → the fire beside your marshmallow grows warmer.
 // "Your next 2 weeks" becomes a path of 14 stepping stones that explains itself.
 
@@ -64,6 +100,7 @@ export default function Home() {
 
   // ---------- the marshmallow: hops when you pet it or finish something, and talks ----------
   const [hop, setHop] = useState(false);
+  const [howTo, setHowTo] = useState(false); // Mellow Shield: install steps open?
   const [say, setSay] = useState<string | null>(null);
   const sayT = useRef<any>(null);
   const react = (line: string) => {
@@ -367,6 +404,58 @@ export default function Home() {
     </View>
   );
 
+  // ---------- 6. Mellow Shield, the browser extension (computers only: phones can't install extensions) ----------
+  const showShield = Platform.OS === 'web' && wide;
+  const shield = showShield ? (
+    <View style={[st.card, { gap: 16, padding: 20 }]}>
+      <View style={[st.row, { gap: 20, alignItems: 'center', flexWrap: 'wrap' }]}>
+        {/* the extension's own icon, so it's recognisable once it sits in the toolbar */}
+        <View style={st.shieldIco}>
+          <Image source={SHIELD_ICON} style={{ width: 72, height: 72, borderRadius: 18 }} accessibilityLabel="Mellow Shield icon" />
+          <View style={st.shieldBadge}><Ionicons name="extension-puzzle" size={12} color={C.cream} /></View>
+        </View>
+        <View style={{ flex: 1, minWidth: 260, gap: 4 }}>
+          <View style={[st.row, { gap: 6 }]}><Ionicons name="extension-puzzle-outline" size={13} color={C.muted} /><Text style={st.eyebrow}>BROWSER EXTENSION</Text></View>
+          <Text style={st.h2}>Mellow Shield</Text>
+          <Text style={st.sub2}>A gentle filter that hides content linked to relapse, while reading the context so jokes and help resources stay visible. Everything runs on your device: no accounts, no servers.</Text>
+        </View>
+        <View style={{ gap: 8, minWidth: 250 }}>
+          {SHIELD.map((b) => (
+            <Pressable key={b.key} onPress={() => downloadFile(b.file)} accessibilityRole="link" accessibilityLabel={'Download Mellow Shield for ' + b.name}
+              style={(p: any) => [st.dl, (p.hovered || p.pressed) && { borderColor: b.color, backgroundColor: C.night4 }]}>
+              <View style={st.dlLogo}><BrowserLogo b={b} size={26} /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={st.title}>Download the {b.kind}</Text>
+                <Text style={st.sub}>{b.also}</Text>
+              </View>
+              <Ionicons name="download-outline" size={18} color={C.muted} />
+            </Pressable>
+          ))}
+        </View>
+      </View>
+      <Pressable onPress={() => setHowTo(!howTo)} accessibilityRole="button" accessibilityState={{ expanded: howTo }} style={[st.row, { gap: 6, alignSelf: 'flex-start' }]}>
+        <Icon name={howTo ? 'up' : 'down'} size={14} />
+        <Text style={st.howLink}>How to install</Text>
+      </Pressable>
+      {howTo ? (
+        <View style={{ flexDirection: 'row', gap: 14, flexWrap: 'wrap' }}>
+          {SHIELD.map((b) => (
+            <View key={b.key} style={[st.howBox, { flex: 1, minWidth: 260 }]}>
+              <View style={[st.row, { gap: 8 }]}><BrowserLogo b={b} size={16} /><Text style={st.h3}>{b.kind}</Text></View>
+              {b.steps.map((s, i) => (
+                <View key={i} style={[st.row, { gap: 8, alignItems: 'flex-start' }]}>
+                  <Text style={st.stepN}>{i + 1}</Text>
+                  <Text style={[st.sub2, { flex: 1 }]}>{s}</Text>
+                </View>
+              ))}
+              {b.note ? <Text style={st.sub}>{b.note}</Text> : null}
+            </View>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  ) : null;
+
   // Account and testing links, kept quiet at the bottom.
   const foot = (
     <View style={{ gap: 8, alignItems: 'center', opacity: 0.85, marginTop: 4 }}>
@@ -390,7 +479,7 @@ export default function Home() {
     </View>
   );
 
-  if (!two) return <View style={{ gap: 14 }}>{hero}{alert}{stepsCard}{path}{fire}{calmCard}{foot}</View>;
+  if (!two) return <View style={{ gap: 14 }}>{hero}{alert}{stepsCard}{path}{fire}{calmCard}{shield}{foot}</View>;
   return (
     <View style={{ gap: 20 }}>
       {hero}
@@ -401,6 +490,7 @@ export default function Home() {
       </View>
       {path}
       {calmCard}
+      {shield}
       {foot}
     </View>
   );
@@ -410,6 +500,15 @@ const st = themed(() => StyleSheet.create({
   card: { backgroundColor: C.night2, borderWidth: 1, borderColor: C.line, borderRadius: 20, padding: 16 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   h2: { fontFamily: F.display, fontSize: 19, color: C.cream },
+  eyebrow: { fontFamily: F.label, fontSize: 11.5, letterSpacing: 0.8, color: C.muted },
+  // Mellow Shield card
+  shieldIco: { width: 72, height: 72, borderRadius: 22, backgroundColor: C.night3, alignItems: 'center', justifyContent: 'center' },
+  shieldBadge: { position: 'absolute', right: -4, bottom: -4, width: 24, height: 24, borderRadius: 12, backgroundColor: C.forest, borderWidth: 3, borderColor: C.night2, alignItems: 'center', justifyContent: 'center' },
+  dl: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1, borderColor: C.line, backgroundColor: C.night3 },
+  dlLogo: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  howLink: { fontFamily: F.bodyBold, fontSize: 13, color: C.emberHi },
+  howBox: { gap: 8, padding: 14, borderRadius: 14, backgroundColor: C.night3 },
+  stepN: { width: 20, height: 20, borderRadius: 10, overflow: 'hidden', textAlign: 'center', lineHeight: 20, fontFamily: F.bodyBold, fontSize: 11.5, color: C.night, backgroundColor: C.creamDim },
   h3: { fontFamily: F.display, fontSize: 15.5, color: C.cream },
   big: { fontFamily: F.display, fontSize: 15, color: C.emberHi },
   title: { fontFamily: F.bodyBold, fontSize: 15, color: C.cream },
