@@ -39,7 +39,8 @@ function Chat() {
   const text = S.chatDraft;
   const byId = Object.fromEntries(S.members.map((m) => [m.id, m]));
   useEffect(() => { setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80); }, [S.chat.length]);
-  const submit = () => { const t = text.trim(); if (!t) return; S.sendChat(t); S.setChatDraft(''); };
+  // The draft is only cleared once the message is really posted (it may be blocked by moderation).
+  const submit = async () => { const t = text.trim(); if (!t || S.sending) return; if (await S.sendChat(t)) S.setChatDraft(''); };
   return (
     <View style={{ flex: 1, gap: 10 }}>
       <Text style={st.note}>Only the 4 of you can see this.</Text>
@@ -67,10 +68,19 @@ function Chat() {
           </Pressable>
         ))}
       </ScrollView>
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <TextInput ref={inputRef} value={text} onChangeText={S.setChatDraft} onSubmitEditing={submit} placeholder="Say something to the fire…" placeholderTextColor={C.muted} style={st.input} returnKeyType="send" />
-        <Btn label="Send" onPress={submit} disabled={!text.trim()} />
-      </View>
+      {S.chatBanned ? (
+        <View style={st.warn} accessibilityRole="alert">
+          <Text style={st.warnT}>You can still read the chat, but you can’t post anymore after {S.strikes} messages that broke the campfire rules. If you think this is a mistake, talk to your care team.</Text>
+        </View>
+      ) : (
+        <>
+          {S.chatWarning ? <View style={st.warn} accessibilityRole="alert"><Text style={st.warnT}>{S.chatWarning}</Text></View> : null}
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <TextInput ref={inputRef} value={text} onChangeText={S.setChatDraft} onSubmitEditing={submit} editable={!S.sending} placeholder="Say something to the fire…" placeholderTextColor={C.muted} style={st.input} returnKeyType="send" />
+            <Btn label={S.sending ? 'Sending…' : 'Send'} onPress={submit} disabled={!text.trim() || S.sending} />
+          </View>
+        </>
+      )}
     </View>
   );
 }
@@ -182,6 +192,8 @@ const st = themed(() => StyleSheet.create({
   pchip: { borderRadius: 999, borderWidth: 1, borderColor: C.line, backgroundColor: C.night3, paddingHorizontal: 10, paddingVertical: 5 },
   pchipT: { fontFamily: F.body, fontSize: 12.5, color: C.creamDim },
   input: { flex: 1, minWidth: 0, backgroundColor: C.night, borderWidth: 1, borderColor: C.line, borderRadius: 10, color: C.cream, paddingHorizontal: 12, paddingVertical: 10, fontFamily: F.body, fontSize: 15 },
+  warn: { backgroundColor: C.amberSoft, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9 },
+  warnT: { fontFamily: F.body, fontSize: 13.5, lineHeight: 19, color: C.amber },
   when: { fontFamily: F.display, fontSize: 15, color: C.forest },
   quote: { fontFamily: F.displayMed, fontSize: 20, lineHeight: 26, color: C.cream },
   track: { height: 12, borderRadius: 6, backgroundColor: C.night4, overflow: 'hidden' },

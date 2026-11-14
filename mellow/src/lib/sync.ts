@@ -64,8 +64,30 @@ export async function myCampfire(uid: string): Promise<{ id: string; name: strin
   return { id: id as string, name: fire?.name || 'Your campfire', mates };
 }
 
-export async function sendMessage(campfireId: string, uid: string, text: string) {
-  if (!supabase) return;
-  const { error } = await supabase.from('messages').insert({ campfire_id: campfireId, user_id: uid, text });
-  warn('send message', error);
+// Chat messages go through the send-message Edge Function, which asks Gemini first (supabase/functions).
+export type SendResult =
+  | { status: 'sent'; strikes: number }
+  | { status: 'blocked' | 'banned'; strikes: number; maxStrikes?: number; reason?: string }
+  | { status: 'error'; message: string };
+
+export async function sendMessage(campfireId: string, text: string): Promise<SendResult> {
+  if (!supabase) return { status: 'sent', strikes: 0 };
+  const { data, error } = await supabase.functions.invoke('send-message', { body: { campfireId, text } });
+  if (error) {
+    warn('send message', error);
+    // A non-2xx answer still carries our JSON (e.g. "try again in a moment").
+    const body = await (error as any).context?.json?.().catch(() => null);
+    return { status: 'error', message: body?.message || 'Couldn’t send. Check your connection and try again.' };
+  }
+  return data as SendResult;
+}
+
+export const MAX_STRIKES = 3; // keep in sync with supabase/functions/send-message
+
+// How many chat strikes I have (MAX_STRIKES = can't post anymore).
+export async function myStrikes(uid: string): Promise<number> {
+  if (!supabase) return 0;
+  const { count, error } = await supabase.from('chat_strikes').select('id', { count: 'exact', head: true }).eq('user_id', uid);
+  warn('load strikes', error);
+  return count || 0;
 }

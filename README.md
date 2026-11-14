@@ -57,3 +57,40 @@ Demo sign-in: `laura.aalto@pinehollow.fi` / `mellow`. More in `care-portal/READM
 | Clinician portal (`npm run preview`, after a build) | 5181 |
 
 The portal ports are fixed (`strictPort`): if one is busy, Vite stops with an error instead of picking a random port. Close the old terminal and run it again.
+
+## Campfire chat moderation (Gemini)
+
+Chat messages don't go straight into the database: the app calls the `send-message` Edge Function
+(`supabase/functions/send-message/`), which asks Gemini whether the text breaks the campfire rules.
+Venting about your own bad day is always allowed; insults, hate, sexual content, threats, pushing someone
+towards self-harm, spam and sharing private details are blocked. A blocked message is not sent and counts
+as a strike; after 3 strikes you can still read the chat but not post. Strikes are in the `chat_strikes` table
+(delete someone's rows there to give them their voice back).
+
+The Gemini key lives only on Supabase, never in the app. One-time setup, from the repo root:
+
+1. Supabase SQL Editor: run `supabase/chat-moderation.sql`.
+2. Deploy the function and give it the key:
+
+```bash
+npx supabase login
+```
+
+```bash
+npx supabase link --project-ref <your-project-ref>
+```
+
+```bash
+npx supabase secrets set GEMINI_API_KEY=<your-key>
+```
+
+```bash
+npx supabase functions deploy send-message
+```
+
+Try the prompt locally first (no deploy needed): copy `supabase/functions/.env.example` to
+`supabase/functions/.env`, fill in the key, then
+
+```bash
+node --env-file=supabase/functions/.env supabase/functions/send-message/check.ts
+```
