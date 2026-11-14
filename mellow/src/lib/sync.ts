@@ -79,7 +79,7 @@ export async function myCampfire(uid: string): Promise<{ id: string; name: strin
 
 // Chat messages go through the send-message Edge Function, which asks Gemini first (supabase/functions).
 export type SendResult =
-  | { status: 'sent'; strikes: number }
+  | { status: 'sent'; strikes: number; id?: number }
   | { status: 'blocked' | 'banned'; strikes: number; maxStrikes?: number; reason?: string }
   | { status: 'error'; message: string };
 
@@ -93,6 +93,30 @@ export async function sendMessage(campfireId: string, text: string): Promise<Sen
     return { status: 'error', message: body?.message || 'Couldn’t send. Check your connection and try again.' };
   }
   return data as SendResult;
+}
+
+// The campfire's real chat: the last 60 messages, oldest first.
+export type ChatRow = { id: number; user_id: string; text: string; created_at: string };
+export async function loadMessages(campfireId: string): Promise<ChatRow[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.from('messages').select('id, user_id, text, created_at').eq('campfire_id', campfireId).order('created_at', { ascending: false }).limit(60);
+  warn('load chat', error);
+  return ((data || []) as ChatRow[]).reverse();
+}
+// Live: call onNew for every message posted at this campfire (by anyone, me included).
+export function onMessages(campfireId: string, onNew: (row: ChatRow) => void) {
+  if (!supabase) return () => {};
+  const ch = supabase.channel('chat-' + campfireId)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: 'campfire_id=eq.' + campfireId }, (p: any) => onNew(p.new as ChatRow))
+    .subscribe();
+  return () => { supabase?.removeChannel(ch); };
+}
+// Names and marshmallows of everyone who wrote in the chat (friends who left the seats included).
+export async function peopleById(ids: string[]): Promise<Mate[]> {
+  if (!supabase || !ids.length) return [];
+  const { data, error } = await supabase.from('profiles').select('id, name, avatar').in('id', ids);
+  warn('load chat people', error);
+  return (data || []) as Mate[];
 }
 
 export const MAX_STRIKES = 3; // keep in sync with supabase/functions/send-message

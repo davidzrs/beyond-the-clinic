@@ -1,7 +1,7 @@
 // The fireplace recording for "Breathe with the fire" (assets/sounds/fireplace.mp3), looped.
 // expo-audio plays it the same way on phones and on the web.
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
-import type { Scape } from './soundscape';
+export type Scape = { setVolume(v: number): void; stop(): void };
 
 const SOURCE = require('../../assets/sounds/fireplace.mp3');
 

@@ -11,7 +11,7 @@ import { GUESTS, ROOMS } from '../games/engines';
 import { puzzleSocialLine } from './GameScreen';
 
 // The Games tab: three daily logic puzzles. They are the daily reason to open the app; each one is short,
-// can't be lost, and its hints explain the reasoning. Older games (Ember Words etc.) stay under Activities.
+// can't be lost, and its hints explain the reasoning. These are the only games in the app.
 // Each card has its own colour and a little picture: a piece of that puzzle on a tilted table,
 // with your marshmallow next to it.
 
@@ -120,10 +120,6 @@ export default function Games() {
             </Pressable>
           );
         })}
-      </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <T muted>Looking for word games, quests or something calm?</T>
-        <LinkBtn label="See all activities" onPress={() => S.go('activities')} />
       </View>
     </View>
   );

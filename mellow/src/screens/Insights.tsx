@@ -255,7 +255,7 @@ export default function Insights() {
       {pair(
         <Panel>
           <PTitle eyebrow="Recently" title="Things you did" />
-          {[...S.actLog, { icon: 'words', t: 'Ember Words', d: 'Yesterday' }, { icon: 'walk', t: 'Slow Walk', d: 'Yesterday' }, { icon: 'chat', t: 'Sunday Talk', d: 'Sun' }, { icon: 'flame', t: 'Breathe with the Flame', d: 'Sat' }, { icon: 'sky', t: 'Sky Break', d: 'Fri' }].slice(0, 7).map((x, i) => (
+          {[...S.actLog, { icon: 'play', t: 'Hidden Picture', d: 'Yesterday' }, { icon: 'walk', t: 'Slow Walk', d: 'Yesterday' }, { icon: 'chat', t: 'Sunday Talk', d: 'Sun' }, { icon: 'flame', t: 'Breathe with the Flame', d: 'Sat' }, { icon: 'sky', t: 'Sky Break', d: 'Fri' }].slice(0, 7).map((x, i) => (
             <View key={i} style={st.doneRow}><Icon name={x.icon} size={22} /><T style={{ flex: 1, fontSize: 14 }}>{x.t}</T><T muted style={{ fontSize: 12.5 }}>{x.d}</T></View>
           ))}
         </Panel>,
