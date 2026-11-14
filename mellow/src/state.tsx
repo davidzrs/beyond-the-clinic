@@ -35,7 +35,21 @@ const SEED_P = seedPlan(SEED_C);
 
 
 function nowTime() { const d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
-function readHash(): Route { if (Platform.OS !== 'web') return 'home'; const h = (window.location.hash || '').replace('#', '') as Route; return ROUTES.includes(h) ? h : 'home'; }
+// Web addresses are plain paths: / is Today, /journey, /campfire, /games, /wardrobe… (the care portal lives under /care).
+// Old #journey-style links still work: they're turned into the clean path on load.
+export const pathOf = (r: Route) => (r === 'home' ? '/' : '/' + r);
+function readRoute(): Route {
+  if (Platform.OS !== 'web') return 'home';
+  const legacy = (window.location.hash || '').replace(/^#\/?/, '') as Route;
+  const p = window.location.pathname.replace(/^\/+|\/+$/g, '') as Route;
+  return ROUTES.includes(p) ? p : ROUTES.includes(legacy) ? legacy : 'home';
+}
+// Show the clean address for a page, keeping ?theme= and friends; push adds a history entry, otherwise it replaces.
+function writeRoute(r: Route, push: boolean) {
+  const url = pathOf(r) + window.location.search;
+  if (window.location.pathname + window.location.search + window.location.hash === url) return;
+  if (push) window.history.pushState(null, '', url); else window.history.replaceState(null, '', url);
+}
 
 function useAppState() {
   const { session, signOut } = useAuth();
@@ -48,7 +62,7 @@ function useAppState() {
   const campfireName = fire?.name || 'Pinehollow';
   const campfireCode = fire?.code || null;
   const [mates, setMates] = useState<sync.Mate[]>([]);
-  const [route, setRoute] = useState<Route>(readHash);
+  const [route, setRoute] = useState<Route>(readRoute);
   const [avatar, setAvatarS] = useState<Avatar>(ME_DEFAULT);
   const [mood, setMood] = useState<MoodKey | null>(null);
   // Daily streak: answering "How are you feeling today?" once a day keeps it going. Demo: 6 days up to yesterday.
@@ -81,11 +95,12 @@ function useAppState() {
       const h = hist.current;
       if (h.closing) {
         h.closing = false;
-        if (h.hash) { const r = h.hash; h.hash = null; window.location.hash = r; }
+        if (h.hash) { const r = h.hash as Route; h.hash = null; writeRoute(r, true); }
         if (h.reopen) { h.reopen = false; window.history.pushState({ mellowModal: true }, '', window.location.href); h.entry = true; }
         return;
       }
-      if (h.entry) { h.entry = false; setModalS(null); } // back button while an overlay is open
+      if (h.entry) { h.entry = false; setModalS(null); return; } // back button while an overlay is open
+      setRoute(readRoute()); // back / forward between pages
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
@@ -228,12 +243,8 @@ function useAppState() {
       } catch {}
     }).catch(() => {});
   }, []);
-  useEffect(() => {
-    if (Platform.OS !== 'web') return;
-    const h = () => setRoute(readHash());
-    window.addEventListener('hashchange', h);
-    return () => window.removeEventListener('hashchange', h);
-  }, []);
+  // On load: tidy the address (an old #journey link becomes /journey, an unknown path becomes /).
+  useEffect(() => { if (Platform.OS === 'web') writeRoute(readRoute(), false); }, []);
 
   const go = (r: Route) => {
     setRoute(r);
@@ -242,7 +253,7 @@ function useAppState() {
     // Going to a page closes any open overlay; its history entry is removed first, then the page is added.
     if (hist.current.entry) setModal(null);
     if (hist.current.closing) hist.current.hash = r;
-    else if (window.location.hash !== '#' + r) window.location.hash = r;
+    else writeRoute(r, true);
   };
   // Open the campfire chat with a message already started ("@Juno ", "I picked … because ").
   const openChat = (draft: string) => { setChatDraft(draft); setChatOpenN((n) => n + 1); go('campfire'); };
