@@ -133,6 +133,21 @@ export default function Home() {
     </Pressable>
   );
 
+  // Testing only: replay the first-open streak screen and start the demo fresh.
+  const reset = (
+    <View style={{ gap: 6, alignItems: 'center', marginTop: 6 }}>
+      <Text style={st.resetT}>Testing: reset the demo and replay the streak screen</Text>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        {([['day', 'Day'], ['night', 'Night']] as const).map(([k, l]) => (
+          <Pressable key={k} onPress={() => setTimeout(() => S.resetDemo(k), 250)} accessibilityRole="button" accessibilityLabel={'Reset demo, ' + l.toLowerCase()} style={(p: any) => [st.reset, (p.pressed || p.hovered) && { opacity: 0.7 }]}>
+            <Icon name="refresh" size={16} />
+            <Text style={st.resetT}>{'Reset · ' + l}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+
   const header = wide ? (
     <View style={{ gap: 2 }}>
       <Eyebrow>{dateStr}</Eyebrow>
@@ -154,17 +169,19 @@ export default function Home() {
       {header}
       <View style={{ flexDirection: 'row', gap: 20, alignItems: 'flex-start' }}>
         <View style={{ flex: 1.3, gap: 12 }}>{alert}{mood}{plan}</View>
-        <View style={{ flex: 1, gap: 12 }}>{fire}{games}</View>
+        <View style={{ flex: 1, gap: 12 }}>{fire}{games}{reset}</View>
       </View>
     </View>
   ) : (
-    <View style={{ gap: 10 }}>{header}{alert}{mood}{plan}{games}{fire}</View>
+    <View style={{ gap: 10 }}>{header}{alert}{mood}{plan}{games}{fire}{reset}</View>
   );
 }
 
 const st = themed(() => StyleSheet.create({
   hero: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.navyDeep, paddingTop: 0, paddingBottom: 14, borderBottomLeftRadius: 24, borderBottomRightRadius: 24, marginBottom: 2 },
   heroSub: { fontFamily: F.body, fontSize: 13, color: C.heroDim },
+  reset: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, paddingHorizontal: 16, minHeight: 44, borderRadius: 999, borderWidth: 1, borderStyle: 'dashed', borderColor: C.lineHi },
+  resetT: { fontFamily: F.bodyBold, fontSize: 13, color: C.muted },
   glow: { width: 60, height: 60, borderRadius: 30, backgroundColor: C.peach, alignItems: 'center', justifyContent: 'center' },
   card: { backgroundColor: C.night2, borderWidth: 1, borderColor: C.line, borderRadius: 14, padding: 12 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
