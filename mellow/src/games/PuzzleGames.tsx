@@ -91,7 +91,6 @@ function Controls({ mode, onMode, onHint, done }: { mode?: [string, boolean]; on
     </View>
   );
 }
-const TIP = 'Tap a square to fill it, tap again for ✕, once more to clear. Drag to do several at once.' + (Platform.OS === 'web' ? ' Right-click marks ✕.' : '');
 
 // ---------- Hidden Picture ----------
 export function HiddenPicture({ onDone, solved }: { onDone: () => void; solved?: boolean }) {
@@ -152,9 +151,7 @@ export function HiddenPicture({ onDone, solved }: { onDone: () => void; solved?:
   const fs = Math.max(10, u * 0.42);
   return (
     <View>
-      <T muted style={{ fontSize: 14 }}>The numbers give the runs of filled squares in each row and column, in order, with at least one blank between runs. Fill what you can work out and mark blanks with ✕. A picture appears at the end.</T>
-      <T muted style={{ fontSize: 13, marginTop: 4 }}>{TIP} Tap a number to cross out the rest of its line.</T>
-      <View ref={input.ref} {...input.handlers} style={{ width: W, height: W, alignSelf: 'center', marginTop: 14 }}>
+      <View ref={input.ref} {...input.handlers} style={{ width: W, height: W, alignSelf: 'center' }}>
         {hint?.line ? <View pointerEvents="none" style={[gs.hl, hint.line.axis === 'row' ? { left: 0, top: off + hint.line.i * u, width: W, height: u } : { top: 0, left: off + hint.line.i * u, width: u, height: W }]} /> : null}
         {Array.from({ length: n }, (_, i) => (
           <React.Fragment key={i}>
@@ -234,9 +231,7 @@ export function LineOfSight({ onDone, solved }: { onDone: () => void; solved?: b
   });
   return (
     <View>
-      <T muted style={{ fontSize: 14 }}>Each number says how many squares it can see in straight lines (up, down, left, right), counting itself. Shade squares to block the view. Shaded squares never touch side by side, and the open squares all stay connected.</T>
-      <T muted style={{ fontSize: 13, marginTop: 4 }}>{TIP.replace('fill', 'shade')} A ✕ means the square stays open.</T>
-      <View ref={input.ref} {...input.handlers} style={{ width: W, height: W, alignSelf: 'center', marginTop: 14 }}>
+      <View ref={input.ref} {...input.handlers} style={{ width: W, height: W, alignSelf: 'center' }}>
         {st.map((v, i) => {
           const x = i % n, y = Math.floor(i / n), seen = cl[i] ? sightSeen(st, n, i) : null, ok = !!seen && seen.min === cl[i] && seen.max === cl[i];
           return (
@@ -458,15 +453,10 @@ export function HotelMystery({ onDone, solved }: { onDone: () => void; solved?: 
       ) : null}
       {!won ? <Btn sm kind="ghost" icon="undo" label="Undo" onPress={undo} style={wide ? gs.toolWide : null} /> : null}
       {!won ? <Btn sm kind="ghost" icon="bulb" label="Hint" onPress={doHint} style={wide ? gs.toolWide : null} /> : null}
-      {!won ? <T muted style={{ fontSize: 12.5 }}>Hold the eraser to clear the whole plan.</T> : null}
     </View>
   );
   return (
     <View style={{ gap: 14 }}>
-      <View style={{ gap: 4 }}>
-        <T muted style={{ fontSize: 14 }}>A necklace has gone missing from the hotel safe. Place each guest on the floor plan: one per row and one per column, never on a plant, bookcase, fireplace or the safe. Whoever ends up alone in the room with the safe took it.</T>
-        <T muted style={{ fontSize: 13 }}>Pick a guest. Tap a square to jot their initial as a note; press and hold to place them, which crosses out their row and column. Drag to note several squares. {Platform.OS === 'web' ? 'Right-click or the ✕ tool' : 'The ✕ tool'} marks a square as impossible.</T>
-      </View>
       {wide ? (
         <View style={{ flexDirection: 'row', gap: 20, alignItems: 'flex-start' }}>
           {cards}
