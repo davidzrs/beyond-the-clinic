@@ -16,7 +16,8 @@ function Router() {
   const S = useStore();
   const route = useHashRoute();
   const [path, query] = route.split('?');
-  useEffect(() => { if (!S.user && path !== '/login') go('/login'); if (S.user && path === '/login') go('/patients'); }, [S.user, path]);
+  useEffect(() => { if (S.loading) return; if (!S.user && path !== '/login') go('/login'); if (S.user && path === '/login') go('/patients'); }, [S.user, S.loading, path]);
+  if (S.loading) return <div className="page"><p className="muted">Loading patients…</p></div>;
   if (!S.user || path === '/login') return <Login />;
 
   let page = <Patients />;

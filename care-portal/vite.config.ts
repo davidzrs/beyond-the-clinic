@@ -8,6 +8,9 @@ export const PREVIEW_PORT = 5181;
 
 export default defineConfig({
   plugins: [react()],
+  // Same Supabase project as the app: read its keys from mellow/.env.
+  envDir: '../mellow',
+  envPrefix: ['VITE_', 'EXPO_PUBLIC_'],
   server: {
     host: 'localhost',
     port: DEV_PORT,

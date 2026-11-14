@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { DEMO_ACCOUNTS, go, useStore } from '../store';
+import { DEMO_ACCOUNTS, DEMO_PASSWORD, go, useStore } from '../store';
 import { Icon, Logo } from '../components/ui';
 
 export default function Login() {
@@ -7,10 +7,14 @@ export default function Login() {
   const [email, setEmail] = useState(DEMO_ACCOUNTS[0].email);
   const [pw, setPw] = useState('');
   const [err, setErr] = useState('');
-  const submit = (e: FormEvent) => {
+  const [busy, setBusy] = useState(false);
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (S.signIn(email, pw)) go('/patients');
-    else setErr('That email and password don’t match a demo account.');
+    setBusy(true);
+    const problem = await S.signIn(email, pw);
+    setBusy(false);
+    if (problem) setErr(problem);
+    else go('/patients');
   };
   return (
     <div className="login">
@@ -35,7 +39,7 @@ export default function Login() {
           <label>Work email<input type="email" value={email} onChange={(e) => { setEmail(e.target.value); setErr(''); }} autoComplete="username" required /></label>
           <label>Password<input type="password" value={pw} onChange={(e) => { setPw(e.target.value); setErr(''); }} autoComplete="current-password" placeholder="••••••" required autoFocus /></label>
           {err && <p className="error" role="alert">{err}</p>}
-          <button className="btn primary wide" type="submit">Sign in</button>
+          <button className="btn primary wide" type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
           <div className="demo-hint">
             <b>Demo accounts</b>
             {DEMO_ACCOUNTS.map((a) => (
@@ -43,10 +47,10 @@ export default function Login() {
                 {a.name} · {a.role}
               </button>
             ))}
-            <span className="muted small">Password for both: <code>mellow</code></span>
+            <span className="muted small">Password for both: <code>{DEMO_PASSWORD}</code></span>
           </div>
         </form>
-        <p className="muted small center">Prototype for Junction 2026 · synthetic data only</p>
+        <p className="muted small center">Prototype for Junction 2026 · demo patients with synthetic data, stored in Supabase</p>
       </main>
     </div>
   );
