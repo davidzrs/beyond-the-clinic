@@ -1,4 +1,6 @@
 data/raw/
 node_modules/
+
+# Supabase function secrets (Gemini key) and CLI temp files
 supabase/functions/.env
 supabase/.temp/

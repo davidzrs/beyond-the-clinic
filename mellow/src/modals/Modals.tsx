@@ -7,6 +7,7 @@ import { C, F, themed } from '../theme';
 import { Icon, Mallow } from '../components/Pixel';
 import { Btn, Eyebrow, H2, IconBtn, Reply, T, Tab } from '../components/ui';
 import { startSoundscape, Scape } from '../audio/soundscape';
+import { BreatheScreen } from '../components/BreatheScreen';
 import { useLayout } from '../layout';
 import { CheckinFlow, PlanCalendar, Report } from './Checkin';
 import { fromYmd, niceDate } from '../checkin';
@@ -170,33 +171,6 @@ function SyncGame({ members, onShare }: { members: Member[]; onShare: (t: string
   );
 }
 
-function Breathe({ onDone }: { onDone: () => void }) {
-  const PH: [string, number, number][] = [['Breathe in', 4000, 1.4], ['Hold', 3000, 1.4], ['Breathe out', 6000, 0.8]];
-  const [step, setStep] = useState(-1);
-  const [cycle, setCycle] = useState(0);
-  const scale = useRef(new Animated.Value(1)).current;
-  useEffect(() => {
-    if (step < 0 || step > 2) { Animated.timing(scale, { toValue: 1, duration: 400, useNativeDriver: Platform.OS !== 'web' }).start(); return; }
-    const [, ms, sc] = PH[step];
-    Animated.timing(scale, { toValue: sc, duration: ms, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }).start();
-    const id = setTimeout(() => { if (step < 2) setStep(step + 1); else if (cycle + 1 < 3) { setCycle(cycle + 1); setStep(0); } else setStep(3); }, ms);
-    return () => clearTimeout(id);
-  }, [step, cycle]);
-  return (
-    <View style={{ alignItems: 'center' }}>
-      <View style={st.breath}>
-        <View style={st.ring} />
-        <Animated.View style={{ transform: [{ scale }] }}><Icon name="flame" size={110} /></Animated.View>
-      </View>
-      <Text style={st.phase}>{step < 0 ? 'Ready when you are' : step === 3 ? 'Nicely done' : PH[step][0]}</Text>
-      <T muted style={{ marginTop: 4 }}>{step < 0 ? 'Three slow breaths, about 40 seconds.' : step === 3 ? 'Take that calm with you.' : 'Breath ' + (cycle + 1) + ' of 3'}</T>
-      <View style={{ marginTop: 16 }}>
-        {step < 0 ? <Btn label="Begin" onPress={() => setStep(0)} /> : step === 3 ? <Btn label="Finish" kind="green" onPress={onDone} /> : null}
-      </View>
-    </View>
-  );
-}
-
 function Soundscape({ kind }: { kind: 'forest' | 'sea' }) {
   const [on, setOn] = useState(false);
   const [vol, setVol] = useState(0.6);
@@ -273,7 +247,7 @@ export function ModalHost() {
     case 'words': return <Sheet title="Ember Words" eyebrow="Daily game" onClose={close}><WordsGame onDone={() => S.finishAct('words', 'Ember Words', 'words')} /></Sheet>;
     case 'light': return <Sheet title="Find the Light" eyebrow="Daily game" onClose={close}><LightGame onDone={() => S.finishAct('light', 'Find the Light', 'sun')} /></Sheet>;
     case 'sync': return <Sheet title="MindSync" eyebrow="With Pinehollow" onClose={close}><SyncGame members={S.members} onShare={(t) => { S.sendChat(t); S.finishAct('sync', 'MindSync', 'sync'); close(); S.go('campfire'); }} /></Sheet>;
-    case 'breathe': return <Sheet title="Breathe with the Flame" eyebrow="Relax" onClose={close}><Breathe onDone={() => { if (m.quest) S.doQuest(m.quest); else S.finishAct('breathe', 'Breathe with the Flame', 'flame'); close(); }} /></Sheet>;
+    case 'breathe': return <BreatheScreen onClose={(breaths) => { if (breaths > 0) { if (m.quest) S.doQuest(m.quest); else S.finishAct('breathe', 'Breathe with the Flame', 'flame'); } close(); }} />;
     case 'sound': return <Sheet title={m.kind === 'sea' ? 'Sea Breeze' : 'Forest at Dusk'} eyebrow="Soundscape" onClose={close}><Soundscape kind={m.kind} /></Sheet>;
     case 'phq': return <Sheet title="Your 2-week check-in" eyebrow="PHQ-9" onClose={close}><CheckinFlow /></Sheet>;
     case 'report': return <Sheet title="Your check-in" eyebrow={'PHQ-9 · ' + niceDate(fromYmd(m.c.date))} onClose={close}><Report c={m.c} /></Sheet>;

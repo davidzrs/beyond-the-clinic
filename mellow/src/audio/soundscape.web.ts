@@ -1,4 +1,5 @@
 // Web soundscapes: generated live with the Web Audio API (same as the prototype).
+
 export type Scape = { setVolume(v: number): void; stop(): void };
 
 export async function startSoundscape(kind: 'forest' | 'sea', volume: number): Promise<Scape> {

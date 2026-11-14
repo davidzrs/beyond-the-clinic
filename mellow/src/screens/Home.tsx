@@ -10,7 +10,6 @@ import { PLAN_DAYS, PlanTask } from '../checkin';
 import { LEVEL_UI, levelOf, SAM } from '../demo';
 
 // Games stay as they are for now (TBD); Today just links to them.
-const QUICK: [string, string, string][] = [['words', 'words', 'Words'], ['light', 'sun', 'Find light'], ['breathe', 'flame', 'Breathe'], ['forest', 'forest', 'Forest']];
 
 // Today fits on one phone screen: one alert at most, mood, today's plan, games, the fire.
 export default function Home() {
@@ -103,19 +102,19 @@ export default function Home() {
     </View>
   );
 
-  // 4. Games and calm, one tap each (unchanged games, see Activities).
+  // 4. A moment of calm: breathe with the fire (full screen). The daily puzzles live in the Games tab.
   const games = (
     <View style={{ gap: 8 }}>
-      <View style={st.row}><Text style={[st.h, { flex: 1 }]}>Games & calm</Text><LinkBtn label="See all" onPress={() => S.go('activities')} /></View>
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        {QUICK.map(([id, ic, t]) => (
-          <Pressable key={id} onPress={() => (id === 'forest' ? S.setModal({ type: 'sound', kind: 'forest' }) : S.setModal({ type: id }))}
-            style={(p: any) => [st.tile, p.hovered && { borderColor: C.lineHi }]}>
-            <Icon name={S.actDone[id] ? 'check' : ic} size={22} />
-            <Text style={st.tileT} numberOfLines={1}>{t}</Text>
-          </Pressable>
-        ))}
-      </View>
+      <View style={st.row}><Text style={[st.h, { flex: 1 }]}>Calm</Text><LinkBtn label="Daily puzzles" onPress={() => S.go('games')} /></View>
+      <Pressable onPress={() => S.setModal({ type: 'breathe' })} accessibilityRole="button" accessibilityLabel="Breathe with the fire"
+        style={(p: any) => [st.card, st.row, { gap: 12, paddingVertical: 12 }, p.hovered && { borderColor: C.lineHi }]}>
+        <View style={st.breatheIco}><Icon name={S.actDone.breathe ? 'check' : 'flame'} size={24} /></View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={[st.title, { fontSize: 15.5 }]}>Breathe with the fire</Text>
+          <Text style={st.sub} numberOfLines={1}>A few slow breaths by the campfire, with its sound</Text>
+        </View>
+        <Icon name="chevron" size={18} />
+      </Pressable>
     </View>
   );
 
@@ -203,4 +202,5 @@ const st = themed(() => StyleSheet.create({
   tick: { width: 30, height: 30, borderRadius: 15, borderWidth: 2, borderColor: C.lineHi, alignItems: 'center', justifyContent: 'center' },
   tile: { flex: 1, alignItems: 'center', gap: 3, paddingVertical: 8, paddingHorizontal: 4, borderRadius: 12, borderWidth: 1, borderColor: C.line, backgroundColor: C.night2 },
   tileT: { fontFamily: F.displayMed, fontSize: 11.5, color: C.creamDim, textAlign: 'center' },
+  breatheIco: { width: 44, height: 44, borderRadius: 14, backgroundColor: C.peach, alignItems: 'center', justifyContent: 'center' },
 }));

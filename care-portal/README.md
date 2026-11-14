@@ -47,3 +47,21 @@ marks are kept in this browser's localStorage.
 
 Sam's data is the generated 90-day timeline. The other clinic patients only have a snapshot in the JSON,
 so their histories are generated in `src/data.ts` from a fixed seed and end exactly at that snapshot.
+
+## Live data (Supabase)
+
+The portal uses the same Supabase project as the app (keys in `../mellow/.env`).
+
+1. In Supabase, run `supabase/schema.sql`, then `supabase/care.sql` (SQL Editor > New query > Run).
+2. Create the demo accounts and their data: `node scripts/seed.mjs` (safe to run again).
+3. `npm run dev` and sign in as a clinician.
+
+Every demo account uses the password `123123123`:
+
+- Clinicians: `laura.aalto@pinehollow.fi`, `mikko.saari@pinehollow.fi` (any `@pinehollow.fi` account is care team)
+- Patients: `aino.virtanen@mellow.test`, `lauri.korhonen@mellow.test`, `mikael.nieminen@mellow.test`, `sam.kallio@mellow.test`,
+  `juha.makinen@mellow.test`, `eveliina.hamalainen@mellow.test`, `kaisa.laine@mellow.test`, `pekka.heikkinen@mellow.test`,
+  `riikka.koskinen@mellow.test`, `tuomas.jarvinen@mellow.test`, `noora.lehtonen@mellow.test`, `otto.salminen@mellow.test`
+
+Patients can also log into the Mellow app with these. Anyone who signs up in the app appears in the portal
+with their real daily check-ins. Notes and planned calls are shared by the whole care team.

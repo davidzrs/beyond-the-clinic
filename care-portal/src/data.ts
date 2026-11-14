@@ -214,10 +214,85 @@ function samPatient(row: RawClinic | undefined): Patient {
 function slug(n: string) { return n.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''); }
 function initials(n: string) { return n.replace(/[^A-Za-zÀ-ÿ ]/g, ' ').split(/\s+/).filter(Boolean).map((w) => w[0]).join('').slice(0, 2).toUpperCase(); }
 
-export const PATIENTS: Patient[] = D.clinic.map((row) => (row.patient.startsWith('S.') ? samPatient(row) : synthPatient(row)));
+// The generated clinic list. Used offline; when signed in, setPatients() swaps in the real
+// Supabase patients (same array object, so every page that imported PATIENTS sees them).
+export const DEMO_PATIENTS: Patient[] = D.clinic.map((row) => (row.patient.startsWith('S.') ? samPatient(row) : synthPatient(row)));
+export const PATIENTS: Patient[] = [...DEMO_PATIENTS];
 export const byId = (id: string) => PATIENTS.find((p) => p.id === id);
+export function setPatients(list: Patient[]) { PATIENTS.splice(0, PATIENTS.length, ...list); }
+
+// ---------- real patients from Supabase ----------
+export type MetricRow = {
+  user_id: string; day: string; sleep_hours: number | null; resting_hr: number | null; hrv_rmssd: number | null; steps: number | null;
+  morning_steps: number | null; screen_minutes: number | null; late_night_screen_minutes: number | null; messages_sent: number | null;
+  mood: number | null; risk: number | null; reasons: Reason[] | null;
+};
+export type ProfileRow = { id: string; name: string; weeks_since_tms: number | null };
+const MOOD_SCORE: Record<string, number> = { heavy: 1, low: 2, okay: 3, good: 4, bright: 5 };
+const COLS: [SignalKey, keyof MetricRow][] = [
+  ['sleepHours', 'sleep_hours'], ['restingHr', 'resting_hr'], ['hrvRmssd', 'hrv_rmssd'], ['steps', 'steps'], ['morningSteps', 'morning_steps'],
+  ['screenMinutes', 'screen_minutes'], ['lateNightScreenMinutes', 'late_night_screen_minutes'], ['messagesSent', 'messages_sent'], ['mood', 'mood'],
+];
+/** Calendar day (1..DAYS) for an ISO date, or null if outside the window. */
+export function dayOfDate(iso: string) {
+  const n = Math.round((Date.parse(iso + 'T00:00:00Z') - Date.parse(D.startDate + 'T00:00:00Z')) / 86400000) + 1;
+  return n >= 1 && n <= DAYS ? n : null;
+}
+const shortName = (full: string) => { const w = full.trim().split(/\s+/); return w.length > 1 ? w[0][0] + '. ' + w.slice(1).join(' ') : full; };
+
+export function patientFromRows(
+  prof: ProfileRow, metrics: MetricRow[], checkins: { day: string; mood: string }[],
+  questionnaires: { day: string; phq9: number | null; who5: number | null }[], phq9: { created_at: string; score: number }[],
+): Patient {
+  const series = Object.fromEntries(SIGNALS.map((s) => [s.key, Array(DAYS).fill(null)])) as Record<SignalKey, (number | null)[]>;
+  const risk: (number | null)[] = Array(DAYS).fill(null);
+  const reasons: (Reason[] | null)[] = Array(DAYS).fill(null);
+  const seen: number[] = [];
+  for (const m of metrics) {
+    const d = dayOfDate(m.day); if (d == null) continue;
+    seen.push(d);
+    for (const [k, col] of COLS) series[k][d - 1] = (m[col] as number | null) ?? null;
+    risk[d - 1] = m.risk; reasons[d - 1] = m.reasons;
+  }
+  // The patient's own check-in from the app is the truth for that day's mood.
+  const said: (string | null)[] = Array(DAYS).fill(null);
+  for (const c of checkins) {
+    const d = dayOfDate(c.day); if (d == null) continue;
+    seen.push(d);
+    if (MOOD_SCORE[c.mood]) { series.mood[d - 1] = MOOD_SCORE[c.mood]; said[d - 1] = c.mood; }
+  }
+  // A heavy or low answer is always shown to the care team as a reason, on top of the score.
+  const MOOD_LABEL: Record<string, string> = { heavy: 'Heavy', low: 'Low' };
+  const withCheckin = (day: number): Reason[] => {
+    const base = reasons[day - 1] || [];
+    const m = said[day - 1];
+    if (!m || !MOOD_LABEL[m]) return base;
+    return [{ key: 'checkin', label: 'Checked in', change: MOOD_LABEL[m] + (day === lastSeen() ? ' today' : ''), z: m === 'heavy' ? 9 : 6 }, ...base.filter((r) => r.key !== 'mood')].slice(0, 3);
+  };
+  const lastSeen = () => (seen.length ? Math.max(...seen) : DAYS);
+  const qByDay = new Map<number, Questionnaire>();
+  for (const q of questionnaires) { const d = dayOfDate(q.day); if (d != null) qByDay.set(d, { day: d, phq9: q.phq9 ?? undefined, who5: q.who5 ?? undefined }); }
+  for (const q of phq9) { const d = dayOfDate(q.created_at.slice(0, 10)); if (d != null) qByDay.set(d, { ...(qByDay.get(d) || { day: d }), phq9: q.score }); }
+  const firstDay = seen.length ? Math.min(...seen) : DAYS;
+  const lastDay = seen.length ? Math.max(...seen) : DAYS;
+  const ago = DAYS - lastDay;
+  const firstScored = risk.findIndex((v) => v != null);
+  const isSam = /^sam\b/i.test(prof.name);
+  const E = D.events;
+  const p: Patient = {
+    id: prof.id, name: shortName(prof.name), initials: initials(prof.name), isSam,
+    firstDay, weeksAtEnd: prof.weeks_since_tms ?? Math.max(0, Math.round((DAYS - firstDay) / 7)),
+    risk, series,
+    baseline: isSam ? { from: 7, to: 34 } : { from: firstDay, to: Math.max(firstDay + 6, Math.min(firstScored > 0 ? firstScored + 21 : DAYS, firstDay + 27)) },
+    reasonsAt: withCheckin,
+    questionnaires: [...qByDay.values()].sort((a, b) => a.day - b.day),
+    lastCheckIn: ago <= 0 ? 'today' : ago === 1 ? 'yesterday' : ago + 'd ago',
+    events: isSam ? [{ day: E.firstAlertDay, label: 'First alert' }, { day: E.carePlanDay, label: 'Care plan' }, { day: E.recoveredDay, label: 'Back to usual' }] : [],
+  };
+  return p;
+}
 
 export const riskAt = (p: Patient, day: number) => (day < p.firstDay ? null : p.risk[day - 1] ?? null);
 export const phqBand = (v: number) => (v >= 20 ? 'Severe' : v >= 15 ? 'Moderately severe' : v >= 10 ? 'Moderate' : v >= 5 ? 'Mild' : 'Minimal');
 export const weeksAt = (p: Patient, day: number) => Math.max(0, p.weeksAtEnd - Math.round((DAYS - day) / 7));
-export const checkInAt = (p: Patient, day: number) => (p.isSam || day < DAYS ? 'today' : p.lastCheckIn.replace('0d ago', 'today'));
+export const checkInAt = (p: Patient, day: number) => (day < DAYS ? 'today' : p.lastCheckIn.replace('0d ago', 'today'));
