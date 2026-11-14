@@ -94,9 +94,12 @@ function useAppState() {
       if (p) {
         setAvatarS({ ...ME_DEFAULT, ...(p.avatar || {}), name: p.name });
         setStreak({ count: p.streak_count || 0, last: p.streak_last || '' });
-        // Never answered the crisis-alert question (new account, or one made before it existed): ask now.
-        setConsent(p.crisis_consent ?? null);
-        if (p.crisis_consent == null) setModal({ type: 'consent' });
+        // Crisis alerts: answered with a checkbox at sign-up (kept in the account's metadata). The first
+        // time we see the profile, copy it there so the send-message function can read it.
+        // Older accounts that never answered count as "no" until they turn it on under Support.
+        const fromSignUp = (session?.user.user_metadata as any)?.crisis_consent;
+        if (p.crisis_consent == null && typeof fromSignUp === 'boolean') { setConsent(fromSignUp); sync.saveCrisisConsent(uid, fromSignUp); }
+        else setConsent(p.crisis_consent ?? null);
       }
       if (m) setMood(m);
       if (fire) { setCampfireId(fire.id); setCampfireName(fire.name); setMates(fire.mates); }

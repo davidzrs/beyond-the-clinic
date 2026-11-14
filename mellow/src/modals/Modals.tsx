@@ -124,22 +124,6 @@ export function ModalHost() {
         </Sheet>
       );
     }
-    // Asked once after sign-up (and to older accounts on their next visit). Closing it without answering
-    // leaves it unanswered, so it comes back next time.
-    case 'consent': return (
-      <Sheet title="One question before you sit down" eyebrow="Your safety" onClose={close}>
-        <View style={{ gap: 12 }}>
-          <T>If you ever write something in the campfire chat that sounds like you’re in danger, Mellow won’t share it with your friends. Instead it shows you who you can talk to right away.</T>
-          <T>It can also let your care team know, so someone can reach out. They’d only learn <Text style={{ fontFamily: F.bodyBold }}>that</Text> it happened and when, never what you wrote.</T>
-          <View style={st.sup}><Text style={st.supT}>May we tell your care team?</Text><T style={{ color: C.creamDim, fontSize: 14 }}>You can change this anytime under Support.</T></View>
-          <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
-            <Btn label="Yes, let them know" onPress={() => { S.answerConsent(true); close(); }} />
-            <Btn label="No, thanks" kind="ghost" onPress={() => { S.answerConsent(false); close(); }} />
-          </View>
-          <Text style={st.aiNote}>This check is done by an AI. It can be wrong, and it never diagnoses.</Text>
-        </View>
-      </Sheet>
-    );
     // A chat message sounded like a crisis: it was held, and this opens instead.
     case 'crisis': return (
       <Sheet title="It sounds like things are really hard right now" eyebrow="Support" onClose={close}>
