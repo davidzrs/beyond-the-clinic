@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../state';
 import { C, F, themed, themeMode } from '../theme';
 import { CampScene, Icon, Mallow } from './Pixel';
+import { ThemeToggle } from './ThemeToggle';
 import { addDays, AREAS, buildPlan } from '../checkin';
 import { Avatar, COLORS } from '../pixel/sprites';
 
@@ -387,7 +388,8 @@ function Flow() {
           </Pressable>
         ) : <View style={st.backBtn} />}
         {step !== 'welcome' ? <Progress filled={filled} /> : <View style={{ flex: 1 }} />}
-        <View style={st.backBtn} />
+        {/* Day or night, picked before you start (changing it redraws the app, so only on the first page). */}
+        {step === 'welcome' ? <ThemeToggle bg={C.night4} color={themeMode() === 'day' ? C.plum : undefined} /> : <View style={st.backBtn} />}
       </View>
       {part && step !== 'welcome' ? <Text style={st.partLabel}>{part.label.toUpperCase()}</Text> : null}
       <ScrollView key={step} style={{ flex: 1 }} contentContainerStyle={st.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
