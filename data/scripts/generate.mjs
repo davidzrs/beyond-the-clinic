@@ -221,10 +221,11 @@ fs.writeFileSync(path.join(OUT, 'clinic_panel.csv'), toCsv(panel));
 // Compact bundle for the app
 const firstAlert = sam.findIndex((d) => d.riskLevel === 'watch' || d.riskLevel === 'high');
 const firstHigh = sam.findIndex((d) => d.riskLevel === 'high');
+const recovered = sam.findIndex((d, i) => i > firstHigh && d.riskLevel === 'steady');
 const app = {
   generatedFrom: 'Synthetic, calibrated to RTI Fitbit (Zenodo 53894, CC BY 4.0) and Depresjon (Zenodo 1219550, CC BY-NC 4.0)',
   days: DAYS, startDate: dateOf(0),
-  events: { relapseStart: PERSONAS[0].relapse.start + 1, firstAlertDay: firstAlert + 1, firstHighDay: firstHigh + 1, carePlanDay: PERSONAS[0].relapse.recover - 6, recoveredDay: PERSONAS[0].relapse.end + 1 },
+  events: { relapseStart: PERSONAS[0].relapse.start + 1, firstAlertDay: firstAlert + 1, firstHighDay: firstHigh + 1, carePlanDay: firstHigh + 2, recoveredDay: recovered + 1 },
   people: Object.fromEntries(Object.entries(people).map(([id, { p, days, q }]) => [id, {
     name: p.name, role: p.role,
     series: Object.fromEntries(['sleepHours', 'sleepEfficiency', 'restingHr', 'hrvRmssd', 'steps', 'morningSteps', 'screenMinutes', 'lateNightScreenMinutes', 'messagesSent', 'mood', 'risk', 'outdoorMinutes', 'deepMin', 'remMin', 'lightMin', 'bedtime'].map((k) => [k, days.map((d) => (d[k] === '' ? null : d[k]))])),

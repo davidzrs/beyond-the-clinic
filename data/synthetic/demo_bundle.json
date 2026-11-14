@@ -7,7 +7,7 @@
   "firstAlertDay": 60,
   "firstHighDay": 63,
   "carePlanDay": 64,
-  "recoveredDay": 85
+  "recoveredDay": 83
  },
  "people": {
   "sam": {
