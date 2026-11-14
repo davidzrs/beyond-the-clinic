@@ -5,8 +5,10 @@
 --   * your profile, check-ins and PHQ-9 answers: only you can write them
 --   * campfire friends can see each other's name, marshmallow, streak and daily mood
 --   * PHQ-9 answers are visible to you only (the clinic view comes later, via a care-team role)
---   * chat messages: only members of that campfire
+--   * chat messages: only members of that campfire can read them; only the send-message
+--     Edge Function writes them, after Gemini checks the text (see chat-moderation.sql)
 
+drop table if exists public.chat_strikes cascade;
 drop table if exists public.messages cascade;
 drop table if exists public.phq9 cascade;
 drop table if exists public.checkins cascade;
@@ -147,8 +149,9 @@ create policy "add my PHQ-9" on public.phq9
 
 create policy "read my campfire's chat" on public.messages
   for select using (public.in_campfire(campfire_id));
-create policy "write in my campfire's chat" on public.messages
-  for insert with check (user_id = auth.uid() and public.in_campfire(campfire_id));
+-- No insert policy: messages are written by the send-message Edge Function (service role).
+
+-- Chat moderation (strikes and bans) lives in chat-moderation.sql: run it as a second query after this one.
 
 -- Live updates for the campfire chat and moods.
 alter publication supabase_realtime add table public.messages;

@@ -63,6 +63,10 @@ function useAppState() {
   const [hopId, setHop] = useState<string | null>(null);
   const [talkReminder, setTalkReminder] = useState(false);
   const [chatDraft, setChatDraft] = useState('');
+  // Chat moderation: strikes from blocked messages, and the last warning shown above the input.
+  const [strikes, setStrikes] = useState(0);
+  const [chatWarning, setChatWarning] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
   const [demoDay, setDemoDay] = useState(90); // which of Sam's 90 synthetic days My Journey shows
   const [lastTab, setLastTab] = useState<Route>('home');
   const [checkins, setCheckins] = useState<Checkin[]>(SEED_C);
@@ -80,11 +84,13 @@ function useAppState() {
     if (!uid) return;
     (async () => {
       const today = ymd(new Date());
-      const [p, m, fire] = await Promise.all([
+      const [p, m, fire, k] = await Promise.all([
         sync.loadProfile(uid, (session?.user.user_metadata as any)?.name || 'Friend'),
         sync.todaysMood(uid, today),
         sync.myCampfire(uid),
+        sync.myStrikes(uid),
       ]);
+      setStrikes(k);
       if (p) {
         setAvatarS({ ...ME_DEFAULT, ...(p.avatar || {}), name: p.name });
         setStreak({ count: p.streak_count || 0, last: p.streak_last || '' });
@@ -149,14 +155,30 @@ function useAppState() {
     setEmbers((e) => e + n); setCoop((c) => Math.min(COOP_GOAL, c + 1));
     if (label) setActLog((l) => [{ icon: icon || 'star', t: label, d: 'Today' }, ...l]);
   };
-  const sendChat = (text: string, from = 'me') => {
+  // Signed in, my messages are checked by Gemini (send-message Edge Function) before anyone sees them.
+  // Returns false when the message was not posted, so the chat keeps the draft.
+  const sendChat = async (text: string, from = 'me'): Promise<boolean> => {
+    if (from === 'me' && uid && campfireId) {
+      setSending(true);
+      const r = await sync.sendMessage(campfireId, text);
+      setSending(false);
+      if (r.status === 'error') { toast(r.message); return false; }
+      setStrikes(r.strikes);
+      if (r.status === 'blocked') {
+        const left = sync.MAX_STRIKES - r.strikes;
+        setChatWarning((r.reason ? r.reason + ' ' : '') + `This message wasn’t sent. ${left} more and you’ll lose access to the chat.`);
+        return false;
+      }
+      if (r.status === 'banned') { setChatWarning(null); return false; }
+      setChatWarning(null);
+    }
     setChat((c) => [...c, { id: Date.now() + Math.random(), from, text, time: nowTime() }]);
-    if (from === 'me' && uid && campfireId) sync.sendMessage(campfireId, uid, text);
     bubble(from, text);
     if (from === 'me') {
       const who = ['juno', 'teo', 'ama'][Math.floor(Math.random() * 3)];
       setTimeout(() => { const r = REPLIES[Math.floor(Math.random() * REPLIES.length)]; setChat((c) => [...c, { id: Date.now() + Math.random(), from: who, text: r, time: nowTime() }]); bubble(who, r); }, 1800 + Math.random() * 1200);
     }
+    return true;
   };
   const doQuest = (id: string) => {
     const q = QUEST_POOL.find((x) => x.id === id);
@@ -235,7 +257,7 @@ function useAppState() {
   const planDay = Math.max(0, dayIndex(plan));
   const checkinDue = planDay >= PLAN_DAYS - 1;
 
-  return { uid, email: session?.user.email || null, signOut, campfireId, campfireName, resetN, resetDemo, skyOverride, streak, streakCount, answerMood, showDaily, dismissDaily: () => setDailyDismissed(true), lastTab, back, backTo, checkins, saveCheckin, plan, adoptPlan, planDone, doTask, undoTask, planDay, checkinDue, route, go, avatar, setAvatar, mood, setMood, embers, coop, quests, questState, doQuest, swapQuest, actDone, doActivity, finishAct, puzzleSolvedToday, puzzleCount, solvePuzzle, tutorials, tutorialsLoaded, markTutorialSeen, actLog, chat, sendChat, bubbles, members, modal, setModal, toastMsg, toast, hopId, wave, talkReminder, setTalkReminder, chatDraft, setChatDraft, demoDay, setDemoDay };
+  return { uid, email: session?.user.email || null, signOut, campfireId, campfireName, resetN, resetDemo, skyOverride, streak, streakCount, answerMood, showDaily, dismissDaily: () => setDailyDismissed(true), lastTab, back, backTo, checkins, saveCheckin, plan, adoptPlan, planDone, doTask, undoTask, planDay, checkinDue, route, go, avatar, setAvatar, mood, setMood, embers, coop, quests, questState, doQuest, swapQuest, actDone, doActivity, finishAct, puzzleSolvedToday, puzzleCount, solvePuzzle, tutorials, tutorialsLoaded, markTutorialSeen, actLog, chat, sendChat, sending, strikes, chatBanned: strikes >= sync.MAX_STRIKES, chatWarning, bubbles, members, modal, setModal, toastMsg, toast, hopId, wave, talkReminder, setTalkReminder, chatDraft, setChatDraft, demoDay, setDemoDay };
 }
 
 export type AppState = ReturnType<typeof useAppState>;
