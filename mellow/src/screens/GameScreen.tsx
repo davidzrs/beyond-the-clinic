@@ -19,9 +19,12 @@ const PAGES = {
 // How many times you've solved it and who at your fire solved today's. Never times or scores.
 export function puzzleSocialLine(count: number, friends: string[]) {
   const mine = count === 0 ? 'Not solved yet' : count === 1 ? 'Solved once' : `Solved ${count} times`;
+  // Up to three names; with more, the first two and a count, so the line stays short with lots of friends.
+  const rest = friends.length - 2;
   const fire = !friends.length ? 'nobody at your fire has solved today’s yet'
     : friends.length === 1 ? `${friends[0]} solved today’s`
-    : `${friends.slice(0, -1).join(', ')} and ${friends[friends.length - 1]} solved today’s`;
+    : friends.length <= 3 ? `${friends.slice(0, -1).join(', ')} and ${friends[friends.length - 1]} solved today’s`
+    : `${friends[0]}, ${friends[1]} and ${rest} others solved today’s`;
   return `${mine} · ${fire}`;
 }
 

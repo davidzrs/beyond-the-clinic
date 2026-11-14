@@ -10,7 +10,7 @@ import { GUESTS, ROOMS } from './engines';
 // Each step has a tiny example board drawn with the same colours as the real game.
 
 // ---------- tiny example boards ----------
-export type Cell = { k?: 'fill' | 'x' | 'ray' | 'num' | 'big' | 'note' | 'emoji'; t?: string; c?: string; bg?: string; bd?: string };
+export type Cell = { k?: 'fill' | 'x' | 'ray' | 'num' | 'big' | 'note' | 'emoji' | 'pawn'; t?: string; c?: string; bg?: string; bd?: string };
 const E: Cell = {}, Fi: Cell = { k: 'fill' }, X: Cell = { k: 'x' }, R: Cell = { k: 'ray' };
 const num = (t: string): Cell => ({ k: 'num', t });
 const guest = (i: number, big = true, bg?: string): Cell => ({ k: big ? 'big' : 'note', t: GUESTS[i].ini, c: GUESTS[i].color, bg });
@@ -28,7 +28,17 @@ function MiniCell({ c, size }: { c: Cell; size: number }) {
         )
         : c.k === 'big' ? <Text style={{ color: c.c, fontFamily: F.displayBold, fontSize: size * 0.62 }}>{c.t}</Text>
         : c.k === 'note' ? <Text style={{ color: c.c, fontFamily: F.displayBold, fontSize: size * 0.36 }}>{c.t}</Text>
-        : c.k === 'emoji' ? <Text style={{ fontSize: size * 0.55 }}>{c.t}</Text> : null}
+        : c.k === 'emoji' ? <Text style={{ fontSize: size * 0.55 }}>{c.t}</Text>
+        : c.k === 'pawn' ? <MiniPawn color={c.c!} size={size} /> : null}
+    </View>
+  );
+}
+// A guest piece like on the Hotel board: round head over a bell-shaped body.
+function MiniPawn({ color, size }: { color: string; size: number }) {
+  return (
+    <View style={{ alignItems: 'center' }}>
+      <View style={{ width: size * 0.26, height: size * 0.26, borderRadius: size, backgroundColor: color, borderWidth: 1, borderColor: C.white, marginBottom: -size * 0.05, zIndex: 1 }} />
+      <View style={{ width: size * 0.5, height: size * 0.38, borderTopLeftRadius: size * 0.24, borderTopRightRadius: size * 0.24, borderBottomLeftRadius: size * 0.07, borderBottomRightRadius: size * 0.07, backgroundColor: color, borderWidth: 1, borderColor: C.white }} />
     </View>
   );
 }
