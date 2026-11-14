@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
-import { checkInAt, fmtLong, LEVEL, levelOf, PATIENTS, riskAt, weeksAt, type Level, type Patient } from '../data';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { checkInAt, fmtLong, LEVEL, TODAY_DAY, levelOf, PATIENTS, riskAt, weeksAt, type Level, type Patient } from '../data';
 import { go, useStore } from '../store';
 import { Avatar, Icon, LevelIcon, LevelPill } from '../components/ui';
 import { Meter, Strip } from '../components/Charts';
+import { ReportPaper, reportMeta, savePdf } from './Report';
 
 type Filter = 'all' | Level;
 const PAGE_SIZE = 5;
@@ -13,6 +14,26 @@ export default function Patients() {
   const [q, setQ] = useState('');
   const [page, setPage] = useState(0);
   const pickFilter = (f: Filter) => { setFilter(f); setPage(0); };
+  // "Download last biweekly report": the report ending on the date chosen in "View as of".
+  const [askOld, setAskOld] = useState(false);
+  const [pdfEnd, setPdfEnd] = useState<number | null>(null); // set = render the paper off-screen and save it
+  const paper = useRef<HTMLDivElement>(null);
+  const viewed = useMemo(() => reportMeta(S.day), [S.day]);
+  const latest = useMemo(() => reportMeta(TODAY_DAY), []);
+  const startDownload = (end: number) => { setAskOld(false); setPdfEnd(end); };
+  useEffect(() => {
+    if (pdfEnd == null) return;
+    let cancelled = false;
+    const run = async () => {
+      await new Promise((r) => requestAnimationFrame(() => r(null)));
+      if (cancelled || !paper.current) return;
+      try { await savePdf(paper.current, reportMeta(pdfEnd).fileName); S.say('Report downloaded · ' + reportMeta(pdfEnd).range); }
+      catch { S.say('Could not create the PDF. Try again.'); }
+      finally { if (!cancelled) setPdfEnd(null); }
+    };
+    run();
+    return () => { cancelled = true; };
+  }, [pdfEnd]); // eslint-disable-line react-hooks/exhaustive-deps
   const rows = useMemo(() => PATIENTS.filter((p) => S.day >= p.firstDay).map((p) => {
     const risk = riskAt(p, S.day); const prev = riskAt(p, S.day - 7);
     return { p, risk, level: levelOf(risk), delta: risk != null && prev != null ? risk - prev : null, reasons: p.reasonsAt(S.day) };
@@ -44,6 +65,9 @@ export default function Patients() {
           <h1>Who might need a call</h1>
           <p className="muted">Sorted by how far each person’s week has moved from their own normal · {fmtLong(S.day)}</p>
         </div>
+        <button className="btn" onClick={() => (S.day === TODAY_DAY ? startDownload(S.day) : setAskOld(true))} disabled={pdfEnd != null}>
+          <Icon name="download" size={16} /> {pdfEnd != null ? 'Creating PDF…' : 'Download last biweekly report'}
+        </button>
       </header>
 
       <div className="stats">
@@ -82,7 +106,7 @@ export default function Patients() {
           </thead>
           <tbody>
             {visible.map(({ p, risk, level, delta, reasons }) => (
-              <Row key={p.id} p={p} risk={risk} level={level} delta={delta} reasons={reasons.map((r) => r.label + ' ' + r.change.replace(' vs usual', ''))} />
+              <Row key={p.id} p={p} risk={risk} level={level} delta={delta} reasons={reasons.map((r) => r.label + ' ' + r.change)} />
             ))}
             {!shown.length && <tr><td colSpan={6} className="empty">No patients match.</td></tr>}
           </tbody>
@@ -102,6 +126,20 @@ export default function Patients() {
           </footer>
         )}
       </section>
+      {askOld && (
+        <div className="scrim" onClick={() => setAskOld(false)}>
+          <div className="dialog wide" role="alertdialog" aria-modal aria-labelledby="oldtitle" onClick={(e) => e.stopPropagation()}>
+            <header><h3 id="oldtitle">Download a previous report?</h3><button className="icon-btn" onClick={() => setAskOld(false)} aria-label="Close"><Icon name="x" /></button></header>
+            <p>You’re viewing the clinic as of <b>{fmtLong(S.day)}</b>. Are you sure you want to download the previous biweekly report (<b>{viewed.range}</b>)?</p>
+            <p className="muted small">As of today, the latest report covers {latest.range}.</p>
+            <footer>
+              <button className="btn" onClick={() => startDownload(TODAY_DAY)}>Download latest instead</button>
+              <button className="btn primary" onClick={() => startDownload(S.day)}><Icon name="download" size={15} /> Yes, download it</button>
+            </footer>
+          </div>
+        </div>
+      )}
+      {pdfEnd != null && <div className="offscreen" aria-hidden><ReportPaper end={pdfEnd} paperRef={paper} /></div>}
       <p className="muted small">The score (0–100) is an explainable early-warning heuristic built from each person’s own baseline. It is not a diagnosis. Only patients who consented to share appear here.</p>
     </div>
   );

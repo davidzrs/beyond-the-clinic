@@ -3,6 +3,8 @@ import { DAYS, fmtDate, fmtLong, LEVEL, levelOf, phqBand, riskAt, SIGNALS, signa
 import { go, useStore } from '../store';
 import { Avatar, Card, Hint, Icon, LevelPill } from '../components/ui';
 import { LineChart } from '../components/Charts';
+import { AddToCalendar } from '../components/Calendar';
+import { DateTimePicker } from '../components/DateTimePicker';
 
 const SHOWN: SignalKey[] = ['sleepHours', 'restingHr', 'hrvRmssd', 'morningSteps', 'screenMinutes', 'messagesSent', 'mood', 'lateNightScreenMinutes'];
 
@@ -72,14 +74,14 @@ export default function Patient({ p, openCall }: { p: P; openCall: boolean }) {
           {day < DAYS && <p className="muted small">Viewing as of {fmtLong(day)}. Later days are shaded.</p>}
         </Card>
 
-        <Card title="Why the score moved" sub="This week compared with this person’s usual">
+        <Card title="Why the score moved" sub="This week, compared with this person’s usual">
           {reasons.length ? (
             <ul className="reasons">
               {reasons.map((r) => (
                 <li key={r.key}>
-                  <div><b>{r.label}</b><span>{r.change}</span></div>
-                  <div className="zbar" title={`${r.z.toFixed(1)} SD from usual`}><i style={{ width: Math.min(100, (Math.abs(r.z) / 4) * 100) + '%' }} /></div>
-                  <span className="muted small">{Math.abs(r.z).toFixed(1)} SD from usual</span>
+                  <b>{r.text}</b>
+                  <div className="zbar"><i style={{ width: Math.min(100, (Math.abs(r.z) / 4) * 100) + '%' }} /></div>
+                  <span className="muted small">{Math.abs(r.z).toFixed(1)}× their usual day-to-day swing</span>
                 </li>
               ))}
             </ul>
@@ -119,16 +121,16 @@ export default function Patient({ p, openCall }: { p: P; openCall: boolean }) {
           </ul>
         </Card>
 
-        <Card title="Calls" sub="Mellow tells the patient a call is coming, in plain words.">
+        <Card title="Calls" sub="Visible to the care team only">
           <ul className="calls">
-            {calls.map((c) => <li key={c.id}><Icon name="clock" size={16} /><div><b>{c.when}</b><span className="muted small">{c.reason}</span></div><button className="link" onClick={() => S.cancelCall(c.id)}>Cancel</button></li>)}
+            {calls.map((c) => <li key={c.id}><Icon name="clock" size={16} /><div><b>{c.when}</b><span className="muted small">{c.reason}</span><AddToCalendar call={c} patientName={p.name} /></div><button className="link" onClick={() => S.cancelCall(c.id)}>Cancel</button></li>)}
             {!calls.length && <li className="muted small">No call scheduled.</li>}
           </ul>
           <button className="btn" onClick={() => setCalling(true)}><Icon name="phone" size={15} /> Schedule a call</button>
         </Card>
       </div>
 
-      {calling && <CallDialog p={p} reasons={reasons.map((r) => r.label + ' ' + r.change)} onClose={() => setCalling(false)} />}
+      {calling && <CallDialog p={p} reasons={reasons.map((r) => r.text)} onClose={() => setCalling(false)} />}
     </div>
   );
 }
@@ -153,12 +155,14 @@ function SignalTile({ p, k, day }: { p: P; k: SignalKey; day: number }) {
   const worse = z == null ? 0 : def.worse === 'both' ? Math.abs(z) : def.worse === 'up' ? z : -z;
   const flag = worse >= 1.6 ? 'off' : worse >= 1 ? 'drift' : 'ok';
   const dir = (z ?? 0) >= 0 ? 'up' : 'down';
-  const chip = flag === 'off' ? (dir === 'up' ? 'Above usual' : 'Below usual') : flag === 'drift' ? (dir === 'up' ? 'Drifting up' : 'Drifting down') : 'Usual';
+  // Far out in the harmless direction (e.g. many more steps): say so, but without a warning colour.
+  const harmless = flag === 'ok' && z != null && Math.abs(z) >= 1;
+  const chip = flag === 'off' ? (dir === 'up' ? 'Above usual' : 'Below usual') : flag === 'drift' ? (dir === 'up' ? 'Drifting up' : 'Drifting down') : harmless ? (dir === 'up' ? 'Higher than usual' : 'Lower than usual') : 'Usual';
   return (
     <div className={'sig sig-' + flag}>
       <div className="sig-head">
         <span>{def.label}</span>
-        <Hint className={'sig-flag ' + flag} tip={<><b>{chip}</b><span>{FLAG_HELP[flag]}</span></>}>{chip}</Hint>
+        <Hint className={'sig-flag ' + flag} tip={<><b>{chip}</b><span>{harmless ? 'Outside the usual range, in a harmless direction.' : FLAG_HELP[flag]}</span></>}>{chip}</Hint>
       </div>
       <div className="sig-val">
         <b>{recent != null ? def.fmt(recent) : '—'}</b>
@@ -191,12 +195,9 @@ const FLAG_HELP = {
 const ZONE_NAME = { ok: 'Usual', drift: 'Drifting', off: 'Outside usual' } as const;
 
 function RangeGauge({ z, def, base, sd, recent }: { z: number; def: SignalDef; base: number; sd: number; recent: number }) {
-  const worse = def.worse;
-  // Moving in the harmless direction (e.g. more steps) still counts as usual, so that side is all grey.
-  const segs: [number, number, keyof typeof ZONE_NAME][] =
-    worse === 'down' ? [[-3, -1.6, 'off'], [-1.6, -1, 'drift'], [-1, 3, 'ok']]
-    : worse === 'up' ? [[-3, 1, 'ok'], [1, 1.6, 'drift'], [1.6, 3, 'off']]
-    : [[-3, -1.6, 'off'], [-1.6, -1, 'drift'], [-1, 1, 'ok'], [1, 1.6, 'drift'], [1.6, 3, 'off']];
+  const segs: [number, number, keyof typeof ZONE_NAME][] = [[-3, -1.6, 'off'], [-1.6, -1, 'drift'], [-1, 1, 'ok'], [1, 1.6, 'drift'], [1.6, 3, 'off']];
+  // Both sides show where drifting / outside usual would start. The harmless side (e.g. more steps) is paler: it's never flagged.
+  const harmless = (a: number) => def.worse !== 'both' && (a < 0 ? def.worse === 'up' : def.worse === 'down') && a !== -1;
   const at = (k: number) => Math.min(def.max ?? Infinity, Math.max(def.min ?? -Infinity, base + k * sd));
   // the zone in real units: "below 649 steps", "649–973 steps", "above 2,362 steps"
   const zone = (a: number, b: number) => (a <= -3 ? 'Below ' + def.fmt(at(b)) : b >= 3 ? 'Above ' + def.fmt(at(a)) : def.range(at(a), at(b)));
@@ -205,7 +206,7 @@ function RangeGauge({ z, def, base, sd, recent }: { z: number; def: SignalDef; b
   return (
     <div className="gauge" role="img" aria-label={def.label + ': ' + swing}>
       {segs.map(([a, b, kind]) => (
-        <Hint key={a} className={'g-seg g-' + kind} style={{ width: ((b - a) / 6) * 100 + '%' }}
+        <Hint key={a} className={'g-seg g-' + kind + (harmless(a) ? ' soft' : '')} style={{ width: ((b - a) / 6) * 100 + '%' }}
           tip={<><b>{ZONE_NAME[kind]}</b><span>{zone(a, b)}</span></>} />
       ))}
       <Hint className="g-dot" style={{ left: pos + '%' }}
@@ -227,21 +228,40 @@ function NoteBox({ onAdd }: { onAdd: (t: string) => void }) {
 function CallDialog({ p, reasons, onClose }: { p: P; reasons: string[]; onClose: () => void }) {
   const S = useStore();
   const base = new Date(); base.setMinutes(0, 0, 0);
-  const slots = [1, 3, 24, 26, 48].map((h) => { const d = new Date(base.getTime() + h * 3600e3); if (d.getHours() < 9) d.setHours(9); if (d.getHours() > 17) { d.setDate(d.getDate() + 1); d.setHours(9); } return d; })
-    .map((d) => d.toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }));
-  const uniq = [...new Set(slots)];
-  const [slot, setSlot] = useState(uniq[0]);
-  const [reason, setReason] = useState(reasons.length ? 'Check-in: ' + reasons.slice(0, 2).join(', ') : 'Routine check-in');
+  const dates = [1, 3, 24, 26, 48].map((h) => { const d = new Date(base.getTime() + h * 3600e3); if (d.getHours() < 9) d.setHours(9); if (d.getHours() > 17) { d.setDate(d.getDate() + 1); d.setHours(9); } return d; });
+  const label = (d: Date) => d.toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const uniq = [...new Set(dates.map(label))];
+  const [slot, setSlot] = useState<string>(uniq[0]); // a suggested time, or 'own'
+  const [own, setOwn] = useState<Date | null>(null); // time picked in the calendar
+  // the reason box grows with its text, so 2–3 lines stay readable
+  const grow = (el: HTMLTextAreaElement | null) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 2 + 'px'; } };
+  const lc = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
+  const [reason, setReason] = useState(reasons.length ? `Check in about ${reasons.slice(0, 2).map(lc).join(' and ')}` : 'Routine check-in');
+  const ownBad = slot === 'own' && (!own || own.getTime() < Date.now());
+  const chosen = slot === 'own' ? own : dates.find((d) => label(d) === slot) ?? null;
+  const schedule = () => {
+    if (!chosen || ownBad) return;
+    const l = label(chosen);
+    S.addCall(p.id, l, reason, chosen.toISOString()); S.say('Call scheduled · ' + l); onClose();
+  };
   return (
     <div className="scrim" onClick={onClose}>
-      <div className="dialog" role="dialog" aria-modal aria-labelledby="calltitle" onClick={(e) => e.stopPropagation()}>
+      <div className="dialog wide" role="dialog" aria-modal aria-labelledby="calltitle" onClick={(e) => e.stopPropagation()}>
         <header><h3 id="calltitle">Schedule a call with {p.name}</h3><button className="icon-btn" onClick={onClose} aria-label="Close"><Icon name="x" /></button></header>
-        <p className="muted small">The patient gets a gentle heads-up in Mellow: “Your care team would like to check in.”</p>
-        <div className="slots">{uniq.map((s) => <button key={s} className={'slot' + (s === slot ? ' on' : '')} onClick={() => setSlot(s)}>{s}</button>)}</div>
-        <label>Reason (shown to the care team)<input value={reason} onChange={(e) => setReason(e.target.value)} /></label>
+        <div className="slots">
+          {uniq.map((s) => <button key={s} className={'slot' + (s === slot ? ' on' : '')} onClick={() => setSlot(s)}>{s}</button>)}
+          <button className={'slot pick' + (slot === 'own' ? ' on' : '')} onClick={() => setSlot('own')}>
+            <Icon name="calendar" size={15} /> Pick another time
+          </button>
+        </div>
+        {slot === 'own' && <DateTimePicker value={own} onChange={setOwn} />}
+        <label className="reason-field">
+          <span>Reason for the call <em>Only the care team sees this</em></span>
+          <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2} ref={grow} onInput={(e) => grow(e.currentTarget)} />
+        </label>
         <footer>
           <button className="btn" onClick={onClose}>Cancel</button>
-          <button className="btn primary" onClick={() => { S.addCall(p.id, slot, reason); S.say('Call scheduled · ' + slot); onClose(); }}><Icon name="phone" size={15} /> Schedule</button>
+          <button className="btn primary" onClick={schedule} disabled={!chosen || ownBad}><Icon name="phone" size={15} /> Schedule{chosen && !ownBad ? ' · ' + label(chosen) : ''}</button>
         </footer>
       </div>
     </div>

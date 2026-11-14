@@ -270,8 +270,6 @@ code { background: var(--line-2); padding: 1px 6px; border-radius: 6px; font-siz
 /* reasons */
 .reasons { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
 .reasons li { display: grid; gap: 5px; }
-.reasons li > div:first-child { display: flex; justify-content: space-between; gap: 10px; }
-.reasons li > div:first-child span { font-weight: 700; font-variant-numeric: tabular-nums; }
 .zbar { height: 6px; border-radius: 3px; background: var(--line-2); overflow: hidden; }
 .zbar i { display: block; height: 100%; border-radius: 3px; background: var(--navy); }
 .consent { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; color: var(--ink-2); background: var(--surface-2); border-radius: 10px; padding: 10px 12px; margin-top: auto; }
@@ -299,6 +297,8 @@ code { background: var(--line-2); padding: 1px 6px; border-radius: 6px; font-siz
 .gauge { position: relative; display: flex; gap: 2px; height: 8px; margin: 6px 0 2px; }
 .g-seg { display: block; height: 100%; border-radius: 2px; position: relative; cursor: help; }
 .g-seg:hover { filter: brightness(0.93); }
+.g-drift.soft { background: #fbefcf; }
+.g-off.soft { background: #f9e0e0; }
 .g-ok { background: #cdd6e2; }
 .g-drift { background: #f6dc9c; }
 .g-off { background: #f2b9b9; }
@@ -377,9 +377,14 @@ code { background: var(--line-2); padding: 1px 6px; border-radius: 6px; font-siz
 .dialog header { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .dialog label { display: grid; gap: 6px; font-size: 13px; font-weight: 700; color: var(--ink-2); }
 .dialog footer { display: flex; justify-content: flex-end; gap: 10px; }
+.dialog.wide { width: min(600px, 100%); max-height: calc(100vh - 40px); overflow-y: auto; }
+.dialog footer .btn { white-space: nowrap; }
 .slots { display: flex; flex-wrap: wrap; gap: 8px; }
 .slot { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 8px 12px; font-weight: 700; font-size: 13.5px; }
 .slot.on { border-color: var(--navy); background: var(--navy); color: #fff; }
+.slot.pick { display: inline-flex; align-items: center; gap: 6px; border-style: dashed; }
+.slot.pick.on { border-style: solid; }
+.reasons li > b { font-weight: 700; font-size: 14.5px; }
 .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--navy); color: #fff; padding: 11px 18px; border-radius: 12px; font-weight: 700; font-size: 14px; box-shadow: 0 10px 30px rgba(16, 22, 48, 0.3); z-index: 30; animation: rise 0.2s ease; }
 @keyframes fade { from { opacity: 0; } }
 @keyframes rise { from { opacity: 0; transform: translate(-50%, 8px); } }
@@ -453,3 +458,60 @@ code { background: var(--line-2); padding: 1px 6px; border-radius: 6px; font-siz
 .sig-flag.hint { position: relative; cursor: help; }
 .sig-flag .hint-pop { left: auto; right: -6px; transform: none; }
 .sig-flag .hint-pop::after { left: auto; right: 18px; }
+
+/* add to calendar */
+.cal { position: relative; display: inline-block; }
+.cal-btn { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; padding: 2px 0; }
+.cal-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 15; display: grid; min-width: 220px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 12px 30px rgba(22, 35, 58, 0.16); padding: 6px; animation: fade 0.12s ease; }
+.cal-menu a, .cal-menu button { display: block; text-align: left; padding: 8px 10px; border-radius: 8px; border: 0; background: none; color: var(--ink); text-decoration: none; font-size: 13.5px; font-weight: 600; }
+.cal-menu a:hover, .cal-menu button:hover { background: var(--line-2); }
+.calls.big .cal-menu { left: auto; right: 0; }
+/* the report rendered off-screen for "Download last biweekly report" */
+.offscreen { position: fixed; left: -10000px; top: 0; width: 794px; pointer-events: none; }
+.offscreen .paper { box-shadow: none; }
+.page-head .btn { flex: none; }
+
+/* date & time picker (schedule a call) */
+.dtp { display: grid; grid-template-columns: minmax(0, 1fr) 190px; gap: 18px; border: 1px solid var(--line); border-radius: 14px; padding: 14px; background: var(--surface-2); animation: fade 0.15s ease; }
+.dtp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.dtp-head b { font-family: var(--display); font-weight: 600; font-size: 15px; }
+.dtp-head .icon-btn:disabled { opacity: 0.3; cursor: default; background: none; }
+.dtp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.dtp-wd { text-align: center; font-size: 11.5px; font-weight: 700; color: var(--muted); padding: 2px 0 4px; }
+.dtp-day { height: 34px; border: 0; border-radius: 9px; background: none; font-weight: 600; font-size: 13.5px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.dtp-day:hover:not(:disabled) { background: var(--sky-soft); }
+.dtp-day.wkend { color: var(--ink-2); }
+.dtp-day.out { color: var(--muted); }
+.dtp-day.off { color: #c3ccd8; cursor: default; }
+.dtp-day.today { box-shadow: inset 0 0 0 1.5px var(--sky); }
+.dtp-day.on { background: var(--navy); color: #fff; box-shadow: none; }
+.dtp-side { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; border-left: 1px solid var(--line); padding-left: 14px; }
+.dtp-label { font-size: 13px; font-weight: 700; color: var(--ink-2); text-align: center; }
+.dtp-clock { display: flex; align-items: center; gap: 6px; }
+.dtp-colon { font-family: var(--display); font-size: 30px; font-weight: 600; color: var(--ink-2); padding-bottom: 4px; }
+.spin { display: grid; justify-items: center; gap: 4px; }
+.spin button { width: 64px; height: 26px; border: 0; border-radius: 8px; background: none; color: var(--ink-2); display: grid; place-items: center; }
+.spin button:hover { background: var(--line-2); color: var(--ink); }
+.spin button:first-child svg { transform: rotate(90deg); }
+.spin button:last-child svg { transform: rotate(-90deg); }
+.spin input { width: 64px; height: 58px; text-align: center; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); font-family: var(--display); font-size: 30px; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; caret-color: var(--sky); }
+.spin input:focus { outline: 2px solid var(--sky); outline-offset: 0; border-color: transparent; }
+.dtp-hint { font-size: 12px; color: var(--muted); text-align: center; }
+.dtp-hint.bad { color: var(--high); font-weight: 700; }
+/* reason box */
+.reason-field > span { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.reason-field em { font-style: normal; font-weight: 600; font-size: 12px; color: var(--muted); }
+.reason-field textarea { width: 100%; min-height: 64px; max-height: 160px; resize: none; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--surface-2); font-size: 14.5px; line-height: 1.45; font-weight: 500; color: var(--ink); overflow-y: auto; }
+@media (max-width: 640px) { .dtp { grid-template-columns: 1fr; } .dtp-side { border-left: 0; padding-left: 0; border-top: 1px solid var(--line); padding-top: 12px; } }
+
+/* date button in the top bar */
+.datebtn { position: relative; display: inline-flex; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 1px 2px rgba(22, 35, 58, 0.05); padding: 2px; }
+.datebtn-step { width: 30px; height: 32px; border: 0; background: none; border-radius: 9px; color: var(--ink-2); display: grid; place-items: center; }
+.datebtn-step:hover:not(:disabled) { background: var(--line-2); color: var(--ink); }
+.datebtn-step:disabled { opacity: 0.3; cursor: default; }
+.datebtn-main { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; border: 0; border-radius: 9px; background: none; font-weight: 700; font-size: 14px; color: var(--ink); }
+.datebtn-main svg { color: var(--sky-deep); }
+.datebtn-main:hover, .datebtn-main.open { background: var(--sky-soft); }
+.datebtn-main em { font-style: normal; font-size: 11px; font-weight: 700; color: var(--pine); background: var(--steady-bg); padding: 1px 7px; border-radius: 6px; }
+.datepop { position: absolute; top: calc(100% + 8px); left: 0; z-index: 30; width: 292px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 18px 44px rgba(22, 35, 58, 0.18); padding: 14px; animation: fade 0.12s ease; }
+.datepop-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line-2); }

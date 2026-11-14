@@ -1,6 +1,7 @@
 import { byId, levelOf, riskAt } from '../data';
 import { go, useStore } from '../store';
 import { Avatar, Card, Icon, LevelPill } from '../components/ui';
+import { AddToCalendar } from '../components/Calendar';
 
 export default function Calls() {
   const S = useStore();
@@ -25,6 +26,7 @@ export default function Calls() {
                   <div className="grow"><b className="linkish" onClick={() => go('/patients/' + p.id)}>{p.name}</b><span className="muted small">{c.reason}</span></div>
                   <LevelPill level={lv} />
                   <span className="when"><Icon name="clock" size={15} /> {c.when}</span>
+                  <AddToCalendar call={c} patientName={p.name} />
                   <button className="link" onClick={() => S.cancelCall(c.id)}>Cancel</button>
                 </li>
               );

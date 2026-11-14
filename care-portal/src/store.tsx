@@ -21,7 +21,7 @@ const sessLoad = () => { try { const v = sessionStorage.getItem('mellowcare.sess
 
 export type Clinician = { name: string; role: string; email: string; clinic: string };
 export type Note = { id: string; patientId: string; text: string; at: number; author: string };
-export type Call = { id: string; patientId: string; when: string; reason: string; createdAt: number };
+export type Call = { id: string; patientId: string; when: string; at?: string; reason: string; createdAt: number }; // at = start time (ISO)
 
 export const DEMO_ACCOUNTS: (Clinician & { password: string })[] = [
   { name: 'Dr. Laura Aalto', role: 'Psychiatrist', email: 'laura.aalto@pinehollow.fi', clinic: 'Pinehollow Clinic · TMS maintenance', password: 'mellow' },
@@ -32,7 +32,7 @@ type Store = {
   user: Clinician | null; signIn: (email: string, password: string) => boolean; signOut: () => void;
   day: number; setDay: (d: number) => void;
   notes: Note[]; addNote: (patientId: string, text: string) => void;
-  calls: Call[]; addCall: (patientId: string, when: string, reason: string) => void; cancelCall: (id: string) => void;
+  calls: Call[]; addCall: (patientId: string, when: string, reason: string, at?: string) => void; cancelCall: (id: string) => void;
   reviewed: Record<string, number>; markReviewed: (patientId: string) => void;
   toast: string | null; say: (m: string) => void;
 };
@@ -66,7 +66,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const value = useMemo<Store>(() => ({
     user, signIn, signOut, day, setDay,
     notes, addNote: (patientId, text) => setNotes((n) => [{ id: uid(), patientId, text, at: Date.now(), author: user?.name ?? 'Clinician' }, ...n]),
-    calls, addCall: (patientId, when, reason) => setCalls((c) => [...c, { id: uid(), patientId, when, reason, createdAt: Date.now() }]),
+    calls, addCall: (patientId, when, reason, at) => setCalls((c) => [...c, { id: uid(), patientId, when, at, reason, createdAt: Date.now() }]),
     cancelCall: (id) => setCalls((c) => c.filter((x) => x.id !== id)),
     reviewed, markReviewed: (patientId) => setReviewed((r) => ({ ...r, [patientId]: Date.now() })),
     toast, say,
