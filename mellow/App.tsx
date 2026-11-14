@@ -51,7 +51,7 @@ function Shell() {
   const [topNav, setTopNavS] = useState(false);
   useEffect(() => { AsyncStorage.getItem('mellow.topNav').then((v) => setTopNavS(v === '1')).catch(() => {}); }, []);
   const setTopNav = (v: boolean) => { setTopNavS(v); AsyncStorage.setItem('mellow.topNav', v ? '1' : '0').catch(() => {}); };
-  const navOn = (k: Route) => S.route === k || (S.lastTab === k && !NAV.some(([n]) => n === S.route));
+  const navOn = (k: Route) => S.route === k || (S.backTo === k && !NAV.some(([n]) => n === S.route));
 
   return (
     <View style={[st.root, { paddingTop: full && !wide ? 0 : insets.top }, !wide && !full && { backgroundColor: C.navyDeep }]}>
