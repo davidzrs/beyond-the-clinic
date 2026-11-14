@@ -9,6 +9,8 @@ import { useAuth } from './auth';
 import * as sync from './lib/sync';
 
 export type Route = 'home' | 'campfire' | 'journey' | 'games' | 'nono' | 'sight' | 'hotel' | 'wardrobe' | 'clinic' | 'insights';
+export type Privacy = { sleep: boolean; steps: boolean; screen: boolean; care: boolean; code: string };
+const NO_PRIVACY: Privacy = { sleep: false, steps: false, screen: false, care: false, code: '' };
 export type ModalState = null | { type: string; [k: string]: any };
 const ROUTES: Route[] = ['home', 'campfire', 'journey', 'games', 'nono', 'sight', 'hotel', 'wardrobe', 'clinic', 'insights'];
 export const TABS: Route[] = ['home', 'campfire', 'journey', 'games'];
@@ -188,6 +190,11 @@ function useAppState() {
   // Crisis alerts to the care team: null = not asked yet, then the person's answer.
   const [consent, setConsent] = useState<boolean | null>(null);
   const answerConsent = (yes: boolean) => { setConsent(yes); if (uid) sync.saveCrisisConsent(uid, yes); };
+  // What Mellow may read (sleep, steps, screen time) and the clinic summary: asked in the onboarding,
+  // changed under Support. Kept on this device for now.
+  const [privacy, setPrivacyS] = useState<Privacy>(NO_PRIVACY);
+  useEffect(() => { AsyncStorage.getItem('mellow.privacy').then((v) => { if (v) { try { setPrivacyS({ ...NO_PRIVACY, ...JSON.parse(v) }); } catch {} } }).catch(() => {}); }, []);
+  const setPrivacy = (p: Partial<Privacy>) => setPrivacyS((prev) => { const n = { ...prev, ...p }; AsyncStorage.setItem('mellow.privacy', JSON.stringify(n)).catch(() => {}); return n; });
 
   // Signed in: the campfire chat is the real one, read from Supabase and kept live.
   const [chatPeople, setChatPeople] = useState<Record<string, { name: string; a: Avatar }>>({});
@@ -417,7 +424,7 @@ function useAppState() {
   const nextCheckin = addDays(fromYmd(plan.start), PLAN_DAYS - 1);
   const checkinIn = Math.max(0, PLAN_DAYS - 1 - planDay);
 
-  return { uid, email: session?.user.email || null, signOut, campfireId, campfireName, campfireCode, fireCount: uid ? mates.length + 1 : 4, fires, selectFire, joinCampfire, createFire, leaveFire, resetN, resetDemo, skyOverride, streak, streakCount, answerMood, showDaily, moodLoaded: moodLoaded && obLoaded, onboarding, startOnboarding, finishOnboarding, dismissDaily: () => setDailyDismissed(true), lastTab, back, backTo, checkins, saveCheckin, plan, adoptPlan, planDone, doTask, undoTask, planDay, checkinDue, nextCheckin, checkinIn, route, go, avatar, setAvatar, mood, setMood, embers, coop, quests, questState, doQuest, swapQuest, actDone, finishAct, puzzleSolvedToday, puzzleCount, solvePuzzle, tutorials, tutorialsLoaded, markTutorialSeen, actLog, chat, chatPeople, votes, castVote, consent, answerConsent, sendChat, sending, strikes, chatBanned: strikes >= sync.MAX_STRIKES, chatWarning, bubbles, members, modal, setModal, toastMsg, toast, hopId, wave, talkReminder, setTalkReminder, chatDraft, setChatDraft, chatOpenN, openChat, messageAt: (name: string) => openChat('@' + name + ' '), demoDay, setDemoDay };
+  return { uid, email: session?.user.email || null, signOut, campfireId, campfireName, campfireCode, fireCount: uid ? mates.length + 1 : 4, fires, selectFire, joinCampfire, createFire, leaveFire, resetN, resetDemo, skyOverride, streak, streakCount, answerMood, showDaily, moodLoaded: moodLoaded && obLoaded, onboarding, startOnboarding, finishOnboarding, dismissDaily: () => setDailyDismissed(true), lastTab, back, backTo, checkins, saveCheckin, plan, adoptPlan, planDone, doTask, undoTask, planDay, checkinDue, nextCheckin, checkinIn, route, go, avatar, setAvatar, mood, setMood, embers, coop, quests, questState, doQuest, swapQuest, actDone, finishAct, puzzleSolvedToday, puzzleCount, solvePuzzle, tutorials, tutorialsLoaded, markTutorialSeen, actLog, chat, chatPeople, votes, castVote, consent, answerConsent, privacy, setPrivacy, sendChat, sending, strikes, chatBanned: strikes >= sync.MAX_STRIKES, chatWarning, bubbles, members, modal, setModal, toastMsg, toast, hopId, wave, talkReminder, setTalkReminder, chatDraft, setChatDraft, chatOpenN, openChat, messageAt: (name: string) => openChat('@' + name + ' '), demoDay, setDemoDay };
 }
 
 export type AppState = ReturnType<typeof useAppState>;

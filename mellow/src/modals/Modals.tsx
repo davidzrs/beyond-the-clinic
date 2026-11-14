@@ -11,6 +11,7 @@ import { useLayout } from '../layout';
 import { JoinWithCode } from '../components/JoinWithCode';
 import { FiresList } from '../components/FiresList';
 import { CheckinFlow, PlanCalendar, Report } from './Checkin';
+import { PrivacySettings, privacySummary } from '../components/Privacy';
 import { fromYmd, niceDate } from '../checkin';
 
 function Sheet({ title, eyebrow, onClose, children }: { title: string; eyebrow?: string; onClose: () => void; children: React.ReactNode }) {
@@ -169,14 +170,17 @@ export function ModalHost() {
           <View style={st.sup}><Text style={st.supT}>If you’re in danger right now</Text><T style={{ color: C.creamDim, fontSize: 14 }}>Call your local emergency number. In Finland and across the EU that’s 112.</T></View>
           <View style={st.sup}><Text style={st.supT}>Your care team</Text><T style={{ color: C.creamDim, fontSize: 14 }}>Your clinic can see the check-ins you chose to share. You can ask them for a call.</T><Btn label="Request a call" kind="ghost" sm onPress={() => { S.toast('Prototype: your clinic would get a call request.'); close(); }} /></View>
           <View style={st.sup}><Text style={st.supT}>Something calming, right now</Text><Btn label="Breathe with the flame" kind="plum" sm onPress={() => S.setModal({ type: 'breathe' })} /></View>
-          {S.uid ? (
-            <View style={st.sup}>
-              <Text style={st.supT}>Crisis alerts</Text>
-              <T style={{ color: C.creamDim, fontSize: 14 }}>{S.consent ? 'On: if a chat message sounds like a crisis, your care team is told that it happened (never what you wrote).' : 'Off: your care team isn’t told when a chat message sounds like a crisis.'}</T>
-              <Btn label={S.consent ? 'Turn off' : 'Turn on'} kind="ghost" sm onPress={() => S.answerConsent(!S.consent)} />
-            </View>
-          ) : null}
+          <View style={st.sup}>
+            <Text style={st.supT}>Privacy and sharing</Text>
+            <T style={{ color: C.creamDim, fontSize: 14 }}>{privacySummary(S.privacy, S.consent)}</T>
+            <Btn label="Change what’s shared" kind="ghost" sm icon="key" onPress={() => S.setModal({ type: 'privacy' })} />
+          </View>
         </View>
+      </Sheet>
+    );
+    case 'privacy': return (
+      <Sheet title="Privacy and sharing" eyebrow="Support" onClose={() => S.setModal({ type: 'support' })}>
+        <PrivacySettings />
       </Sheet>
     );
     default: return null;

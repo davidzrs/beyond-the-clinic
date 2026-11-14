@@ -3,7 +3,7 @@
 // does change is your marshmallow and your first 2-week plan, built from the things you picked.
 // Steps: welcome → 6 questions in 3 parts (a checkpoint closes each part) → matching → your campfire → your first week.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, BackHandler, Easing, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Animated, BackHandler, Easing, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,6 +11,7 @@ import { useApp } from '../state';
 import { C, F, themed, themeMode } from '../theme';
 import { CampScene, Icon, Mallow } from './Pixel';
 import { ThemeToggle } from './ThemeToggle';
+import { PrivacySettings } from './Privacy';
 import { addDays, AREAS, buildPlan } from '../checkin';
 import { Avatar, COLORS } from '../pixel/sprites';
 
@@ -58,11 +59,6 @@ const TIMES: (Opt & { at: string; word: string })[] = [
   { id: 'evening', e: '🌆', t: 'Evenings', at: '19:30', word: 'evenings' },
   { id: 'late', e: '🌙', t: 'Late at night', at: '22:00', word: 'late evenings' },
 ];
-const SIGNALS: Opt[] = [
-  { id: 'sleep', e: '🛌', t: 'Sleep and heart rate', s: 'From your watch or phone' },
-  { id: 'steps', e: '👣', t: 'Steps', s: 'How much you move in a day' },
-  { id: 'screen', e: '📱', t: 'Screen time', s: 'Daily totals only, never which apps' },
-];
 const HAT_PICK = ['none', 'beanie', 'cap', 'sprout', 'bucket', 'crown'];
 // What the demo campfire friends are into, to show what you have in common.
 const TAGS: Record<string, string[]> = { juno: ['music', 'puzzles', 'reading'], teo: ['walks', 'cooking'], ama: ['making', 'tea', 'films'] };
@@ -91,9 +87,6 @@ function Flow() {
   const [style, setStyle] = useState<string | null>(null);
   const [time, setTime] = useState<string | null>(null);
   const [look, setLook] = useState<Avatar>(S.avatar);
-  const [signals, setSignals] = useState<Record<string, boolean>>({});
-  const [care, setCare] = useState(false);
-  const [code, setCode] = useState('');
   const [found, setFound] = useState(0); // matching: how many lines are ticked
   const [hop, setHop] = useState(false);
   const cheer = () => { buzz(); setHop(true); setTimeout(() => setHop(false), 460); };
@@ -135,7 +128,7 @@ function Flow() {
   };
   const finish = (skipped = false) => {
     buzz();
-    S.finishOnboarding(skipped ? { answers: null } : { answers: { stage, needs, likes, style, time, signals, care, code: code.trim() || null }, plan });
+    S.finishOnboarding(skipped ? { answers: null } : { answers: { stage, needs, likes, style, time, privacy: S.privacy, crisisAlerts: !!S.consent }, plan });
   };
   const next = () => {
     if (step === 'look' && JSON.stringify(look) !== JSON.stringify(S.avatar)) S.setAvatar(look);
@@ -232,36 +225,7 @@ function Flow() {
   else if (step === 'signals') body = (
     <>
       <Say a={look} hop={hop} text="Can Mellow notice the small things?" sub="Sleep and movement often change before mood does. Turn on only what you’re comfortable with." />
-      <View style={st.card}>
-        <Text style={st.cardH}>From your phone or watch</Text>
-        {SIGNALS.map((o, k) => (
-          <Pressable key={o.id} onPress={() => { setSignals({ ...signals, [o.id]: !signals[o.id] }); buzz(); }} accessibilityRole="switch" accessibilityState={{ checked: !!signals[o.id] }}
-            style={[st.sigRow, k > 0 && st.sigLine]}>
-            <Text style={st.sigE}>{o.e}</Text>
-            <View style={{ flex: 1 }}><Text style={st.optT}>{o.t}</Text><Text style={st.optS}>{o.s}</Text></View>
-            <Toggle on={!!signals[o.id]} />
-          </Pressable>
-        ))}
-      </View>
-      <View style={st.card}>
-        <Text style={st.cardH}>Your care team</Text>
-        <Pressable onPress={() => { setCare(!care); buzz(); }} accessibilityRole="switch" accessibilityState={{ checked: care }} style={st.sigRow}>
-          <Text style={st.sigE}>🩺</Text>
-          <View style={{ flex: 1 }}><Text style={st.optT}>Share a summary with my clinic</Text><Text style={st.optS}>Every 2 weeks: check-ins, sleep and mood trends. Never your chats.</Text></View>
-          <Toggle on={care} />
-        </Pressable>
-        {care ? (
-          <View style={{ gap: 6, paddingTop: 4 }}>
-            <Text style={st.optS}>Got a code from your clinic? (optional)</Text>
-            <TextInput value={code} onChangeText={(v) => setCode(v.toUpperCase())} placeholder="e.g. HELS-2041" placeholderTextColor={C.muted}
-              autoCapitalize="characters" autoCorrect={false} maxLength={12} style={st.input} />
-          </View>
-        ) : null}
-      </View>
-      <View style={st.privacy}>
-        <Ionicons name="lock-closed-outline" size={16} color={C.muted} />
-        <Text style={st.privacyT}>Mellow only compares you with your own normal. Your campfire never sees any of this.</Text>
-      </View>
+      <PrivacySettings />
     </>
   );
   else if (step === 'match') {
@@ -466,15 +430,6 @@ function Tile({ o, on, onPress }: { o: Opt; on: boolean; onPress: () => void }) 
   );
 }
 
-function Toggle({ on }: { on: boolean }) {
-  const x = useRef(new Animated.Value(on ? 1 : 0)).current;
-  useEffect(() => { Animated.timing(x, { toValue: on ? 1 : 0, duration: 160, easing: Easing.out(Easing.quad), useNativeDriver: ND }).start(); }, [on]);
-  return (
-    <View style={[st.switch, { backgroundColor: on ? C.moss : C.night4 }]}>
-      <Animated.View style={[st.knob, { transform: [{ translateX: x.interpolate({ inputRange: [0, 1], outputRange: [0, 18] }) }] }]} />
-    </View>
-  );
-}
 
 // The bar across the top, with a checkpoint at the end of each part that pops green when you pass it.
 function Progress({ filled }: { filled: number }) {

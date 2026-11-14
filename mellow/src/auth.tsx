@@ -69,9 +69,8 @@ function AuthScreen({ onGuest, onCareTeam }: { onGuest: () => void; onCareTeam: 
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Sign-up only: the Terms must be accepted; crisis alerts to the care team are optional.
+  // Sign-up only: the Terms must be accepted. Crisis alerts and the rest of privacy are asked in the onboarding.
   const [tos, setTos] = useState(false);
-  const [crisisOk, setCrisisOk] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
 
   const submit = async () => {
@@ -87,7 +86,7 @@ function AuthScreen({ onGuest, onCareTeam }: { onGuest: () => void; onCareTeam: 
     const pending = email.trim().toLowerCase();
     if (mode === 'up') await AsyncStorage.setItem('mellow.onboard.pending', pending).catch(() => {});
     const res = mode === 'up'
-      ? await supabase.auth.signUp({ email: email.trim(), password, options: { data: { name: name.trim(), crisis_consent: crisisOk, tos_accepted_at: new Date().toISOString(), tos_version: TERMS_VERSION } } })
+      ? await supabase.auth.signUp({ email: email.trim(), password, options: { data: { name: name.trim(), tos_accepted_at: new Date().toISOString(), tos_version: TERMS_VERSION } } })
       : await supabase.auth.signInWithPassword({ email: email.trim(), password });
     setBusy(false);
     if (mode === 'up' && (res.error || !res.data.session)) AsyncStorage.removeItem('mellow.onboard.pending').catch(() => {});
@@ -121,10 +120,6 @@ function AuthScreen({ onGuest, onCareTeam }: { onGuest: () => void; onCareTeam: 
             <View style={{ gap: 4, marginTop: 10 }}>
               <Check checked={tos} onToggle={() => setTos(!tos)} label="I agree to the Terms of Service">
                 <Text style={st.checkT}>I agree to the <Text style={st.link} onPress={() => setShowTerms(true)} accessibilityRole="link">Terms of Service</Text>.</Text>
-              </Check>
-              <Check checked={crisisOk} onToggle={() => setCrisisOk(!crisisOk)} label="Let my care team know if a chat message sounds like a crisis">
-                <Text style={st.checkT}>Let my care team know if something I write in the chat sounds like a crisis.</Text>
-                <Text style={st.checkS}>Optional. They only learn that it happened and when, never what you wrote. An AI does this check; it can be wrong and never diagnoses. You can change it anytime under Support.</Text>
               </Check>
             </View>
           ) : null}
@@ -173,7 +168,7 @@ const TERMS: [string, string][] = [
   ['Mellow is not a medical service', 'Mellow helps you stay well between appointments. It doesn’t diagnose, treat or replace your care team, and it isn’t an emergency service. If you are in danger, call 112.'],
   ['Mellow uses AI', 'Some parts of Mellow are run by an AI and are always labelled as such: checking chat messages before they are posted, and Ember’s questions at the campfire. The AI can be wrong. It never gives medical advice.'],
   ['The campfire chat', 'Be kind. Messages that insult, threaten, harass, share someone else’s private details, push anyone towards self-harm, or advertise are not posted. Each one counts as a strike, and after 3 strikes you can read the chat but no longer post.'],
-  ['When a message sounds like a crisis', 'It isn’t posted. Instead you see who you can talk to right away. If you agreed to it, your care team is told that it happened and when, never what you wrote. You can change this anytime under Support.'],
+  ['When a message sounds like a crisis', 'It isn’t posted. Instead you see who you can talk to right away. If you turned on crisis alerts (asked when you join, and under Support), your care team is told that it happened and when, never what you wrote.'],
   ['Your data', 'Your check-ins and questionnaires are shared with your care team only if you chose to share them. Chat messages are only seen by the people at your campfire. You can ask us to delete your account and data at any time.'],
   ['This is a prototype', 'Mellow was built for Junction 2026. Demo patients use synthetic data. Please don’t rely on it for your care.'],
 ];
