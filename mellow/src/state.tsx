@@ -106,7 +106,7 @@ function useAppState() {
       if (m) setMood(m);
       if (fire) { setCampfireId(fire.id); setCampfireName(fire.name); setMates(fire.mates); }
       setMoodLoaded(true);
-    })();
+    })().catch(() => {}).finally(() => setMoodLoaded(true)); // never leave the start screen covered if loading fails
   }, [uid]);
 
   // Ember's polls: votes[messageId][userId] = 'a' | 'b' (mine is under 'me').
@@ -316,7 +316,7 @@ function useAppState() {
   const nextCheckin = addDays(fromYmd(plan.start), PLAN_DAYS - 1);
   const checkinIn = Math.max(0, PLAN_DAYS - 1 - planDay);
 
-  return { uid, email: session?.user.email || null, signOut, campfireId, campfireName, resetN, resetDemo, skyOverride, streak, streakCount, answerMood, showDaily, dismissDaily: () => setDailyDismissed(true), lastTab, back, backTo, checkins, saveCheckin, plan, adoptPlan, planDone, doTask, undoTask, planDay, checkinDue, nextCheckin, checkinIn, route, go, avatar, setAvatar, mood, setMood, embers, coop, quests, questState, doQuest, swapQuest, actDone, finishAct, puzzleSolvedToday, puzzleCount, solvePuzzle, tutorials, tutorialsLoaded, markTutorialSeen, actLog, chat, chatPeople, votes, castVote, consent, answerConsent, sendChat, sending, strikes, chatBanned: strikes >= sync.MAX_STRIKES, chatWarning, bubbles, members, modal, setModal, toastMsg, toast, hopId, wave, talkReminder, setTalkReminder, chatDraft, setChatDraft, chatOpenN, openChat, messageAt: (name: string) => openChat('@' + name + ' '), demoDay, setDemoDay };
+  return { uid, email: session?.user.email || null, signOut, campfireId, campfireName, resetN, resetDemo, skyOverride, streak, streakCount, answerMood, showDaily, moodLoaded, dismissDaily: () => setDailyDismissed(true), lastTab, back, backTo, checkins, saveCheckin, plan, adoptPlan, planDone, doTask, undoTask, planDay, checkinDue, nextCheckin, checkinIn, route, go, avatar, setAvatar, mood, setMood, embers, coop, quests, questState, doQuest, swapQuest, actDone, finishAct, puzzleSolvedToday, puzzleCount, solvePuzzle, tutorials, tutorialsLoaded, markTutorialSeen, actLog, chat, chatPeople, votes, castVote, consent, answerConsent, sendChat, sending, strikes, chatBanned: strikes >= sync.MAX_STRIKES, chatWarning, bubbles, members, modal, setModal, toastMsg, toast, hopId, wave, talkReminder, setTalkReminder, chatDraft, setChatDraft, chatOpenN, openChat, messageAt: (name: string) => openChat('@' + name + ' '), demoDay, setDemoDay };
 }
 
 export type AppState = ReturnType<typeof useAppState>;
