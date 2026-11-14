@@ -139,7 +139,9 @@ export function CampFull({ members, bubbles, onPick, hopId, rightInset = 0 }: { 
   const landscape = box.w > box.h * 0.85;
   const L = landscape ? LAYOUTS.wide : LAYOUTS.full;
   // Always cover the whole area (no empty bands); keep the ground in view and crop sky or sides instead.
-  const k = !box.w ? 0 : Math.max(box.w / L.W, box.h / L.H);
+  // With a side panel open the scene is centred in the free space, and drawn wide enough to still reach
+  // the right edge behind the panel (no empty band), cropping a little more at the sides instead.
+  const k = !box.w ? 0 : Math.max((box.w + rightInset) / L.W, box.h / L.H);
   // Centred in the space a side panel (the chat on wide screens) leaves free.
   const sw = L.W * k, sh = L.H * k, ox = (box.w - rightInset - sw) / 2, oy = box.h - sh;
   return (
