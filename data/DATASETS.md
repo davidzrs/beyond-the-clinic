@@ -24,6 +24,6 @@ Open datasets with smartwatch, sleep, heart, phone or mood data that fit the cha
 
 ## Ideas for the pitch
 
-- Depresjon shows depressed patients' **morning activity is about half** of controls', which is
-  exactly the kind of personal "relapse signature" Mellow watches for.
+- Depresjon shows depressed patients' **6 to 10 am activity is about two-thirds** of controls'
+  (about half at 7 am), exactly the kind of personal "relapse signature" Mellow watches for.
 - Pair it with PMData or LifeSnaps if we want to show real self-reported mood next to watch data.

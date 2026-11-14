@@ -44,8 +44,9 @@ From `processed/calibration.json`:
 - **Resting heart rate**: 62 bpm on average; heart rate is lowest around 4 am and highest late afternoon.
 - **Steps**: about 8,200 a day, varying about ±40% day to day for the same person.
 - **Depression and movement** (Depresjon): depressed patients moved about 12% less overall,
-  but the biggest gap is the **morning**: between 6 and 10 am their activity was about **half**
-  of healthy controls'. Their activity also varied less from day to day (a flatter routine).
+  but the biggest gap is the **morning**: between 6 and 10 am their activity was about
+  **two-thirds** (64%) of healthy controls', and at 7 am only about **half**. Their activity also
+  varied less from day to day (a flatter routine).
 
 These shape the synthetic data and the early-warning signals Mellow watches.
 
@@ -55,7 +56,7 @@ These shape the synthetic data and the early-warning signals Mellow watches.
 
 | Person | Story |
 |---|---|
-| **Sam** (the user) | Post-TMS. Stable for 7 weeks, then a slow relapse drift from day 53, flagged by Mellow on day 60 ("watch") and day 63 ("high"), care plan from day 64, recovered by about day 83. |
+| **Sam** (the user) | Post-TMS. Stable for 7 weeks, then a slow relapse drift from day 54, flagged by Mellow on day 60 ("watch") and day 63 ("high"), care plan from day 64, recovered by about day 83. |
 | Juno, Teo, Ama | Campfire friends with different baselines. Stay steady (early-warning score never above 15). |
 
 Per day (`synthetic/<name>_daily.csv`): sleep hours, time in bed, efficiency, bedtime, wake time,
@@ -79,7 +80,7 @@ A relapse level goes smoothly from 0 to 1 and back. At full level, compared with
 | Sleep | +1.3 h, efficiency −7 points, more awakenings, later bedtime | hypersomnia and fragmented sleep in depression |
 | Resting heart rate / HRV | +5 bpm / −24% | autonomic changes reported in depression |
 | Steps | about −25% | Depresjon (−12%, amplified for visibility) |
-| Morning activity | about −46% | Depresjon 6 to 10 am profile |
+| Morning activity (6 to 10 am) | morning share of the day −36%; with fewer steps overall, about half of usual | Depresjon 6 to 10 am profile (64% of controls) |
 | Day-to-day variation | lower | Depresjon |
 | Screen time / late-night use | about 2.4× / +70 min | phone-sensing literature |
 | Messages to friends | −65% | social withdrawal |

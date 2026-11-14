@@ -225,7 +225,7 @@ const recovered = sam.findIndex((d, i) => i > firstHigh && d.riskLevel === 'stea
 const app = {
   generatedFrom: 'Synthetic, calibrated to RTI Fitbit (Zenodo 53894, CC BY 4.0) and Depresjon (Zenodo 1219550, CC BY-NC 4.0)',
   days: DAYS, startDate: dateOf(0),
-  events: { relapseStart: PERSONAS[0].relapse.start + 1, firstAlertDay: firstAlert + 1, firstHighDay: firstHigh + 1, carePlanDay: firstHigh + 2, recoveredDay: recovered + 1 },
+  events: { relapseStart: sam.findIndex((d) => d.relapseLevel > 0) + 1, firstAlertDay: firstAlert + 1, firstHighDay: firstHigh + 1, carePlanDay: firstHigh + 2, recoveredDay: recovered + 1 },
   people: Object.fromEntries(Object.entries(people).map(([id, { p, days, q }]) => [id, {
     name: p.name, role: p.role,
     series: Object.fromEntries(['sleepHours', 'sleepEfficiency', 'restingHr', 'hrvRmssd', 'steps', 'morningSteps', 'screenMinutes', 'lateNightScreenMinutes', 'messagesSent', 'mood', 'risk', 'outdoorMinutes', 'deepMin', 'remMin', 'lightMin', 'bedtime'].map((k) => [k, days.map((d) => (d[k] === '' ? null : d[k]))])),

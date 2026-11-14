@@ -3,7 +3,7 @@
  "days": 90,
  "startDate": "2026-08-17",
  "events": {
-  "relapseStart": 53,
+  "relapseStart": 54,
   "firstAlertDay": 60,
   "firstHighDay": 63,
   "carePlanDay": 64,
