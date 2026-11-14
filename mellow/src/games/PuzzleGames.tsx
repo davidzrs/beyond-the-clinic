@@ -78,7 +78,7 @@ function Controls({ mode, onMode, onHint, onNext, done }: { mode?: [string, bool
     </View>
   );
 }
-const TIP = Platform.OS === 'web' ? 'Drag to fill several squares. Right-click marks ✕.' : 'Drag to fill several squares. Use the mode button to mark ✕.';
+const TIP = 'Tap a square to fill it, tap again for ✕, once more to clear. Drag to do several at once.' + (Platform.OS === 'web' ? ' Right-click marks ✕.' : '');
 
 // ---------- Hidden Picture ----------
 export function HiddenPicture({ onDone }: { onDone: () => void }) {
@@ -127,8 +127,9 @@ export function HiddenPicture({ onDone }: { onDone: () => void }) {
       if (x < off && y >= off && y < off + n * u) { crossLine('row', Math.floor((y - off) / u)); return; }
       if (y < off && x >= off && x < off + n * u) { crossLine('col', Math.floor((x - off) / u)); return; }
       const i = cellAt(x, y); if (i < 0) return;
+      // A tap cycles empty → filled → ✕ → empty; right-click (or ✕ mode) toggles ✕ straight away.
       const cur = stRef.current[i];
-      drag.current = alt || mark ? (cur === 2 ? 0 : 2) : (cur === 1 ? 0 : 1);
+      drag.current = alt || mark ? (cur === 2 ? 0 : 2) : cur === 0 ? 1 : cur === 1 ? 2 : 0;
       paint(i, drag.current);
     },
     move: (x, y) => { if (drag.current === null) return; const i = cellAt(x, y); if (i >= 0) paint(i, drag.current); },
@@ -205,8 +206,9 @@ export function LineOfSight({ onDone }: { onDone: () => void }) {
     down: (x, y, alt) => {
       if (wonRef.current) return;
       const i = cellAt(x, y); if (i < 0 || cl[i]) return;
+      // A tap cycles empty → shaded → ✕ → empty; right-click (or ✕ mode) toggles ✕ straight away.
       const cur = stRef.current[i];
-      drag.current = alt || mark ? (cur === 0 ? -1 : 0) : (cur === 1 ? -1 : 1);
+      drag.current = alt || mark ? (cur === 0 ? -1 : 0) : cur === -1 ? 1 : cur === 1 ? 0 : -1;
       paint(i, drag.current);
     },
     move: (x, y) => { if (drag.current === null) return; const i = cellAt(x, y); if (i >= 0) paint(i, drag.current); },
