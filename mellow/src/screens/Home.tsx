@@ -1,12 +1,14 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useApp } from '../state';
-import { MOOD_KEYS, MOODS } from '../data';
+import { COOP_GOAL, MOOD_KEYS, MOODS } from '../data';
 import { C, F, themed } from '../theme';
 import { Icon, Mallow } from '../components/Pixel';
 import { Btn, Eyebrow, H2, LinkBtn, Panel, T } from '../components/ui';
 import { useLayout } from '../layout';
-import { PLAN_DAYS, PlanTask } from '../checkin';
+import { niceDate, PLAN_DAYS, PlanTask } from '../checkin';
+
+const LOGO = { name: 'Ember', color: 'vanilla', face: 'happy', hat: 'none', glasses: 'none', acc: 'none', item: 'none' };
 import { LEVEL_UI, levelOf, SAM } from '../demo';
 
 // Games stay as they are for now (TBD); Today just links to them.
@@ -174,16 +176,135 @@ export default function Home() {
     </View>
   );
 
-  return two ? (
-    <View style={{ gap: 16 }}>
-      {header}
-      <View style={{ flexDirection: 'row', gap: 20, alignItems: 'flex-start' }}>
-        <View style={{ flex: 1.3, gap: 12 }}>{alert}{mood}{plan}</View>
-        <View style={{ flex: 1, gap: 12 }}>{fire}{games}{reset}</View>
+  if (!two) return <View style={{ gap: 10 }}>{header}{alert}{mood}{plan}{games}{fire}{reset}</View>;
+
+  // ---------- PC: greeting + stats, then "you today" beside "your campfire", then a row of calm things ----------
+  const doneN = rows.filter((r) => r.done).length;
+  const stats: [string, string][] = [
+    ['flame', S.streakCount > 0 ? S.streakCount + '-day streak' : 'Start a streak today'],
+    ['ember', S.embers + ' embers'],
+    ['calendar', S.checkinDue ? 'Check-in due today' : 'Check-in ' + niceDate(S.nextCheckin)],
+  ];
+  const wideHeader = (
+    <View style={[st.row, { alignItems: 'flex-end', gap: 20, flexWrap: 'wrap' }]}>
+      <View style={{ flex: 1, minWidth: 280, gap: 2 }}>
+        <Eyebrow>{dateStr}</Eyebrow>
+        <H2>{greet}, {S.avatar.name || 'friend'}</H2>
+      </View>
+      <View style={[st.row, { gap: 8 }]}>
+        {stats.map(([ic, l]) => (
+          <View key={ic} style={st.stat}><Icon name={ic} size={16} /><Text style={st.statT}>{l}</Text></View>
+        ))}
       </View>
     </View>
-  ) : (
-    <View style={{ gap: 10 }}>{header}{alert}{mood}{plan}{games}{fire}{reset}</View>
+  );
+
+  const planWide = (
+    <View style={[st.card, st.cardL, { gap: 14, flex: 1 }]}>
+      <View style={st.row}>
+        <View style={{ flex: 1 }}>
+          <Text style={st.hL}>Today’s plan</Text>
+          <Text style={st.sub}>{S.checkinDue ? 'Your check-in sets the next 2 weeks' : 'Day ' + (dayIdx + 1) + ' of ' + PLAN_DAYS + ' · ' + (rows.length ? doneN + ' of ' + rows.length + ' done' : 'a rest day')}</Text>
+        </View>
+        <Btn label="See 2 weeks" kind="ghost" sm icon="calendar" onPress={() => S.setModal({ type: 'plan' })} />
+      </View>
+      {/* The two weeks at a glance: days behind you, today, days ahead. */}
+      {!S.checkinDue ? (
+        <View style={{ flexDirection: 'row', gap: 4 }} accessibilityLabel={'Day ' + (dayIdx + 1) + ' of ' + PLAN_DAYS}>
+          {Array.from({ length: PLAN_DAYS }, (_, i) => (
+            <View key={i} style={[st.seg, i < dayIdx && { backgroundColor: C.moss, opacity: 0.55 }, i === dayIdx && { backgroundColor: C.ember }]} />
+          ))}
+        </View>
+      ) : null}
+      <View style={{ gap: 8 }}>
+        {rows.length ? rows.map((r) => (
+          <Pressable key={r.key} onPress={r.act ? r.onStart : r.onTick} style={(p: any) => [st.task, st.taskL, r.done && { opacity: 0.6 }, p.hovered && { borderColor: C.lineHi }]}>
+            <View style={st.tico}><Icon name={r.icon} size={20} /></View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={[st.title, r.done && { textDecorationLine: 'line-through' }]} numberOfLines={2}>{r.t}</Text>
+              <Text style={st.sub} numberOfLines={1}>{r.sub}</Text>
+            </View>
+            {r.act && !r.done ? <Text style={st.startT}>Start</Text> : null}
+            <Pressable onPress={r.onTick} accessibilityRole="checkbox" accessibilityState={{ checked: r.done }} accessibilityLabel={'Done: ' + r.t} hitSlop={8}
+              style={[st.tick, r.done && { backgroundColor: C.forest, borderColor: C.forest }]}>
+              {r.done ? <Icon name="check" size={18} color={C.cream} /> : null}
+            </Pressable>
+          </Pressable>
+        )) : <Text style={st.sub}>Nothing planned today. Rest is part of the plan too.</Text>}
+      </View>
+      {rows.length && doneN === rows.length ? <Text style={st.sub2}>All done for today. The rest of the day is yours.</Text> : null}
+    </View>
+  );
+
+  // The campfire: who's there, the last few messages, the shared goal and the next talk.
+  const coop = Math.min(S.coop, COOP_GOAL);
+  const recent = S.chat.slice(-3);
+  const person = (id: string) => (id === 'me' ? { name: 'You', a: S.avatar } : S.chatPeople[id] || S.members.find((x) => x.id === id) || { name: 'Ember', a: LOGO });
+  const fireWide = (
+    <View style={[st.card, st.cardL, { gap: 14, flex: 1 }]}>
+      <View style={st.row}>
+        <View style={{ flex: 1 }}>
+          <Text style={st.hL}>{S.campfireName || 'Your campfire'}</Text>
+          <Text style={st.sub}>Sunday Talk · Sun 19:00</Text>
+        </View>
+        <View style={{ flexDirection: 'row' }}>
+          {S.members.slice(0, 5).map((x, i) => (
+            <View key={x.id} style={[st.face, i > 0 && { marginLeft: -8 }]}><Mallow a={x.id === 'me' ? S.avatar : x.a} size={26} anim={false} /></View>
+          ))}
+        </View>
+      </View>
+      <View style={{ gap: 10 }}>
+        {recent.map((msg) => {
+          const p = person(msg.from);
+          return (
+            <View key={msg.id} style={[st.row, { alignItems: 'flex-start' }]}>
+              <Mallow a={p.a} size={26} anim={false} />
+              <Text style={[st.msg, { flex: 1 }]} numberOfLines={2}><Text style={{ fontFamily: F.bodyBold, color: C.cream }}>{p.name} </Text>{msg.text}</Text>
+            </View>
+          );
+        })}
+      </View>
+      <View style={{ gap: 6 }}>
+        <View style={st.row}><Text style={[st.sub, { flex: 1 }]}>Tonight’s spark: gather {COOP_GOAL} embers together</Text><Text style={st.statT}>{coop}/{COOP_GOAL}</Text></View>
+        <View style={st.track}><View style={[st.fill, { width: ((coop / COOP_GOAL) * 100 + '%') as any }]} /></View>
+      </View>
+      <Btn label="Go to the fire" icon="flame" onPress={() => S.go('campfire')} style={{ marginTop: 'auto' }} />
+    </View>
+  );
+
+  // A row of short, calm things: breathing plus today's three puzzles.
+  const calm: { key: string; icon: string; t: string; sub: string; done: boolean; go: () => void }[] = [
+    { key: 'breathe', icon: 'flame', t: 'Breathe with the fire', sub: '3 min · with its sound', done: !!S.actDone.breathe, go: () => S.setModal({ type: 'breathe' }) },
+    { key: 'nono', icon: 'picture', t: 'Hidden Picture', sub: 'Today’s puzzle', done: S.puzzleSolvedToday('nono'), go: () => S.go('nono') },
+    { key: 'sight', icon: 'eye', t: 'Line of Sight', sub: 'Today’s puzzle', done: S.puzzleSolvedToday('sight'), go: () => S.go('sight') },
+    { key: 'hotel', icon: 'key', t: 'Hotel Mystery', sub: 'Today’s puzzle', done: S.puzzleSolvedToday('hotel'), go: () => S.go('hotel') },
+  ];
+  const calmWide = (
+    <View style={{ gap: 10 }}>
+      <View style={st.row}><Text style={[st.hL, { flex: 1 }]}>A moment for you</Text><LinkBtn label="All games" onPress={() => S.go('games')} /></View>
+      <View style={{ flexDirection: 'row', gap: 12 }}>
+        {calm.map((c) => (
+          <Pressable key={c.key} onPress={c.go} accessibilityRole="button" accessibilityLabel={c.t} style={(p: any) => [st.card, st.calm, p.hovered && { borderColor: C.lineHi }]}>
+            <View style={[st.calmIco, c.key === 'breathe' && { backgroundColor: C.peach }]}><Icon name={c.done ? 'check' : c.icon} size={22} /></View>
+            <Text style={st.title} numberOfLines={1}>{c.t}</Text>
+            <Text style={st.sub} numberOfLines={1}>{c.done ? 'Done today' : c.sub}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+
+  return (
+    <View style={{ gap: 22 }}>
+      {wideHeader}
+      {alert}
+      <View style={{ flexDirection: 'row', gap: 20, alignItems: 'stretch' }}>
+        <View style={{ flex: 1.35, gap: 16 }}>{mood}{planWide}</View>
+        <View style={{ flex: 1 }}>{fireWide}</View>
+      </View>
+      {calmWide}
+      <View style={st.foot}>{reset}</View>
+    </View>
   );
 }
 
@@ -208,4 +329,19 @@ const st = themed(() => StyleSheet.create({
   tile: { flex: 1, alignItems: 'center', gap: 3, paddingVertical: 8, paddingHorizontal: 4, borderRadius: 12, borderWidth: 1, borderColor: C.line, backgroundColor: C.night2 },
   tileT: { fontFamily: F.displayMed, fontSize: 11.5, color: C.creamDim, textAlign: 'center' },
   breatheIco: { width: 44, height: 44, borderRadius: 14, backgroundColor: C.peach, alignItems: 'center', justifyContent: 'center' },
+  // PC layout
+  cardL: { padding: 18, borderRadius: 16 },
+  hL: { fontFamily: F.display, fontSize: 18, color: C.cream },
+  stat: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 999, backgroundColor: C.night2, borderWidth: 1, borderColor: C.line },
+  statT: { fontFamily: F.bodyBold, fontSize: 13, color: C.creamDim },
+  seg: { flex: 1, height: 6, borderRadius: 3, backgroundColor: C.night3 },
+  taskL: { padding: 10, borderWidth: 1, borderColor: 'transparent' },
+  startT: { fontFamily: F.bodyBold, fontSize: 13, color: C.emberHi },
+  face: { borderRadius: 999, backgroundColor: C.night3, padding: 3, borderWidth: 2, borderColor: C.night2 },
+  msg: { fontFamily: F.body, fontSize: 14, color: C.creamDim, lineHeight: 20 },
+  track: { height: 8, borderRadius: 4, backgroundColor: C.night3, overflow: 'hidden' },
+  fill: { height: '100%', borderRadius: 4, backgroundColor: C.ember },
+  calm: { flex: 1, gap: 4, padding: 16, borderRadius: 16, minWidth: 0 },
+  calmIco: { width: 44, height: 44, borderRadius: 14, backgroundColor: C.night3, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
+  foot: { borderTopWidth: 1, borderTopColor: C.line, paddingTop: 14, opacity: 0.85 },
 }));
