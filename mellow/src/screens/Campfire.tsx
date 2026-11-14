@@ -148,7 +148,7 @@ function SparkPoll({ id, question, poll, time }: { id: number; question: string;
 export default function Campfire() {
   const S = useApp();
   const insets = useSafeAreaInsets();
-  const { wide, width } = useLayout();
+  const { wide } = useLayout();
   const [sheet, setSheet] = useState<SheetKind>(S.chatDraft.startsWith('@') ? 'chat' : null);
   const close = () => setSheet(null);
   const [open, setOpen] = useState(false);
@@ -166,7 +166,7 @@ export default function Campfire() {
 
   return (
     <View style={{ flex: 1 }}>
-      <CampFull rightInset={sheet === 'chat' && width >= 760 ? Math.min(400, width * 0.42) + 20 : 0} members={S.members} bubbles={S.bubbles} hopId={S.hopId} onPick={(m) => (m.id === 'me' ? S.go('wardrobe') : S.setModal({ type: 'member', m }))} />
+      <CampFull members={S.members} bubbles={S.bubbles} hopId={S.hopId} onPick={(m) => (m.id === 'me' ? S.go('wardrobe') : S.setModal({ type: 'member', m }))} />
 
       <View style={[st.top, { paddingTop: insets.top + (wide ? 18 : 10) }]} pointerEvents="box-none">
         <View style={st.sign}>
