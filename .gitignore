@@ -4,3 +4,6 @@ node_modules/
 # Supabase function secrets (Gemini key) and CLI temp files
 supabase/functions/.env
 supabase/.temp/
+
+# files the Claude app saves locally (reports, screenshots)
+Claude outputs/
