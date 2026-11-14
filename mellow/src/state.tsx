@@ -58,7 +58,33 @@ function useAppState() {
   const [actLog, setActLog] = useState<{ icon: string; t: string; d: string }[]>([]);
   const [chat, setChat] = useState<Msg[]>(CHAT0);
   const [bubbles, setBubbles] = useState<Record<string, string>>({ juno: 'Anything by Studio Ghibli. Always.' });
-  const [modal, setModal] = useState<ModalState>(null);
+  const [modal, setModalS] = useState<ModalState>(null);
+  // Web: an open overlay (breathing, plan, check-in…) gets its own browser history entry,
+  // so the browser's back button closes it instead of doing nothing.
+  const hist = useRef({ entry: false, closing: false, reopen: false, hash: null as string | null });
+  const setModal = (m: ModalState) => {
+    setModalS(m);
+    if (Platform.OS !== 'web') return;
+    const h = hist.current;
+    if (h.closing) { h.reopen = !!m; return; } // one closed and another opened straight away: re-add the entry after the back
+    if (m && !h.entry) { window.history.pushState({ mellowModal: true }, '', window.location.href); h.entry = true; }
+    else if (!m && h.entry) { h.entry = false; h.closing = true; window.history.back(); } // the popstate below finishes it
+  };
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const onPop = () => {
+      const h = hist.current;
+      if (h.closing) {
+        h.closing = false;
+        if (h.hash) { const r = h.hash; h.hash = null; window.location.hash = r; }
+        if (h.reopen) { h.reopen = false; window.history.pushState({ mellowModal: true }, '', window.location.href); h.entry = true; }
+        return;
+      }
+      if (h.entry) { h.entry = false; setModalS(null); } // back button while an overlay is open
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [hopId, setHop] = useState<string | null>(null);
   const [talkReminder, setTalkReminder] = useState(false);
@@ -184,7 +210,11 @@ function useAppState() {
   const go = (r: Route) => {
     setRoute(r);
     if (TABS.includes(r)) setLastTab(r);
-    if (Platform.OS === 'web' && window.location.hash !== '#' + r) window.location.hash = r;
+    if (Platform.OS !== 'web') return;
+    // Going to a page closes any open overlay; its history entry is removed first, then the page is added.
+    if (hist.current.entry) setModal(null);
+    if (hist.current.closing) hist.current.hash = r;
+    else if (window.location.hash !== '#' + r) window.location.hash = r;
   };
   // Open the campfire chat with a message already started ("@Juno ", "I picked … because ").
   const openChat = (draft: string) => { setChatDraft(draft); setChatOpenN((n) => n + 1); go('campfire'); };
