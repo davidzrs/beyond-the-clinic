@@ -1,7 +1,7 @@
 // Sign-up / log-in with Supabase (email + password, no email confirmation).
 // If no backend is configured, the app runs locally as before. With a backend, the demo is a seeded account (DEMO_PATIENT).
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Easing, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -76,8 +76,29 @@ function AuthScreen({ onCareTeam }: { onCareTeam: () => void }) {
   const [tos, setTos] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
 
-  const submit = async () => {
+  // Judges: a spotlight on the demo account when the page opens (closed with a tap; back on the next visit).
+  const [intro, setIntro] = useState(true);
+  const pulse = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(pulse, { toValue: 1, duration: 1100, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
+      Animated.timing(pulse, { toValue: 0, duration: 1100, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, []);
+  // One tap: fill in the demo account and log in.
+  const tryDemo = () => { setIntro(false); setMode('in'); setEmail(DEMO_PATIENT.email); setPassword(DEMO_PATIENT.password); submit({ email: DEMO_PATIENT.email, password: DEMO_PATIENT.password }); };
+
+  const submit = async (demo?: { email: string; password: string }) => {
     if (!supabase || busy) return;
+    if (demo) {
+      setError(null); setBusy(true);
+      const res = await supabase.auth.signInWithPassword(demo);
+      setBusy(false);
+      if (res.error) setError(friendly(res.error.message));
+      return;
+    }
     setError(null);
     if (!email.includes('@')) return setError('Please enter your email.');
     if (password.length < 6) return setError('Your password needs at least 6 characters.');
@@ -106,6 +127,26 @@ function AuthScreen({ onCareTeam }: { onCareTeam: () => void }) {
           <Text style={st.sub}>A cozy fire for hard days</Text>
         </View>
 
+        {/* The demo account, first and impossible to miss: one tap fills it in and logs in. */}
+        <View>
+          <Animated.View pointerEvents="none" style={[st.demoGlow, { opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.25, 0.75] }), transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.025] }) }] }]} />
+          <Pressable onPress={tryDemo} disabled={busy} accessibilityRole="button" accessibilityLabel={'Log in with the demo account of ' + DEMO_PATIENT.name}
+            style={(p: any) => [st.demo, (p.hovered || p.pressed) && { backgroundColor: C.navySoft }]}>
+            <View style={st.badge}><Ionicons name="star" size={12} color={C.emberInk} /><Text style={st.badgeT}>Recommended for judges</Text></View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <View style={st.demoIco}><Ionicons name="play" size={22} color={C.emberInk} /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={st.demoT}>Try the demo account</Text>
+                <Text style={st.demoS}>One tap logs you in as {DEMO_PATIENT.name}, a demo patient</Text>
+              </View>
+              {busy ? <ActivityIndicator color={C.ember} /> : <Ionicons name="arrow-forward" size={22} color={C.ember} />}
+            </View>
+          </Pressable>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <View style={st.rule} /><Text style={st.or}>or log in with your own account</Text><View style={st.rule} />
+        </View>
+
         <View style={st.card}>
           <View style={st.tabs}>
             {([['in', 'Log in'], ['up', 'Create account']] as const).map(([k, l]) => (
@@ -117,7 +158,7 @@ function AuthScreen({ onCareTeam }: { onCareTeam: () => void }) {
 
           {mode === 'up' ? <Field label="Your name" value={name} onChange={setName} placeholder="How your campfire will see you" autoComplete="name" /> : null}
           <Field label="Email" value={email} onChange={setEmail} placeholder="you@example.com" keyboard="email-address" autoComplete="email" />
-          <Field label="Password" value={password} onChange={setPassword} placeholder="At least 6 characters" secure autoComplete={mode === 'up' ? 'new-password' : 'current-password'} onSubmit={submit} />
+          <Field label="Password" value={password} onChange={setPassword} placeholder="At least 6 characters" secure autoComplete={mode === 'up' ? 'new-password' : 'current-password'} onSubmit={() => submit()} />
 
           {mode === 'up' ? (
             <View style={{ gap: 4, marginTop: 10 }}>
@@ -129,26 +170,36 @@ function AuthScreen({ onCareTeam }: { onCareTeam: () => void }) {
 
           {error ? <Text style={st.error} accessibilityLiveRegion="polite">{error}</Text> : null}
 
-          <Pressable onPress={submit} disabled={busy} accessibilityRole="button" style={(p: any) => [st.go, (p.pressed || busy) && { opacity: 0.8 }]}>
+          <Pressable onPress={() => submit()} disabled={busy} accessibilityRole="button" style={(p: any) => [st.go, (p.pressed || busy) && { opacity: 0.8 }]}>
             {busy ? <ActivityIndicator color={C.emberInk} /> : <Text style={st.goT}>{mode === 'up' ? 'Join a campfire' : 'Log in'}</Text>}
           </Pressable>
         </View>
 
-        {/* The two other ways in, side by side so both fit on a laptop screen without scrolling. */}
         <View style={st.others}>
-          <Pressable onPress={() => { setMode('in'); setEmail(DEMO_PATIENT.email); setPassword(DEMO_PATIENT.password); setError(null); }}
-            accessibilityRole="button" accessibilityLabel={'Fill in the demo account of ' + DEMO_PATIENT.name}
-            style={(p: any) => [st.careTeam, (p.hovered || p.pressed) && { borderColor: C.lineHi }]}>
-            <Text style={st.careTeamT}>Demo account</Text>
-            <Text style={st.careTeamS}>{DEMO_PATIENT.email}</Text>
-            <Text style={st.careTeamS}>Password {DEMO_PATIENT.password}</Text>
-          </Pressable>
           <Pressable onPress={onCareTeam} accessibilityRole="button" style={(p: any) => [st.careTeam, (p.hovered || p.pressed) && { borderColor: C.lineHi }]}>
             <Text style={st.careTeamT}>Part of a care team?</Text>
-            <Text style={st.careTeamS}>Clinician or therapist sign-in</Text>
+            <Text style={st.careTeamS}>Clinician or therapist sign-in (has a demo account too)</Text>
           </Pressable>
         </View>
       </ScrollView>
+
+      {/* Spotlight for judges: the demo account, front and centre, on top of a dimmed page. */}
+      {intro ? (
+        <View style={st.spot} accessibilityViewIsModal>
+          <View style={st.spotCard}>
+            <Mallow a={LOGO} size={64} />
+            <View style={[st.badge, { position: "relative", top: 0, left: 0 }]}><Ionicons name="star" size={12} color={C.emberInk} /><Text style={st.badgeT}>For judges</Text></View>
+            <Text style={st.spotT}>Try Mellow with the demo account</Text>
+            <Text style={st.spotS}>{DEMO_PATIENT.name} is a demo patient with 90 days of data. One tap logs you in, no sign-up needed.</Text>
+            <Pressable onPress={tryDemo} accessibilityRole="button" style={(p: any) => [st.go, { alignSelf: 'stretch', flexDirection: 'row', gap: 8, paddingHorizontal: 20 }, p.pressed && { opacity: 0.85 }]}>
+              <Ionicons name="play" size={18} color={C.emberInk} />
+              <Text style={st.goT}>Log in as the demo patient</Text>
+            </Pressable>
+            <Pressable onPress={onCareTeam} accessibilityRole="button" hitSlop={6}><Text style={st.spotLink}>See the clinician side instead</Text></Pressable>
+            <Pressable onPress={() => setIntro(false)} accessibilityRole="button" hitSlop={6}><Text style={st.spotSkip}>I have my own account</Text></Pressable>
+          </View>
+        </View>
+      ) : null}
       <Terms visible={showTerms} onClose={() => setShowTerms(false)} />
     </KeyboardAvoidingView>
   );
@@ -249,4 +300,21 @@ const st = themed(() => StyleSheet.create({
   careTeam: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2, paddingVertical: 10, paddingHorizontal: 12, minHeight: 56, borderRadius: 16, borderWidth: 1, borderColor: C.line },
   careTeamT: { fontFamily: F.display, fontSize: 15, color: C.cream },
   careTeamS: { fontFamily: F.body, fontSize: 12.5, color: C.muted, textAlign: 'center' },
+  // the demo account, highlighted
+  demo: { borderRadius: 22, borderWidth: 2, borderColor: C.ember, backgroundColor: C.night2, padding: 16, paddingTop: 22, gap: 4 },
+  demoGlow: { position: 'absolute', left: -6, right: -6, top: -6, bottom: -6, borderRadius: 28, borderWidth: 6, borderColor: C.ember },
+  demoIco: { width: 46, height: 46, borderRadius: 23, backgroundColor: C.ember, alignItems: 'center', justifyContent: 'center' },
+  demoT: { fontFamily: F.displayBold, fontSize: 19, color: C.cream },
+  demoS: { fontFamily: F.body, fontSize: 13.5, color: C.creamDim },
+  badge: { position: 'absolute', top: -12, left: 16, flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: C.ember, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
+  badgeT: { fontFamily: F.bodyBold, fontSize: 12, color: C.emberInk },
+  rule: { flex: 1, height: 1, backgroundColor: C.line },
+  or: { fontFamily: F.body, fontSize: 13, color: C.muted },
+  // the spotlight overlay
+  spot: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: 'rgba(5,8,25,.78)', alignItems: 'center', justifyContent: 'center', padding: 20 },
+  spotCard: { width: '100%', maxWidth: 420, alignItems: 'center', gap: 12, backgroundColor: C.night2, borderRadius: 26, borderWidth: 2, borderColor: C.ember, padding: 24, paddingTop: 20 },
+  spotT: { fontFamily: F.displayBold, fontSize: 24, color: C.cream, textAlign: 'center' },
+  spotS: { fontFamily: F.body, fontSize: 15, lineHeight: 21, color: C.creamDim, textAlign: 'center' },
+  spotLink: { fontFamily: F.bodyBold, fontSize: 14, color: C.emberHi, textDecorationLine: 'underline', marginTop: 2 },
+  spotSkip: { fontFamily: F.body, fontSize: 13.5, color: C.muted },
 }));

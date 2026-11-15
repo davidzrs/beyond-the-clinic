@@ -5,18 +5,21 @@ import { Icon, Logo } from '../components/ui';
 
 export default function Login() {
   const S = useStore();
-  const [email, setEmail] = useState(DEMO_ACCOUNTS[0].email);
+  const [email, setEmail] = useState('');
   const [pw, setPw] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
+  const [intro, setIntro] = useState(true); // judges: a spotlight on the demo account when the page opens
+  const signIn = async (em: string, p: string) => {
     setBusy(true);
-    const problem = await S.signIn(email, pw);
+    const problem = await S.signIn(em, p);
     setBusy(false);
     if (problem) setErr(problem);
     else go('/patients');
   };
+  const submit = (e: FormEvent) => { e.preventDefault(); signIn(email, pw); };
+  const demo = DEMO_ACCOUNTS[0];
+  const fill = (a: typeof demo) => { setEmail(a.email); setPw(a.password); setErr(''); };
   return (
     <div className="login">
       <aside className="login-art">
@@ -37,23 +40,39 @@ export default function Login() {
         <form className="login-card" onSubmit={submit}>
           <h2>Sign in</h2>
           <p className="muted">Pinehollow Clinic staff</p>
-          <label>Work email<input type="email" value={email} onChange={(e) => { setEmail(e.target.value); setErr(''); }} autoComplete="username" required /></label>
-          <label>Password<input type="password" value={pw} onChange={(e) => { setPw(e.target.value); setErr(''); }} autoComplete="current-password" placeholder="••••••" required autoFocus /></label>
+          {/* The demo account, highlighted: one click fills in the form. */}
+          <button type="button" className="demo-cta" onClick={() => fill(demo)}>
+            <span className="demo-badge">★ Recommended for judges</span>
+            <span className="demo-cta-row">
+              <span className="demo-cta-ico" aria-hidden>▶</span>
+              <span className="demo-cta-text"><b>Use the demo clinician account</b><span>{demo.name} · {demo.role} · fills in the form</span></span>
+            </span>
+          </button>
+          <div className="or-line"><span>or sign in with your work email</span></div>
+          <label>Work email<input type="email" value={email} onChange={(e) => { setEmail(e.target.value); setErr(''); }} autoComplete="username" placeholder="you@clinic.fi" required /></label>
+          <label>Password<input type="password" value={pw} onChange={(e) => { setPw(e.target.value); setErr(''); }} autoComplete="current-password" placeholder="••••••" required /></label>
           {err && <p className="error" role="alert">{err}</p>}
           <button className="btn primary wide" type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
-          <div className="demo-hint">
-            <b>Demo accounts</b>
-            {DEMO_ACCOUNTS.map((a) => (
-              <button type="button" key={a.email} className="link" onClick={() => { setEmail(a.email); setPw(a.password); setErr(''); }}>
-                {a.name} · {a.role}
-              </button>
-            ))}
-            <span className="muted small">Password for both: <code>{DEMO_PASSWORD}</code></span>
-          </div>
+          <p className="muted small center">
+            Other demo account: <button type="button" className="link" onClick={() => fill(DEMO_ACCOUNTS[1])}>{DEMO_ACCOUNTS[1].name} · {DEMO_ACCOUNTS[1].role}</button> (password <code>{DEMO_PASSWORD}</code>)
+          </p>
         </form>
         <p className="center"><button type="button" className="link" onClick={exitPortal}>← Not a clinician? Back to Mellow</button></p>
         <p className="muted small center">Prototype for Junction 2026 · demo patients with synthetic data, stored in Supabase</p>
       </main>
+      {intro && (
+        <div className="demo-spot" role="dialog" aria-modal="true" aria-labelledby="demo-spot-title">
+          <div className="demo-spot-card">
+            <span className="demo-badge static">★ For judges</span>
+            <h2 id="demo-spot-title">Try Mellow Care with the demo account</h2>
+            <p>{demo.name} is a demo psychiatrist with a clinic of patients on synthetic data. One click signs you in.</p>
+            <button type="button" className="btn primary wide demo-go" disabled={busy} onClick={() => { fill(demo); setIntro(false); signIn(demo.email, demo.password); }}>
+              {busy ? 'Signing in…' : '▶  Sign in as the demo clinician'}
+            </button>
+            <button type="button" className="link" onClick={() => setIntro(false)}>I have my own account</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
