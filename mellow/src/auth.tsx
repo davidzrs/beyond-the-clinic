@@ -1,5 +1,5 @@
 // Sign-up / log-in with Supabase (email + password, no email confirmation).
-// If no backend is configured, or you choose "Try the demo", the app runs locally as before.
+// If no backend is configured, the app runs locally as before. With a backend, the demo is a seeded account (DEMO_PATIENT).
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -54,13 +54,16 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   if (careTeam) return <CarePortal />; // the portal handles its own sign-in and checks the account is care team
   if (session === undefined || (session && !role)) return <View style={{ flex: 1, backgroundColor: C.night, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={C.ember} /></View>;
   if (role === 'clinician') return <CarePortal />; // a clinician who signed in on the patient form
-  if (!session && !guest) return <AuthScreen onGuest={() => setGuest(true)} onCareTeam={openCareTeam} />;
+  if (!session && !guest) return <AuthScreen onCareTeam={openCareTeam} />;
   return <Ctx.Provider value={{ session: session || null, guest: !session, signOut }}>{children}</Ctx.Provider>;
 }
 
 const LOGO = { name: '', color: 'vanilla', face: 'happy', hat: 'beanie', glasses: 'none', acc: 'scarf', item: 'mug' };
 
-function AuthScreen({ onGuest, onCareTeam }: { onGuest: () => void; onCareTeam: () => void }) {
+// A seeded demo patient (scripts/seed-care.mjs). Tapping it fills the log-in form, like the portal's demo accounts.
+const DEMO_PATIENT = { name: 'Aino Virtanen', email: 'aino.virtanen@mellow.test', password: '123123123' };
+
+function AuthScreen({ onCareTeam }: { onCareTeam: () => void }) {
   const insets = useSafeAreaInsets();
   const short = useWindowDimensions().height < 760; // laptops and small phones: tighter, so everything fits without scrolling
   const [mode, setMode] = useState<'up' | 'in'>('in');
@@ -133,9 +136,13 @@ function AuthScreen({ onGuest, onCareTeam }: { onGuest: () => void; onCareTeam: 
 
         {/* The two other ways in, side by side so both fit on a laptop screen without scrolling. */}
         <View style={st.others}>
-          <Pressable onPress={onGuest} accessibilityRole="button" style={(p: any) => [st.careTeam, (p.hovered || p.pressed) && { borderColor: C.lineHi }]}>
-            <Text style={st.careTeamT}>Just looking?</Text>
-            <Text style={st.careTeamS}>Try the demo</Text>
+          <Pressable onPress={() => { setMode('in'); setEmail(DEMO_PATIENT.email); setPassword(DEMO_PATIENT.password); setError(null); }}
+            accessibilityRole="button" accessibilityLabel={'Fill in the demo account of ' + DEMO_PATIENT.name}
+            style={(p: any) => [st.careTeam, (p.hovered || p.pressed) && { borderColor: C.lineHi }]}>
+            <Text style={st.careTeamT}>Demo account</Text>
+            <Text style={st.careTeamS} numberOfLines={1}>{DEMO_PATIENT.name}</Text>
+            <Text style={[st.careTeamS, { fontSize: 11.5 }]}>{DEMO_PATIENT.email}</Text>
+            <Text style={[st.careTeamS, { fontSize: 11.5 }]}>Password {DEMO_PATIENT.password}</Text>
           </Pressable>
           <Pressable onPress={onCareTeam} accessibilityRole="button" style={(p: any) => [st.careTeam, (p.hovered || p.pressed) && { borderColor: C.lineHi }]}>
             <Text style={st.careTeamT}>Part of a care team?</Text>
@@ -163,12 +170,12 @@ function Check({ checked, onToggle, label, children }: { checked: boolean; onTog
 }
 
 // Prototype terms for the Junction demo. Bump TERMS_VERSION when the text changes.
-const TERMS_VERSION = '2026-11-14';
+const TERMS_VERSION = '2026-11-15';
 const TERMS: [string, string][] = [
   ['Mellow is not a medical service', 'Mellow helps you stay well between appointments. It doesn’t diagnose, treat or replace your care team, and it isn’t an emergency service. If you are in danger, call 112.'],
   ['Mellow uses AI', 'Some parts of Mellow are run by an AI and are always labelled as such: checking chat messages before they are posted, and Ember’s questions at the campfire. The AI can be wrong. It never gives medical advice.'],
   ['The campfire chat', 'Be kind. Messages that insult, threaten, harass, share someone else’s private details, push anyone towards self-harm, or advertise are not posted. Each one counts as a strike, and after 3 strikes you can read the chat but no longer post.'],
-  ['When a message sounds like a crisis', 'It isn’t posted. Instead you see who you can talk to right away. If you turned on crisis alerts (asked when you join, and under Support), your care team is told that it happened and when, never what you wrote.'],
+  ['When a message sounds like a crisis', 'It isn’t posted. Instead you see who you can talk to right away. If you turned on crisis alerts (asked when you join, and under Support), your care team is alerted and can read that message and the chat just before it, with everyone else’s names hidden.'],
   ['Your data', 'Your check-ins and questionnaires are shared with your care team only if you chose to share them. Chat messages are only seen by the people at your campfire. You can ask us to delete your account and data at any time.'],
   ['This is a prototype', 'Mellow was built for Junction 2026. Demo patients use synthetic data. Please don’t rely on it for your care.'],
 ];
