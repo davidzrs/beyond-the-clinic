@@ -13,16 +13,26 @@ language plpgsql stable security definer set search_path = public as $$
 declare
   a public.crisis_alerts;
   who text;
+  fire uuid;
 begin
   if not public.is_clinician() then raise exception 'Only the care team can read this'; end if;
   select * into a from public.crisis_alerts where id = alert_id;
   if not found then return; end if;
   select coalesce(p.name, 'Patient') into who from public.profiles p where p.id = a.patient_id;
+  -- Alerts from before this file have no campfire: use the one the patient last wrote in, else the newest one.
+  fire := a.campfire_id;
+  if fire is null then
+    select m.campfire_id into fire from public.messages m
+    where m.user_id = a.patient_id and m.created_at <= a.created_at order by m.created_at desc limit 1;
+  end if;
+  if fire is null then
+    select cm.campfire_id into fire from public.campfire_members cm where cm.user_id = a.patient_id order by cm.joined_at desc limit 1;
+  end if;
 
   return query
   with prev as (
     select m.created_at, m.user_id, m.text from public.messages m
-    where a.campfire_id is not null and m.campfire_id = a.campfire_id and m.created_at <= a.created_at
+    where fire is not null and m.campfire_id = fire and m.created_at <= a.created_at
     order by m.created_at desc limit n
   ), others as (
     select x.user_id, row_number() over (order by min(x.created_at)) as k from prev x
