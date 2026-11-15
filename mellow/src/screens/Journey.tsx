@@ -6,7 +6,7 @@ import { Icon, Mallow } from '../components/Pixel';
 import { Btn, LinkBtn } from '../components/ui';
 import { useLayout } from '../layout';
 import { fromYmd, niceDate, PLAN_DAYS, severity } from '../checkin';
-import { baseline, dateOfDay, DEMO, Level, levelOf, meanOf, SAM, weekdayLetter, windowOf } from '../demo';
+import { dateOfDay, DEMO, Level, levelOf, meanOf, weekdayLetter, windowOf } from '../demo';
 import { DayPicker } from '../components/DayPicker';
 
 // Journey: how your weeks have been going, kindly.
@@ -38,15 +38,16 @@ function compare(now: number, usual: number) {
 
 export default function Journey() {
   const S = useApp();
+  const J = S.journey; // your own data when signed in, the demo otherwise
   const { cw } = useLayout();
   const two = cw >= 900;
   const day = S.demoDay;
   const [picking, setPicking] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
   const setDay = (d: number) => S.setDemoDay(Math.max(1, Math.min(DEMO.days, d)));
-  const lvl = levelOf(SAM.series.risk[day - 1]);
+  const lvl = levelOf(J.series.risk[day - 1]);
   const W = WEATHER()[lvl];
-  const noticed = (SAM.drivers[day - 1] || []).slice(0, 3);
+  const noticed = (J.drivers[day - 1] || []).slice(0, 3);
   const dateLabel = dateOfDay(day).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
 
   const header = (
@@ -66,7 +67,7 @@ export default function Journey() {
   );
 
   const tiles = SIGNALS.map((s) => {
-    const now = meanOf(windowOf(SAM.series[s.key], day, 7)), usual = baseline(s.key);
+    const now = meanOf(windowOf(J.series[s.key], day, 7)), usual = J.baseline(s.key);
     return { s, now, usual, cmp: now != null && usual != null ? compare(now, usual) : null };
   });
   const steadyOnes = tiles.filter((x) => x.cmp && !x.cmp.off && !(lvl !== 'steady' && noticed.some((d) => d.key === x.s.key)));
@@ -121,7 +122,7 @@ export default function Journey() {
       {/* the last 90 days as soft weather, no scores */}
       <View style={{ gap: 6, marginTop: 'auto' }}>
         <View style={st.strip}>
-          {SAM.series.risk.map((rv, i) => {
+          {J.series.risk.map((rv, i) => {
             const l = levelOf(rv), sel = i + 1 === day;
             return (
               <Pressable key={i} onPress={() => setDay(i + 1)} accessibilityLabel={'Day ' + (i + 1)} style={{ flex: 1, height: '100%', justifyContent: 'flex-end' }}>
@@ -143,7 +144,7 @@ export default function Journey() {
   // ---------- 2. four signals; tap one to open just that one ----------
   const sel = tiles.find((x) => x.s.key === open);
   const detail = sel ? (() => {
-    const vals = windowOf(SAM.series[sel.s.key], day, 14);
+    const vals = windowOf(J.series[sel.s.key], day, 14);
     const days = Array.from({ length: 14 }, (_, i) => Math.max(14, day) - 13 + i);
     const max = Math.max(...vals.map((v) => v ?? 0), sel.usual ?? 0) * 1.15 || 1;
     const H = 90;

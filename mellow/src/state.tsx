@@ -1,10 +1,10 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Avatar } from './pixel/sprites';
 import { CHAT0, COOP_GOAL, ME_DEFAULT, Member, MEMBERS, MoodKey, Msg, profileLook, QUEST_POOL, Quest, REPLIES } from './data';
 import { addDays, buildPlan, Checkin, dayIndex, fromYmd, Plan, PlanTask, PLAN_DAYS, phqScore, ymd } from './checkin';
-import { SAM } from './demo';
+import { DEMO_PERSON, personFromRows, SAM } from './demo';
 import { useAuth } from './auth';
 import * as sync from './lib/sync';
 
@@ -121,7 +121,11 @@ function useAppState() {
   const [strikes, setStrikes] = useState(0);
   const [chatWarning, setChatWarning] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
-  const [demoDay, setDemoDay] = useState(90); // which of Sam's 90 synthetic days My Journey shows
+  const [demoDay, setDemoDay] = useState(90); // which of the 90 days My Journey shows
+  // Journey's numbers: a signed-in person's own daily data when they have some, otherwise the demo's.
+  const [myRows, setMyRows] = useState<sync.MetricRow[]>([]);
+  useEffect(() => { if (!uid) { setMyRows([]); return; } sync.loadMyMetrics(uid).then(setMyRows).catch(() => {}); }, [uid]);
+  const journey = useMemo(() => (myRows.length ? personFromRows(myRows) : null) || DEMO_PERSON, [myRows]);
   const [lastTab, setLastTab] = useState<Route>('home');
   const [checkins, setCheckins] = useState<Checkin[]>(SEED_C);
   const [plan, setPlanS] = useState<Plan>(SEED_P);
@@ -431,7 +435,7 @@ function useAppState() {
   const nextCheckin = addDays(fromYmd(plan.start), PLAN_DAYS - 1);
   const checkinIn = Math.max(0, PLAN_DAYS - 1 - planDay);
 
-  return { uid, email: session?.user.email || null, signOut, campfireId, campfireName, campfireCode, fireCount: uid ? mates.length + 1 : 4, fires, selectFire, joinCampfire, createFire, leaveFire, resetN, resetDemo, skyOverride, streak, streakCount, answerMood, showDaily, moodLoaded: moodLoaded && obLoaded, onboarding, startOnboarding, finishOnboarding, dismissDaily: () => setDailyDismissed(true), lastTab, back, backTo, checkins, saveCheckin, plan, adoptPlan, planDone, doTask, undoTask, planDay, checkinDue, nextCheckin, checkinIn, route, go, avatar, setAvatar, mood, setMood, embers, coop, quests, questState, doQuest, swapQuest, actDone, finishAct, puzzleSolvedToday, puzzleCount, solvePuzzle, tutorials, tutorialsLoaded, markTutorialSeen, actLog, chat, chatPeople, votes, castVote, consent, answerConsent, privacy, setPrivacy, sendChat, sending, strikes, chatBanned: strikes >= sync.MAX_STRIKES, chatWarning, bubbles, members, modal, setModal, toastMsg, toast, hopId, wave, talkReminder, setTalkReminder, chatDraft, setChatDraft, chatOpenN, openChat, messageAt: (name: string) => openChat('@' + name + ' '), demoDay, setDemoDay };
+  return { uid, email: session?.user.email || null, signOut, campfireId, campfireName, campfireCode, fireCount: uid ? mates.length + 1 : 4, fires, selectFire, joinCampfire, createFire, leaveFire, resetN, resetDemo, skyOverride, streak, streakCount, answerMood, showDaily, moodLoaded: moodLoaded && obLoaded, onboarding, startOnboarding, finishOnboarding, dismissDaily: () => setDailyDismissed(true), lastTab, back, backTo, checkins, saveCheckin, plan, adoptPlan, planDone, doTask, undoTask, planDay, checkinDue, nextCheckin, checkinIn, route, go, avatar, setAvatar, mood, setMood, embers, coop, quests, questState, doQuest, swapQuest, actDone, finishAct, puzzleSolvedToday, puzzleCount, solvePuzzle, tutorials, tutorialsLoaded, markTutorialSeen, actLog, chat, chatPeople, votes, castVote, consent, answerConsent, privacy, setPrivacy, sendChat, sending, strikes, chatBanned: strikes >= sync.MAX_STRIKES, chatWarning, bubbles, members, modal, setModal, toastMsg, toast, hopId, wave, talkReminder, setTalkReminder, chatDraft, setChatDraft, chatOpenN, openChat, messageAt: (name: string) => openChat('@' + name + ' '), demoDay, setDemoDay, journey };
 }
 
 export type AppState = ReturnType<typeof useAppState>;

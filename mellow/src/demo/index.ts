@@ -43,3 +43,37 @@ export function windowOf(arr: (number | null)[], day: number, n = 14) {
 export function meanOf(a: (number | null)[]) { const v = a.filter((x): x is number => x != null); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null; }
 // Personal baseline: days 7..34, before anything changed.
 export function baseline(key: string) { return meanOf(SAM.series[key].slice(6, 34)); }
+
+// ---------- whose data Journey shows ----------
+// The demo shows Sam. A signed-in person with their own daily data sees theirs, on the same 90-day calendar
+// (day 1 = DEMO.startDate), with their usual worked out from their first 4 weeks, like the care portal does.
+export type JourneyData = { series: Series; drivers: Driver[][]; baseline: (key: string) => number | null; own: boolean };
+export const DEMO_PERSON: JourneyData = { series: SAM.series, drivers: SAM.drivers, baseline, own: false };
+type Row = { day: string; reasons: { key: string; label: string; change?: string; z?: number }[] | null; [col: string]: unknown };
+const COLS: [string, string][] = [
+  ['sleepHours', 'sleep_hours'], ['steps', 'steps'], ['morningSteps', 'morning_steps'], ['screenMinutes', 'screen_minutes'],
+  ['lateNightScreenMinutes', 'late_night_screen_minutes'], ['restingHr', 'resting_hr'], ['hrvRmssd', 'hrv_rmssd'],
+  ['messagesSent', 'messages_sent'], ['mood', 'mood'], ['risk', 'risk'],
+];
+export function personFromRows(rows: Row[]): JourneyData | null {
+  const start = Date.parse(DEMO.startDate + 'T00:00:00Z');
+  const series: Series = Object.fromEntries(COLS.map(([k]) => [k, Array(DEMO.days).fill(null)]));
+  const reasons: Row['reasons'][] = Array(DEMO.days).fill(null);
+  const seen: number[] = [];
+  for (const r of rows) {
+    const d = Math.round((Date.parse(r.day + 'T00:00:00Z') - start) / 864e5) + 1;
+    if (d < 1 || d > DEMO.days) continue;
+    seen.push(d);
+    for (const [k, col] of COLS) { const v = r[col]; series[k][d - 1] = typeof v === 'number' ? v : null; }
+    reasons[d - 1] = r.reasons;
+  }
+  if (!seen.length || series.risk.every((v) => v == null)) return null; // nothing to show yet: keep the demo
+  const first = Math.min(...seen);
+  const usual = (key: string) => (series[key] ? meanOf(series[key].slice(first - 1, first - 1 + 28)) : null);
+  // The care portal stores each day's reasons; turn them into "was X, now Y" so Journey can describe the direction.
+  const drivers: Driver[][] = reasons.map((list, i) => (list || []).map((x) => {
+    const to = meanOf(windowOf(series[x.key] || [], i + 1, 7)), from = usual(x.key);
+    return { key: x.key, label: x.label, z: x.z ?? 0, from: from ?? 0, to: to ?? 0, change: x.change ?? '' };
+  }));
+  return { series, drivers, baseline: usual, own: true };
+}

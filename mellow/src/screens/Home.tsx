@@ -12,7 +12,7 @@ import { Btn, LinkBtn } from '../components/ui';
 import { useLayout } from '../layout';
 import { hasBackend } from '../lib/supabase';
 import { AREAS, fromYmd, KEEP_UP_AREA, KEEP_UP_BASIS, niceDate, PLAN_DAYS, PlanTask } from '../checkin';
-import { LEVEL_UI, levelOf, SAM } from '../demo';
+import { LEVEL_UI, levelOf } from '../demo';
 
 // Today: your marshmallow at the centre.
 
@@ -189,7 +189,7 @@ export default function Home() {
   const hero = <View style={[st.card, { padding: 0, overflow: 'hidden' }]}>{camp}<View style={{ padding: two ? 18 : 14 }}>{heroFoot}</View></View>;
 
   // A gentle note when the early-warning signals moved (same rule as Today).
-  const lvl = levelOf(SAM.series.risk[S.demoDay - 1]);
+  const lvl = levelOf(S.journey.series.risk[S.demoDay - 1]);
   const ui = LEVEL_UI[lvl];
   const alert = !S.checkinDue && (lvl === 'watch' || lvl === 'high') ? (
     <Pressable onPress={() => S.go('journey')} style={[st.card, st.row, { borderColor: ui.color + '88', backgroundColor: ui.bg }]}>

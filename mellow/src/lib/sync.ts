@@ -26,6 +26,21 @@ export async function saveProfile(uid: string, patch: Partial<Pick<Profile, 'nam
   warn('save profile', error);
 }
 
+// My daily summaries (sleep, steps, …, risk and its reasons), oldest first. Journey shows these.
+export type MetricRow = {
+  day: string; sleep_hours: number | null; steps: number | null; morning_steps: number | null; screen_minutes: number | null;
+  late_night_screen_minutes: number | null; resting_hr: number | null; hrv_rmssd: number | null; messages_sent: number | null;
+  mood: number | null; risk: number | null; reasons: { key: string; label: string; change?: string; text?: string; z?: number }[] | null;
+};
+export async function loadMyMetrics(uid: string): Promise<MetricRow[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.from('daily_metrics')
+    .select('day, sleep_hours, steps, morning_steps, screen_minutes, late_night_screen_minutes, resting_hr, hrv_rmssd, messages_sent, mood, risk, reasons')
+    .eq('user_id', uid).order('day');
+  if (error) { warn('load metrics', error); return []; }
+  return (data as MetricRow[]) || [];
+}
+
 export async function todaysMood(uid: string, day: string): Promise<MoodKey | null> {
   if (!supabase) return null;
   const { data, error } = await supabase.from('checkins').select('mood').eq('user_id', uid).eq('day', day).maybeSingle();
