@@ -140,9 +140,8 @@ function AuthScreen({ onCareTeam }: { onCareTeam: () => void }) {
             accessibilityRole="button" accessibilityLabel={'Fill in the demo account of ' + DEMO_PATIENT.name}
             style={(p: any) => [st.careTeam, (p.hovered || p.pressed) && { borderColor: C.lineHi }]}>
             <Text style={st.careTeamT}>Demo account</Text>
-            <Text style={st.careTeamS} numberOfLines={1}>{DEMO_PATIENT.name}</Text>
-            <Text style={[st.careTeamS, { fontSize: 11.5 }]}>{DEMO_PATIENT.email}</Text>
-            <Text style={[st.careTeamS, { fontSize: 11.5 }]}>Password {DEMO_PATIENT.password}</Text>
+            <Text style={st.careTeamS}>{DEMO_PATIENT.email}</Text>
+            <Text style={st.careTeamS}>Password {DEMO_PATIENT.password}</Text>
           </Pressable>
           <Pressable onPress={onCareTeam} accessibilityRole="button" style={(p: any) => [st.careTeam, (p.hovered || p.pressed) && { borderColor: C.lineHi }]}>
             <Text style={st.careTeamT}>Part of a care team?</Text>
