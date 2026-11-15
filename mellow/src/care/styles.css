@@ -83,6 +83,25 @@ code { background: var(--line-2); padding: 1px 6px; border-radius: 6px; font-siz
 .login-card input, .dialog input { height: 42px; border: 1px solid var(--line); border-radius: 10px; padding: 0 12px; background: var(--surface-2); font-size: 15px; }
 .login-card input:focus, .dialog input:focus, textarea:focus { outline: 2px solid var(--sky); outline-offset: 0; border-color: transparent; background: #fff; }
 .error { color: var(--high); font-size: 13.5px; font-weight: 600; }
+/* the demo account, highlighted for judges */
+.demo-cta { position: relative; display: block; width: 100%; text-align: left; border: 2px solid #f0913a; background: #fff6e4; border-radius: 14px; padding: 18px 14px 12px; margin-top: 8px; cursor: pointer; animation: demo-pulse 2.2s ease-in-out infinite; }
+.demo-cta:hover { background: #ffecc8; }
+.demo-badge { position: absolute; top: -11px; left: 12px; background: #f0913a; color: #fff; font-size: 11.5px; font-weight: 800; padding: 3px 10px; border-radius: 999px; letter-spacing: 0.02em; }
+.demo-badge.static { position: static; align-self: center; }
+.demo-cta-row { display: flex; align-items: center; gap: 12px; }
+.demo-cta-ico { flex: none; width: 38px; height: 38px; border-radius: 50%; background: #f0913a; color: #fff; display: grid; place-items: center; font-size: 14px; }
+.demo-cta-text { display: grid; gap: 2px; color: var(--ink); font-size: 15px; }
+.demo-cta-text span { font-size: 12.5px; color: var(--ink-2); }
+@keyframes demo-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(240, 145, 58, 0.45); } 50% { box-shadow: 0 0 0 8px rgba(240, 145, 58, 0); } }
+.or-line { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12.5px; }
+.or-line::before, .or-line::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+.demo-spot { position: fixed; inset: 0; z-index: 50; background: rgba(16, 22, 48, 0.72); display: grid; place-items: center; padding: 20px; animation: fade 0.2s ease; }
+.demo-spot-card { width: min(440px, 100%); background: var(--surface); border: 2px solid #f0913a; border-radius: 20px; padding: 26px; display: grid; gap: 12px; justify-items: center; text-align: center; box-shadow: 0 24px 60px rgba(16, 22, 48, 0.35); }
+.demo-spot-card h2 { margin: 0; font-size: 22px; }
+.demo-spot-card p { margin: 0; color: var(--ink-2); }
+.btn.primary.demo-go { background: #f0913a; border-color: #f0913a; height: 46px; font-size: 15px; }
+.btn.primary.demo-go:hover { background: #e07f28; }
+@media (prefers-reduced-motion: reduce) { .demo-cta { animation: none; } }
 .demo-hint { display: grid; gap: 6px; justify-items: start; background: var(--sky-soft); border-radius: 12px; padding: 12px 14px; font-size: 13.5px; }
 
 /* ---------- shell ---------- */
