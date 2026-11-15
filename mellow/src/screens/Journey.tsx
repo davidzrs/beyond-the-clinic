@@ -181,7 +181,9 @@ export default function Journey() {
               style={(p: any) => [st.card, st.tile, on && { borderColor: C.ember }, p.hovered && !on && { borderColor: C.lineHi }]}>
               <View style={[st.row, { gap: 6 }]}><Icon name={s.icon} size={16} /><Text style={[st.tileL, { flex: 1 }]}>{s.label}</Text><Icon name={on ? 'up' : 'down'} size={14} /></View>
               <Text style={st.tileV}>{now == null ? '…' : s.fmt(now)}</Text>
-              <Text style={st.sub} numberOfLines={1}>{cmp ? cmp.text : ''}{usual != null && cmp?.off ? ' (' + s.fmt(usual) + ')' : ''}</Text>
+              {/* how it compares, and (when it's off) the usual value on its own line, so nothing gets cut */}
+              <Text style={st.sub}>{cmp ? cmp.text : ''}</Text>
+              {usual != null && cmp?.off ? <Text style={st.sub}>usual {s.fmt(usual)}</Text> : null}
             </Pressable>
           );
         })}
