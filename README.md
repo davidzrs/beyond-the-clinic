@@ -15,7 +15,7 @@ All patients in the demo use synthetic data.
 
 ## The science behind it: read [RESEARCH.md](RESEARCH.md)
 
-Nothing in Mellow is there because it looks nice. Every small step the app suggests and every signal it watches is tied to a published study, and [RESEARCH.md](RESEARCH.md) shows which one, why, and how far the evidence really goes. It's a long read, but it's the best place to see how we think.
+Nothing in Mellow is there because it looks nice. Every small step the app suggests and every signal it watches is tied to a published study, and [RESEARCH.md](RESEARCH.md) shows which one, why, and how far the evidence really goes. Every claim there links to its source, so you don't have to take our word for it.
 
 The thresholds that decide what goes into someone's 2-week path come from our own analysis of the Moodpath PHQ-9 dataset, in [data-analysis/](data-analysis/results/report.md).
 
