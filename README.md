@@ -13,35 +13,11 @@ Mellow fills that gap. It notices those signs early, answers them with small, re
 
 All patients in the demo use synthetic data.
 
-## The science behind it
+## The science behind it: read [RESEARCH.md](RESEARCH.md)
 
-Mellow asks two things of a person each day, and both come from research rather than guesswork.
+Nothing in Mellow is there because it looks nice. Every small step the app suggests and every signal it watches is tied to a published study, and [RESEARCH.md](RESEARCH.md) shows which one, why, and how far the evidence really goes. If you read one file in this repo, make it that one.
 
-**1. A one-tap check-in: how are you today?** Short daily mood questions closely follow the PHQ-9, the questionnaire clinicians already use ([Burchert et al. 2021](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7787464/)). Every 2 weeks the full PHQ-9 is asked, and its answers decide what the next 2 weeks focus on.
-
-**2. One or two small steps, picked from those answers.** Each PHQ-9 question that is in the problem zone maps to a small, everyday version of an approach that has been tested for depression:
-
-| If this is hard | The step | Based on |
-|---|---|---|
-| Interest and pleasure | 10 minutes of something you used to enjoy | Behavioural activation (Ekers et al. 2014) |
-| Low mood | Write down 3 good things from today | Seligman et al. 2005 |
-| Sleep | Same wake-up time, phone away at night | CBT for insomnia (Freeman et al. 2017) |
-| Energy | A 10-minute walk, light stretching | Exercise for depression (Noetel et al. 2024) |
-| Appetite | Regular, simple meals | Jacka et al. 2017 |
-| Self-worth | Self-compassion writing | Ferrari et al. 2019 |
-| Concentration | Better sleep and movement | No strong study for a single trick, so we don't invent one |
-| Restlessness | 3 minutes of slow breathing | Balban et al. 2023 |
-| Thoughts of self-harm | Never self-help: crisis resources and the care team | Safety planning (Stanley et al. 2018) |
-
-Sleep always comes first, because it lifts almost everything else. Most of these studies tested full programmes, so we say our steps are *based on* them, not proven by them.
-
-**What we watch in the background, and why.** Sleep regularity (irregular sleep nearly doubled the risk of relapse in people recovering from depression), resting heart rate and heart rate variability (lower with more severe depression, [Kemp et al. 2010](https://www.pubmed.gov/20138254/)), daily steps (Bizzozero-Peroni et al. 2024) and screen time (Saeb et al. 2015). Each one is compared with the person's own usual week, never with other people.
-
-**Where the cut-offs come from.** We analysed the Moodpath dataset (185 people, 5,135 answers over 14 days). For each of the 9 PHQ-9 questions we found the score that best separates people with clinically relevant depression (PHQ-9 total of 10 or more) from those without, using Youden's J. On their own, single questions already separate the two groups with an AUC of 0.74 to 0.87. Those cut-offs are exactly the ones the app uses to decide what goes into someone's 2-week path. The full analysis is in [data-analysis/](data-analysis/results/report.md), and the synthetic demo patients are described in [data/](data/README.md).
-
-**What we don't claim.** Mellow is a wellbeing companion and a summary for the clinician, not a diagnosis. The AI can be wrong and never gives medical advice. The cut-offs come from app users, not from people after TMS, so they still need to be validated in that group.
-
-Every source, with links, is in [RESEARCH.md](RESEARCH.md).
+The thresholds that decide what goes into someone's 2-week path come from our own analysis of the Moodpath PHQ-9 dataset, in [data-analysis/](data-analysis/results/report.md).
 
 ## What's in it
 
