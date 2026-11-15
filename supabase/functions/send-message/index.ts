@@ -61,12 +61,15 @@ Deno.serve(async (req) => {
   }
 
   // 4. Crisis: hold the message (it doesn't reach the friends), no strike. The app shows crisis
-  //    resources. If the person agreed to it after sign-up, the care team gets an alert, without the text.
+  //    resources. If the person turned crisis alerts on, the care team gets an alert with the message,
+  //    and can read the chat just before it (other people's names hidden, see crisis-context.sql).
   if (verdict.crisis) {
     const { data: prof } = await admin.from('profiles').select('crisis_consent').eq('id', user.id).maybeSingle();
     const alerted = prof?.crisis_consent === true;
     if (alerted) {
-      const { error } = await admin.from('crisis_alerts').insert({ patient_id: user.id });
+      let { error } = await admin.from('crisis_alerts').insert({ patient_id: user.id, campfire_id: campfireId, text });
+      // crisis-context.sql not applied yet: still raise the alert, without the message.
+      if (error) ({ error } = await admin.from('crisis_alerts').insert({ patient_id: user.id }));
       if (error) console.error(error);
     }
     return reply({ status: 'crisis', alerted, strikes });

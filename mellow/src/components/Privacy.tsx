@@ -45,7 +45,7 @@ export function PrivacySettings() {
           </View>
         ) : null}
         <Row e="🛟" t="Crisis alerts" line on={!!S.consent} onPress={() => S.answerConsent(!S.consent)}
-          s="If something I write in the chat sounds like a crisis, my care team learns that it happened and when, never what I wrote. An AI does this check; it can be wrong and never diagnoses." />
+          s="If something I write in the chat sounds like a crisis, my care team is alerted and can read that message and the chat just before it, with everyone else’s names hidden. An AI does this check; it can be wrong and never diagnoses." />
       </View>
       <View style={st.note}>
         <Ionicons name="lock-closed-outline" size={16} color={C.muted} />

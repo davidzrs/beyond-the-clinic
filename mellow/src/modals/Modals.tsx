@@ -157,7 +157,7 @@ export function ModalHost() {
           <View style={st.sup}>
             <Text style={st.supT}>Your care team</Text>
             {m.alerted
-              ? <T style={{ color: C.creamDim, fontSize: 14 }}>As you agreed, we’ve let your care team know, so someone can reach out. They don’t see what you wrote.</T>
+              ? <T style={{ color: C.creamDim, fontSize: 14 }}>As you agreed, we’ve let your care team know, so someone can reach out. They can read this message, and nobody at the campfire can.</T>
               : <><T style={{ color: C.creamDim, fontSize: 14 }}>Your care team hasn’t been told. You can still ask them for a call.</T><Btn label="Request a call" kind="ghost" sm onPress={() => { S.toast('Prototype: your clinic would get a call request.'); close(); }} /></>}
           </View>
           <View style={st.sup}><Text style={st.supT}>Something calming, right now</Text><Btn label="Breathe with the flame" kind="plum" sm onPress={() => S.setModal({ type: 'breathe' })} /></View>

@@ -468,7 +468,16 @@ code { background: var(--line-2); padding: 1px 6px; border-radius: 6px; font-siz
 .crisis-head p { margin: 0; color: var(--ink); }
 .crisis ul { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
 .crisis li { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: var(--surface); border-radius: 10px; padding: 8px 12px; }
-.crisis li .btn { margin-left: auto; }
+.crisis li .crisis-actions { margin-left: auto; display: flex; gap: 8px; }
+.crisis-ctx { flex-basis: 100%; display: grid; gap: 8px; margin: 4px 0 4px; padding: 12px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--line); }
+.crisis-ctx > p { margin: 0; }
+.crisis-line { display: grid; grid-template-columns: auto 1fr; column-gap: 8px; align-items: baseline; padding: 8px 10px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line-2); }
+.crisis-line p { grid-column: 1 / -1; margin: 2px 0 0; color: var(--ink); white-space: pre-wrap; }
+.crisis-line-who { font-weight: 700; color: var(--ink-2); }
+.crisis-line.patient .crisis-line-who { color: var(--ink); }
+.crisis-line-at { font-size: 12px; color: var(--muted); }
+.crisis-line.flagged { border: 1.5px solid var(--high); background: var(--high-wash); }
+.crisis-line-tag { grid-column: 1 / -1; margin-top: 4px; font-size: 12px; font-weight: 700; color: var(--high); }
 .crisis-who { border: 0; background: none; padding: 0; font: inherit; font-weight: 700; color: var(--ink); text-decoration: underline; cursor: pointer; }
 
 /* add to calendar */

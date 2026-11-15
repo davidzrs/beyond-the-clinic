@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { checkInAt, fmtLong, LEVEL, TODAY_DAY, levelOf, PATIENTS, riskAt, weeksAt, type Level, type Patient } from '../data';
 import { go, useStore } from '../store';
+import { supabase } from '../supabase';
 import { Avatar, Icon, LevelIcon, LevelPill } from '../components/ui';
 import { Meter, Strip } from '../components/Charts';
 import { ReportPaper, reportMeta, savePdf } from './Report';
@@ -189,10 +190,12 @@ function Stat({ level, n, label, onClick, active }: { level: Level; n: number; l
   );
 }
 
-// Patients whose chat message sounded like a crisis, newest first. Only people who agreed to it
-// after sign-up appear, and the message itself is never shared: only that it happened, and when.
+// Patients whose chat message sounded like a crisis, newest first. Only people who turned crisis alerts on
+// appear. The care team can read the message and the chat just before it; other members' names are
+// replaced in the database (crisis_context in supabase/crisis-context.sql), so they never reach the portal.
 function CrisisAlerts() {
   const S = useStore();
+  const [openId, setOpenId] = useState<string | null>(null);
   const open = S.alerts.filter((a) => !a.seen);
   if (!open.length) return null;
   const name = (id: string) => PATIENTS.find((p) => p.id === id)?.name || 'A patient';
@@ -203,7 +206,7 @@ function CrisisAlerts() {
         <Icon name="phone" size={18} />
         <div>
           <h2>Reach out today</h2>
-          <p className="small">A message in the campfire chat sounded like a crisis. The patient saw crisis resources; the message wasn’t posted and isn’t shared with you.</p>
+          <p className="small">A message in the campfire chat sounded like a crisis. The patient saw crisis resources and the message wasn’t posted. You can read it and the chat just before it; other members’ names are hidden.</p>
         </div>
       </div>
       <ul>
@@ -211,10 +214,46 @@ function CrisisAlerts() {
           <li key={a.id}>
             <button className="crisis-who" onClick={() => go('/patients/' + a.patientId)}>{name(a.patientId)}</button>
             <span className="muted small">{when(a.at)}</span>
-            <button className="btn sm" onClick={() => S.markAlertSeen(a.id)}>Mark as handled</button>
+            <span className="crisis-actions">
+              <button className="btn sm" aria-expanded={openId === a.id} onClick={() => setOpenId(openId === a.id ? null : a.id)}>{openId === a.id ? 'Hide the message' : 'Read the message'}</button>
+              <button className="btn sm" onClick={() => S.markAlertSeen(a.id)}>Mark as handled</button>
+            </span>
+            {openId === a.id ? <CrisisContext alertId={a.id} /> : null}
           </li>
         ))}
       </ul>
     </section>
+  );
+}
+
+// The flagged message and the campfire chat just before it. Only the patient is named.
+type Line = { at: string; author: string; is_patient: boolean; flagged: boolean; body: string };
+function CrisisContext({ alertId }: { alertId: string }) {
+  const [lines, setLines] = useState<Line[] | null>(null);
+  const [err, setErr] = useState('');
+  useEffect(() => {
+    if (!supabase) { setErr('No backend in this build.'); return; }
+    supabase.rpc('crisis_context', { alert_id: Number(alertId) }).then(({ data, error }) => {
+      if (error) setErr('The message isn’t available yet (run supabase/crisis-context.sql).');
+      else setLines((data || []) as Line[]);
+    });
+  }, [alertId]);
+  const time = (t: string) => new Date(t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  if (err) return <p className="crisis-ctx muted small">{err}</p>;
+  if (!lines) return <p className="crisis-ctx muted small">Loading…</p>;
+  const flagged = lines.some((l) => l.flagged);
+  return (
+    <div className="crisis-ctx">
+      {lines.length ? lines.map((l, i) => (
+        <div key={i} className={'crisis-line' + (l.flagged ? ' flagged' : '') + (l.is_patient ? ' patient' : '')}>
+          <span className="crisis-line-who">{l.author}</span>
+          <span className="crisis-line-at">{time(l.at)}</span>
+          <p>{l.body}</p>
+          {l.flagged ? <span className="crisis-line-tag">Flagged · not posted</span> : null}
+        </div>
+      )) : <p className="muted small">No chat before this alert.</p>}
+      {!flagged ? <p className="muted small">This alert was raised before messages were kept, so only the chat before it is shown.</p> : null}
+      <p className="muted small">Other members’ names are hidden. Use this to start the call, not to quote it back.</p>
+    </div>
   );
 }
